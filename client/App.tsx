@@ -13,25 +13,36 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NetworkProvider } from "@/contexts/NetworkContext";
+import { ThemeProvider, useThemeContext } from "@/contexts/ThemeContext";
+
+function AppContent() {
+  const { isDark } = useThemeContext();
+
+  return (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.root}>
+        <KeyboardProvider>
+          <NavigationContainer>
+            <RootStackNavigator />
+          </NavigationContainer>
+          <StatusBar style={isDark ? "light" : "dark"} />
+        </KeyboardProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
+}
 
 export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <NetworkProvider>
-            <SafeAreaProvider>
-              <GestureHandlerRootView style={styles.root}>
-                <KeyboardProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <StatusBar style="auto" />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SafeAreaProvider>
-          </NetworkProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NetworkProvider>
+              <AppContent />
+            </NetworkProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

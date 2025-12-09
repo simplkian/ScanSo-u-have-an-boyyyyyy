@@ -10,8 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { FilterChip } from "@/components/FilterChip";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
@@ -19,9 +18,7 @@ import { Task, CustomerContainer } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
-
-type TaskFilter = "all" | "mine" | "today";
-type StatusFilter = "all" | "open" | "in_progress" | "completed" | "cancelled";
+type StatusFilter = "all" | "open" | "in_progress" | "completed";
 
 export default function TasksScreen() {
   const headerHeight = useHeaderHeight();
@@ -30,7 +27,6 @@ export default function TasksScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
 
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>("mine");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const { data: tasks = [], isLoading, refetch, isRefetching } = useQuery<Task[]>({
@@ -56,104 +52,112 @@ export default function TasksScreen() {
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    if (taskFilter === "mine" && task.assignedTo !== user?.id) return false;
-    if (taskFilter === "today") {
-      const today = new Date();
-      const taskDate = task.scheduledTime ? new Date(task.scheduledTime) : null;
-      if (!taskDate || taskDate.toDateString() !== today.toDateString()) return false;
-    }
-    if (statusFilter !== "all" && task.status !== statusFilter) return false;
-    return true;
+  const myTasks = tasks.filter((task) => task.assignedTo === user?.id);
+  const filteredTasks = myTasks.filter((task) => {
+    if (statusFilter === "all") return task.status !== "cancelled";
+    return task.status === statusFilter;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "open": return Colors.light.statusOpen;
-      case "in_progress": return Colors.light.statusInProgress;
-      case "completed": return Colors.light.statusCompleted;
-      case "cancelled": return Colors.light.statusCancelled;
-      default: return Colors.light.statusOpen;
+      case "open": return theme.statusOpen;
+      case "in_progress": return theme.statusInProgress;
+      case "completed": return theme.statusCompleted;
+      case "cancelled": return theme.statusCancelled;
+      default: return theme.statusOpen;
     }
   };
 
-  const formatDate = (date: string | Date | null) => {
-    if (!date) return "Not scheduled";
+  const formatDateTime = (date: string | Date | null) => {
+    if (!date) return "Nicht geplant";
     const d = new Date(date);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const day = d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
+    const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    return `${day}, ${time}`;
+  };
+
+  const getPriorityIcon = (status: string) => {
+    if (status === "in_progress") return "zap";
+    if (status === "open") return "clock";
+    return "check-circle";
+  };
+
+  const taskCounts = {
+    all: myTasks.filter(t => t.status !== "cancelled").length,
+    open: myTasks.filter(t => t.status === "open").length,
+    in_progress: myTasks.filter(t => t.status === "in_progress").length,
+    completed: myTasks.filter(t => t.status === "completed").length,
   };
 
   const renderTask = ({ item }: { item: Task }) => {
     const container = getContainerById(item.containerID);
     const hasLocation = container?.latitude && container?.longitude;
+    const isActive = item.status === "open" || item.status === "in_progress";
 
     return (
       <Card
-        style={styles.taskCard}
+        style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}
         onPress={() => navigation.navigate("TaskDetail", { taskId: item.id })}
       >
-        <View style={styles.taskHeader}>
-          <View style={styles.taskIdContainer}>
-            <Feather name="package" size={20} color={Colors.light.primary} />
-            <ThemedText type="h4" style={styles.taskId}>
-              {item.containerID}
-            </ThemedText>
-          </View>
-          <StatusBadge status={item.status} />
-        </View>
-        
-        <View style={styles.taskDetails}>
-          <View style={styles.detailRow}>
-            <Feather name="map-pin" size={16} color={Colors.light.textSecondary} />
-            <ThemedText type="body" style={styles.detailText} numberOfLines={1}>
-              {container?.location || "Loading..."}
-            </ThemedText>
-          </View>
-          {container?.customerName ? (
-            <View style={styles.detailRow}>
-              <Feather name="home" size={16} color={Colors.light.textSecondary} />
-              <ThemedText type="small" style={styles.detailText}>
-                {container.customerName}
-              </ThemedText>
-            </View>
-          ) : null}
-          <View style={styles.detailRow}>
-            <Feather name="clock" size={16} color={Colors.light.textSecondary} />
-            <ThemedText type="small" style={styles.detailText}>
-              {formatDate(item.scheduledTime)}
-            </ThemedText>
-          </View>
-          {item.materialType ? (
-            <View style={styles.detailRow}>
-              <Feather name="tag" size={16} color={Colors.light.textSecondary} />
-              <ThemedText type="small" style={styles.detailText}>
-                {item.materialType}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
+        <View style={styles.taskRow}>
+          <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
+          <View style={styles.taskContent}>
+            <View style={styles.taskMainInfo}>
+              <View style={styles.taskTitleRow}>
+                <Feather name={getPriorityIcon(item.status) as any} size={18} color={getStatusColor(item.status)} />
+                <ThemedText type="bodyBold" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+                  {item.containerID}
+                </ThemedText>
+                <StatusBadge status={item.status} />
+              </View>
+              
+              <View style={styles.taskLocation}>
+                <Feather name="map-pin" size={14} color={theme.textSecondary} />
+                <ThemedText type="body" style={{ color: theme.text, marginLeft: Spacing.xs, flex: 1 }} numberOfLines={1}>
+                  {container?.location || "Wird geladen..."}
+                </ThemedText>
+              </View>
 
-        <View style={styles.taskFooter}>
-          {hasLocation && (item.status === "open" || item.status === "in_progress") ? (
-            <Pressable 
-              style={styles.navButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleQuickNavigation(item.containerID);
-              }}
-            >
-              <Feather name="navigation" size={16} color={Colors.light.accent} />
-              <ThemedText type="small" style={styles.navButtonText}>
-                Navigate
-              </ThemedText>
-            </Pressable>
-          ) : null}
-          <Pressable style={styles.detailsButton}>
-            <ThemedText type="small" style={styles.detailsButtonText}>
-              View Details
-            </ThemedText>
-            <Feather name="chevron-right" size={16} color={Colors.light.accent} />
-          </Pressable>
+              {container?.customerName ? (
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {container.customerName}
+                </ThemedText>
+              ) : null}
+
+              <View style={styles.taskMeta}>
+                <View style={styles.metaItem}>
+                  <Feather name="calendar" size={14} color={theme.textSecondary} />
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    {formatDateTime(item.scheduledTime)}
+                  </ThemedText>
+                </View>
+                {item.materialType ? (
+                  <View style={styles.metaItem}>
+                    <Feather name="tag" size={14} color={theme.textSecondary} />
+                    <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                      {item.materialType}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            {isActive && hasLocation ? (
+              <Pressable 
+                style={[styles.navButton, { backgroundColor: theme.accent }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleQuickNavigation(item.containerID);
+                }}
+              >
+                <Feather name="navigation" size={20} color={theme.textOnAccent} />
+              </Pressable>
+            ) : (
+              <View style={styles.chevronContainer}>
+                <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+              </View>
+            )}
+          </View>
         </View>
       </Card>
     );
@@ -161,72 +165,64 @@ export default function TasksScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Feather name="inbox" size={48} color={Colors.light.textSecondary} />
-      <ThemedText type="h4" style={styles.emptyTitle}>
-        No tasks found
+      <Feather name="inbox" size={48} color={theme.textSecondary} />
+      <ThemedText type="h4" style={{ color: theme.text, marginTop: Spacing.lg }}>
+        Keine Aufgaben
       </ThemedText>
-      <ThemedText type="body" style={styles.emptySubtitle}>
-        {taskFilter === "mine"
-          ? "You have no assigned tasks"
-          : "No tasks match your filters"}
+      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+        Ihnen sind derzeit keine Aufgaben zugewiesen
       </ThemedText>
     </View>
   );
 
-  return (
-    <ThemedView style={styles.container}>
-      <View style={[styles.filterContainer, { marginTop: headerHeight }]}>
-        <View style={styles.filterRow}>
-          <FilterChip
-            label="My Tasks"
-            selected={taskFilter === "mine"}
-            onPress={() => setTaskFilter("mine")}
-          />
-          <FilterChip
-            label="Today"
-            selected={taskFilter === "today"}
-            onPress={() => setTaskFilter("today")}
-          />
-          <FilterChip
-            label="All"
-            selected={taskFilter === "all"}
-            onPress={() => setTaskFilter("all")}
-          />
+  const FilterButton = ({ filter, label, count }: { filter: StatusFilter; label: string; count: number }) => {
+    const isSelected = statusFilter === filter;
+    return (
+      <Pressable
+        style={[
+          styles.filterButton,
+          {
+            backgroundColor: isSelected ? theme.primary : theme.cardSurface,
+            borderColor: isSelected ? theme.primary : theme.border,
+          },
+        ]}
+        onPress={() => setStatusFilter(filter)}
+      >
+        <ThemedText 
+          type="smallBold" 
+          style={{ color: isSelected ? theme.textOnPrimary : theme.text }}
+        >
+          {label}
+        </ThemedText>
+        <View style={[
+          styles.countBadge, 
+          { backgroundColor: isSelected ? theme.accent : theme.backgroundSecondary }
+        ]}>
+          <ThemedText 
+            type="captionBold" 
+            style={{ color: isSelected ? theme.textOnAccent : theme.text }}
+          >
+            {count}
+          </ThemedText>
         </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={[styles.filterContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.filterRow}>
-          <FilterChip
-            label="All Status"
-            selected={statusFilter === "all"}
-            onPress={() => setStatusFilter("all")}
-            small
-          />
-          <FilterChip
-            label="Open"
-            selected={statusFilter === "open"}
-            onPress={() => setStatusFilter("open")}
-            color={Colors.light.statusOpen}
-            small
-          />
-          <FilterChip
-            label="In Progress"
-            selected={statusFilter === "in_progress"}
-            onPress={() => setStatusFilter("in_progress")}
-            color={Colors.light.statusInProgress}
-            small
-          />
-          <FilterChip
-            label="Done"
-            selected={statusFilter === "completed"}
-            onPress={() => setStatusFilter("completed")}
-            color={Colors.light.statusCompleted}
-            small
-          />
+          <FilterButton filter="all" label="Alle" count={taskCounts.all} />
+          <FilterButton filter="open" label="Offen" count={taskCounts.open} />
+          <FilterButton filter="in_progress" label="Aktiv" count={taskCounts.in_progress} />
+          <FilterButton filter="completed" label="Erledigt" count={taskCounts.completed} />
         </View>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.light.accent} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -242,7 +238,7 @@ export default function TasksScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={Colors.light.accent}
+              tintColor={theme.accent}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -255,18 +251,32 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   filterContainer: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-    backgroundColor: Colors.light.backgroundDefault,
   },
   filterRow: {
     flexDirection: "row",
     gap: Spacing.sm,
-    flexWrap: "wrap",
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    gap: Spacing.xs,
+  },
+  countBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    minWidth: 24,
+    alignItems: "center",
   },
   listContent: {
     padding: Spacing.lg,
@@ -277,77 +287,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  taskCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
-  taskHeader: {
+  taskRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
+    alignItems: "stretch",
   },
-  taskIdContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
+  statusIndicator: {
+    width: 4,
+    borderRadius: 2,
+    marginRight: Spacing.md,
   },
-  taskId: {
-    color: Colors.light.primary,
-  },
-  taskDetails: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  detailRow: {
+  taskContent: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
   },
-  detailText: {
-    color: Colors.light.textSecondary,
+  taskMainInfo: {
+    flex: 1,
+    gap: Spacing.xs,
   },
-  taskFooter: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-    paddingTop: Spacing.md,
+  taskTitleRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  taskLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  taskMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.lg,
+    marginTop: Spacing.xs,
+  },
+  metaItem: {
+    flexDirection: "row",
     alignItems: "center",
   },
   navButton: {
-    flexDirection: "row",
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.sm,
+    justifyContent: "center",
     alignItems: "center",
-    gap: Spacing.xs,
-    backgroundColor: `${Colors.light.accent}15`,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
+    marginLeft: Spacing.md,
   },
-  navButtonText: {
-    color: Colors.light.accent,
-    fontWeight: "600",
-  },
-  detailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  detailsButtonText: {
-    color: Colors.light.accent,
-    fontWeight: "600",
+  chevronContainer: {
+    paddingLeft: Spacing.sm,
   },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: Spacing["5xl"],
-    gap: Spacing.md,
-  },
-  emptyTitle: {
-    color: Colors.light.text,
-  },
-  emptySubtitle: {
-    color: Colors.light.textSecondary,
-    textAlign: "center",
+    gap: Spacing.sm,
   },
 });

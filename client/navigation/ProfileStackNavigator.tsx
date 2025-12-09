@@ -8,6 +8,7 @@ import CreateTaskScreen from "@/screens/CreateTaskScreen";
 import ActivityLogScreen from "@/screens/ActivityLogScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
+import QRGeneratorScreen from "@/screens/QRGeneratorScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,6 +21,7 @@ export type ProfileStackParamList = {
   ActivityLog: undefined;
   Analytics: undefined;
   DriverPerformance: undefined;
+  QRGenerator: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -66,6 +68,11 @@ export default function ProfileStackNavigator() {
             name="DriverPerformance"
             component={DriverPerformanceScreen}
             options={{ headerTitle: "Driver Performance" }}
+          />
+          <Stack.Screen
+            name="QRGenerator"
+            component={QRGeneratorScreen}
+            options={{ headerTitle: "QR-Code Generator" }}
           />
           <Stack.Screen
             name="Profile"
