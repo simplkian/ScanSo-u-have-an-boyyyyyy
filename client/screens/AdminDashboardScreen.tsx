@@ -10,7 +10,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList, "AdminDashboard">;
@@ -29,6 +30,7 @@ export default function AdminDashboardScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
+  const { theme } = useTheme();
 
   const { data: stats, isLoading, refetch, isRefetching } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -48,16 +50,22 @@ export default function AdminDashboardScreen() {
     onPress?: () => void;
   }) => (
     <Pressable
-      style={[styles.statCard, { borderLeftColor: color }]}
+      style={[
+        styles.statCard,
+        { 
+          borderLeftColor: color,
+          backgroundColor: theme.cardSurface,
+        },
+      ]}
       onPress={onPress}
     >
       <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
-        <Feather name={icon} size={24} color={color} />
+        <Feather name={icon} size={IndustrialDesign.iconSize} color={color} />
       </View>
       <ThemedText type="h2" style={styles.statValue}>
         {value}
       </ThemedText>
-      <ThemedText type="small" style={styles.statLabel}>
+      <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>
         {label}
       </ThemedText>
     </Pressable>
@@ -66,13 +74,13 @@ export default function AdminDashboardScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accent} />
+        <ActivityIndicator size="large" color={theme.accent} />
       </ThemedView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -83,11 +91,11 @@ export default function AdminDashboardScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={Colors.light.accent}
+            tintColor={theme.accent}
           />
         }
       >
-        <ThemedText type="h4" style={styles.sectionTitle}>
+        <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
           Today's Overview
         </ThemedText>
 
@@ -96,59 +104,62 @@ export default function AdminDashboardScreen() {
             icon="inbox"
             label="Open Tasks"
             value={stats?.openTasks || 0}
-            color={Colors.light.statusOpen}
+            color={theme.statusOpen}
           />
           <StatCard
             icon="truck"
             label="In Progress"
             value={stats?.inProgressTasks || 0}
-            color={Colors.light.statusInProgress}
+            color={theme.statusInProgress}
           />
           <StatCard
             icon="check-circle"
             label="Completed Today"
             value={stats?.completedToday || 0}
-            color={Colors.light.statusCompleted}
+            color={theme.statusCompleted || theme.success}
           />
           <StatCard
             icon="users"
             label="Active Drivers"
             value={stats?.activeDrivers || 0}
-            color={Colors.light.primary}
+            color={theme.primary}
           />
         </View>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>
+        <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
           Container Status
         </ThemedText>
 
         <View style={styles.statsRow}>
-          <Card style={[styles.alertCard, stats?.criticalContainers ? styles.alertCardWarning : null]}>
+          <Card style={{
+            ...styles.alertCard,
+            backgroundColor: stats?.criticalContainers ? `${theme.error}15` : theme.cardSurface,
+          }}>
             <View style={styles.alertContent}>
               <Feather
                 name="alert-triangle"
-                size={24}
-                color={stats?.criticalContainers ? Colors.light.fillHigh : Colors.light.fillLow}
+                size={IndustrialDesign.iconSize}
+                color={stats?.criticalContainers ? theme.error : theme.success}
               />
               <View>
                 <ThemedText type="h3" style={styles.alertValue}>
                   {stats?.criticalContainers || 0}
                 </ThemedText>
-                <ThemedText type="small" style={styles.alertLabel}>
+                <ThemedText type="small" style={[styles.alertLabel, { color: theme.textSecondary }]}>
                   Critical Containers
                 </ThemedText>
               </View>
             </View>
           </Card>
 
-          <Card style={styles.capacityCard}>
+          <Card style={{ ...styles.capacityCard, backgroundColor: theme.cardSurface }}>
             <View style={styles.alertContent}>
-              <Feather name="database" size={24} color={Colors.light.primary} />
+              <Feather name="database" size={IndustrialDesign.iconSize} color={theme.primary} />
               <View>
                 <ThemedText type="h3" style={styles.alertValue}>
                   {stats?.availableCapacity ? `${(stats.availableCapacity / 1000).toFixed(1)}t` : "0t"}
                 </ThemedText>
-                <ThemedText type="small" style={styles.alertLabel}>
+                <ThemedText type="small" style={[styles.alertLabel, { color: theme.textSecondary }]}>
                   Available Capacity
                 </ThemedText>
               </View>
@@ -156,78 +167,78 @@ export default function AdminDashboardScreen() {
           </Card>
         </View>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>
+        <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
           Quick Actions
         </ThemedText>
 
         <View style={styles.actionsGrid}>
           <Button
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: theme.accent }]}
             onPress={() => navigation.navigate("CreateTask")}
           >
             <View style={styles.actionContent}>
-              <Feather name="plus-circle" size={20} color="#FFFFFF" />
-              <ThemedText type="body" style={styles.actionText}>
+              <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
+              <ThemedText type="body" style={[styles.actionText, { color: theme.textOnAccent }]}>
                 Create Task
               </ThemedText>
             </View>
           </Button>
 
           <Button
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("ManageDrivers")}
           >
             <View style={styles.actionContent}>
-              <Feather name="users" size={20} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.secondaryText}>
+              <Feather name="users" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Manage Drivers
               </ThemedText>
             </View>
           </Button>
 
           <Button
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("ManageContainers")}
           >
             <View style={styles.actionContent}>
-              <Feather name="package" size={20} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.secondaryText}>
+              <Feather name="package" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Manage Containers
               </ThemedText>
             </View>
           </Button>
 
           <Button
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("ActivityLog")}
           >
             <View style={styles.actionContent}>
-              <Feather name="activity" size={20} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.secondaryText}>
+              <Feather name="activity" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Activity Log
               </ThemedText>
             </View>
           </Button>
 
           <Button
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("Analytics")}
           >
             <View style={styles.actionContent}>
-              <Feather name="bar-chart-2" size={20} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.secondaryText}>
+              <Feather name="bar-chart-2" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Analytics
               </ThemedText>
             </View>
           </Button>
 
           <Button
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("DriverPerformance")}
           >
             <View style={styles.actionContent}>
-              <Feather name="award" size={20} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.secondaryText}>
+              <Feather name="award" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Driver Performance
               </ThemedText>
             </View>
@@ -235,14 +246,14 @@ export default function AdminDashboardScreen() {
         </View>
 
         <Pressable
-          style={styles.profileLink}
+          style={[styles.profileLink, { minHeight: IndustrialDesign.minTouchTarget }]}
           onPress={() => navigation.navigate("Profile")}
         >
-          <Feather name="user" size={20} color={Colors.light.textSecondary} />
-          <ThemedText type="body" style={styles.profileLinkText}>
+          <Feather name="user" size={20} color={theme.textSecondary} />
+          <ThemedText type="body" style={[styles.profileLinkText, { color: theme.textSecondary }]}>
             View Profile
           </ThemedText>
-          <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
         </Pressable>
       </ScrollView>
     </ThemedView>
@@ -252,7 +263,6 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   loadingContainer: {
     flex: 1,
@@ -265,6 +275,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: Spacing.sm,
+    fontWeight: "700",
   },
   statsGrid: {
     flexDirection: "row",
@@ -273,15 +284,15 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: "47%",
-    backgroundColor: Colors.light.backgroundDefault,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     borderLeftWidth: 4,
+    minHeight: IndustrialDesign.minTouchTarget * 2,
   },
   statIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.sm,
@@ -290,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   statLabel: {
-    color: Colors.light.textSecondary,
+    fontWeight: "500",
   },
   statsRow: {
     flexDirection: "row",
@@ -298,14 +309,9 @@ const styles = StyleSheet.create({
   },
   alertCard: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundDefault,
-  },
-  alertCardWarning: {
-    backgroundColor: "#FFEBEE",
   },
   capacityCard: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundDefault,
   },
   alertContent: {
     flexDirection: "row",
@@ -316,18 +322,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   alertLabel: {
-    color: Colors.light.textSecondary,
+    fontWeight: "500",
   },
   actionsGrid: {
     gap: Spacing.md,
   },
   actionButton: {
-    backgroundColor: Colors.light.accent,
+    minHeight: IndustrialDesign.buttonHeight,
   },
   secondaryButton: {
-    backgroundColor: Colors.light.backgroundDefault,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderWidth: 2,
+    minHeight: IndustrialDesign.buttonHeight,
   },
   actionContent: {
     flexDirection: "row",
@@ -335,12 +340,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   actionText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: 16,
   },
   secondaryText: {
-    color: Colors.light.primary,
     fontWeight: "600",
+    fontSize: 16,
   },
   profileLink: {
     flexDirection: "row",
@@ -350,7 +355,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   profileLinkText: {
-    color: Colors.light.textSecondary,
     flex: 1,
   },
 });

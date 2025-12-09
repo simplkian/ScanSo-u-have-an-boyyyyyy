@@ -8,7 +8,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 
 interface DailyTrend {
   date: string;
@@ -37,39 +38,38 @@ interface AnalyticsData {
   materialBreakdown: MaterialBreakdown[];
 }
 
-const { width: screenWidth } = Dimensions.get("window");
-
 export default function AnalyticsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const { theme } = useTheme();
 
   const { data: analytics, isLoading, refetch, isRefetching } = useQuery<AnalyticsData>({
     queryKey: ["/api/analytics/fill-trends"],
   });
 
   const getFillColor = (percentage: number) => {
-    if (percentage >= 80) return Colors.light.fillHigh;
-    if (percentage >= 51) return Colors.light.fillMedium;
-    return Colors.light.fillLow;
+    if (percentage >= 80) return theme.fillHigh || theme.error;
+    if (percentage >= 51) return theme.fillMedium || theme.warning;
+    return theme.fillLow || theme.success;
   };
 
   const materialColors: Record<string, string> = {
-    "Plastic": "#3B82F6",
-    "Metal": "#6B7280",
-    "Paper": "#F59E0B",
-    "Glass": "#10B981",
-    "Organic": "#84CC16",
-    "Electronic": "#8B5CF6",
+    "Plastic": theme.statusInProgress,
+    "Metal": theme.primary,
+    "Paper": theme.warning,
+    "Glass": theme.success,
+    "Organic": theme.fillLow,
+    "Electronic": theme.accent,
   };
 
   const getMaterialColor = (material: string) => {
-    return materialColors[material] || Colors.light.primary;
+    return materialColors[material] || theme.primary;
   };
 
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accent} />
+        <ActivityIndicator size="large" color={theme.accent} />
       </ThemedView>
     );
   }
@@ -78,7 +78,7 @@ export default function AnalyticsScreen() {
   const chartHeight = 120;
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -89,12 +89,12 @@ export default function AnalyticsScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={Colors.light.accent}
+            tintColor={theme.accent}
           />
         }
       >
-        <Card style={styles.chartCard}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
+        <Card style={{ backgroundColor: theme.cardSurface }}>
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
             Weekly Deliveries
           </ThemedText>
           <View style={styles.barChart}>
@@ -106,15 +106,15 @@ export default function AnalyticsScreen() {
                       styles.bar,
                       {
                         height: Math.max((day.deliveries / maxDeliveries) * chartHeight, 4),
-                        backgroundColor: day.deliveries > 0 ? Colors.light.accent : Colors.light.border,
+                        backgroundColor: day.deliveries > 0 ? theme.accent : theme.border,
                       },
                     ]}
                   />
                 </View>
-                <ThemedText type="small" style={styles.barLabel}>
+                <ThemedText type="small" style={[styles.barLabel, { color: theme.textSecondary }]}>
                   {day.date.split(" ")[1]}
                 </ThemedText>
-                <ThemedText type="small" style={styles.barValue}>
+                <ThemedText type="small" style={[styles.barValue, { color: theme.text }]}>
                   {day.deliveries}
                 </ThemedText>
               </View>
@@ -122,8 +122,8 @@ export default function AnalyticsScreen() {
           </View>
         </Card>
 
-        <Card style={styles.chartCard}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
+        <Card style={{ backgroundColor: theme.cardSurface }}>
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
             Material Distribution
           </ThemedText>
           <View style={styles.materialList}>
@@ -136,7 +136,7 @@ export default function AnalyticsScreen() {
                       <View style={[styles.materialDot, { backgroundColor: getMaterialColor(material.material) }]} />
                       <ThemedText type="body">{material.material}</ThemedText>
                     </View>
-                    <ThemedText type="small" style={styles.materialValue}>
+                    <ThemedText type="small" style={[styles.materialValue, { color: theme.textSecondary }]}>
                       {material.currentAmount.toFixed(0)} / {material.maxCapacity.toFixed(0)} kg
                     </ThemedText>
                   </View>
@@ -151,8 +151,8 @@ export default function AnalyticsScreen() {
           </View>
         </Card>
 
-        <Card style={styles.chartCard}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
+        <Card style={{ backgroundColor: theme.cardSurface }}>
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
             Container Fill Levels
           </ThemedText>
           <View style={styles.levelList}>
@@ -160,8 +160,12 @@ export default function AnalyticsScreen() {
               <View key={container.id} style={styles.levelItem}>
                 <View style={styles.levelHeader}>
                   <View style={styles.levelInfo}>
-                    <ThemedText type="body" style={styles.containerId}>{container.id}</ThemedText>
-                    <ThemedText type="small" style={styles.containerLocation}>{container.location}</ThemedText>
+                    <ThemedText type="body" style={[styles.containerId, { color: theme.primary }]}>
+                      {container.id}
+                    </ThemedText>
+                    <ThemedText type="small" style={[styles.containerLocation, { color: theme.textSecondary }]}>
+                      {container.location}
+                    </ThemedText>
                   </View>
                   <View style={[styles.percentageBadge, { backgroundColor: `${getFillColor(container.fillPercentage)}20` }]}>
                     <ThemedText type="body" style={[styles.percentageText, { color: getFillColor(container.fillPercentage) }]}>
@@ -176,10 +180,12 @@ export default function AnalyticsScreen() {
                 />
                 <View style={styles.levelMeta}>
                   <View style={styles.levelMetaItem}>
-                    <Feather name="tag" size={12} color={Colors.light.textSecondary} />
-                    <ThemedText type="small" style={styles.levelMetaText}>{container.materialType}</ThemedText>
+                    <Feather name="tag" size={12} color={theme.textSecondary} />
+                    <ThemedText type="small" style={[styles.levelMetaText, { color: theme.textSecondary }]}>
+                      {container.materialType}
+                    </ThemedText>
                   </View>
-                  <ThemedText type="small" style={styles.levelMetaText}>
+                  <ThemedText type="small" style={[styles.levelMetaText, { color: theme.textSecondary }]}>
                     {container.currentAmount.toFixed(0)} / {container.maxCapacity} kg
                   </ThemedText>
                 </View>
@@ -188,31 +194,37 @@ export default function AnalyticsScreen() {
           </View>
         </Card>
 
-        <Card style={styles.summaryCard}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
+        <Card style={{ backgroundColor: theme.cardSurface }}>
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
             Summary
           </ThemedText>
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
-              <Feather name="truck" size={24} color={Colors.light.accent} />
+              <Feather name="truck" size={IndustrialDesign.iconSizeLarge} color={theme.accent} />
               <ThemedText type="h3" style={styles.summaryValue}>
                 {analytics?.dailyTrends.reduce((sum, d) => sum + d.deliveries, 0) || 0}
               </ThemedText>
-              <ThemedText type="small" style={styles.summaryLabel}>Total Deliveries</ThemedText>
+              <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                Total Deliveries
+              </ThemedText>
             </View>
             <View style={styles.summaryItem}>
-              <Feather name="package" size={24} color={Colors.light.primary} />
+              <Feather name="package" size={IndustrialDesign.iconSizeLarge} color={theme.primary} />
               <ThemedText type="h3" style={styles.summaryValue}>
                 {analytics?.containerLevels.length || 0}
               </ThemedText>
-              <ThemedText type="small" style={styles.summaryLabel}>Containers</ThemedText>
+              <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                Containers
+              </ThemedText>
             </View>
             <View style={styles.summaryItem}>
-              <Feather name="alert-triangle" size={24} color={Colors.light.fillHigh} />
+              <Feather name="alert-triangle" size={IndustrialDesign.iconSizeLarge} color={theme.error} />
               <ThemedText type="h3" style={styles.summaryValue}>
                 {analytics?.containerLevels.filter(c => c.fillPercentage >= 80).length || 0}
               </ThemedText>
-              <ThemedText type="small" style={styles.summaryLabel}>Critical</ThemedText>
+              <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                Critical
+              </ThemedText>
             </View>
           </View>
         </Card>
@@ -224,7 +236,6 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   loadingContainer: {
     flex: 1,
@@ -235,11 +246,10 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  chartCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
+  chartCard: {},
   sectionTitle: {
     marginBottom: Spacing.lg,
+    fontWeight: "700",
   },
   barChart: {
     flexDirection: "row",
@@ -264,12 +274,11 @@ const styles = StyleSheet.create({
     minHeight: 4,
   },
   barLabel: {
-    color: Colors.light.textSecondary,
     fontSize: 10,
+    fontWeight: "500",
   },
   barValue: {
-    color: Colors.light.text,
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: 10,
   },
   materialList: {
@@ -293,11 +302,9 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  materialValue: {
-    color: Colors.light.textSecondary,
-  },
+  materialValue: {},
   materialProgress: {
-    height: 8,
+    height: 10,
   },
   levelList: {
     gap: Spacing.lg,
@@ -314,22 +321,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   containerId: {
-    color: Colors.light.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  containerLocation: {
-    color: Colors.light.textSecondary,
-  },
+  containerLocation: {},
   percentageBadge: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
   },
   percentageText: {
     fontWeight: "700",
   },
   levelProgress: {
-    height: 8,
+    height: 10,
   },
   levelMeta: {
     flexDirection: "row",
@@ -341,12 +345,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
   },
-  levelMetaText: {
-    color: Colors.light.textSecondary,
-  },
-  summaryCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
+  levelMetaText: {},
+  summaryCard: {},
   summaryGrid: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -355,10 +355,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  summaryValue: {
-    color: Colors.light.text,
-  },
-  summaryLabel: {
-    color: Colors.light.textSecondary,
-  },
+  summaryValue: {},
+  summaryLabel: {},
 });

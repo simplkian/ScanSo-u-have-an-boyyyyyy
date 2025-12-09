@@ -1,278 +1,212 @@
-# Container Management App - Design Guidelines
+# ContainerFlow Design Guidelines
 
-## Overview
-Professional mobile waste container management app for iOS & Android with driver/admin roles, QR scanning, real-time tracking, and industrial-grade UI optimized for outdoor use and work glove operation.
+## Industrial Design Theme
 
-## Authentication & User Roles
+Professional mobile waste container management app for iOS and Android with driver/admin roles, QR scanning, real-time tracking, and industrial-grade UI optimized for outdoor use and work glove operation.
 
-### Authentication Flow
-- **Required**: Email/password authentication with Firebase
-- **Two Roles**: Driver (field operations) and Admin (management dashboard)
-- **No Self-Registration**: Only admins can create user accounts
-- Login screen includes link explaining admin-only registration
-- Profile screen includes logout and account management options
+## Color Palette
 
-### Role-Based Navigation
-- **Driver Access**: Tasks, Scanner, Containers (customer + warehouse), Profile
-- **Admin Access**: All driver features + Admin Dashboard with management tools
+### Primary Colors
+- **Primary (Navy Blue)**: `#1F3650` - Headers, navigation, main buttons, titles
+- **Primary Light**: `#2D4A6A` - Hover/pressed states
+- **Accent (Safety Orange)**: `#FF6B2C` - Call-to-action buttons, icons, warnings, interactions
+- **Accent Light**: `#FF8F5C` - Hover/pressed states
 
-## Navigation Architecture
+### Background Colors
+- **Background Root**: `#F4F6F8` - App background
+- **Background Default (White)**: `#FFFFFF` - Cards, content areas
+- **Background Secondary**: `#E1E4E8` - Secondary surfaces
+- **Background Tertiary**: `#D1D5DB` - Tertiary surfaces
 
-### Root Navigation: Bottom Tab Bar
-- **4 Tabs Total**: Home (Tasks), Scanner, Containers, Profile/Admin
-- **Tab Bar Specifications**:
-  - Height: 60dp
-  - Background: White with subtle upward shadow
-  - Active state: Orange (#FF6B35) icon + text
-  - Inactive state: Gray (#9E9E9E) icon + text
-  - Icon size: 24dp
-  - Tab icons: List (Tasks), QR-Code (Scanner), Box (Containers), Person/Dashboard (Profile/Admin)
+### Text Colors
+- **Text Primary**: `#212529` - Main text content
+- **Text Secondary**: `#5A6572` - Secondary text, labels
+- **Text on Primary/Accent**: `#FFFFFF` - Text on colored backgrounds
 
-### Screen Navigation Patterns
-- **Stack navigation** within each tab for detail views
-- **Native modals** for confirmation dialogs, QR scan results, alerts
-- **Safe area insets**: All screens respect tab bar height + spacing
+### Status Colors (WCAG AA Compliant)
+- **Success (Green)**: `#2EAD4A` - Completed, OK status
+- **Warning (Yellow/Orange)**: `#F5A524` - Caution, attention needed
+- **Warning Light**: `#FFB547` - Secondary warning
+- **Error/Critical (Red)**: `#D9423B` - Urgent, cancelled, critical
+- **In Progress (Blue)**: `#2D8FDB` - Active tasks
+- **Idle/Open (Gray)**: `#8A95A6` - Inactive, pending
+
+### Fill Level Colors
+- **Low (0-50%)**: `#2EAD4A` (Green)
+- **Medium (51-79%)**: `#F5A524` (Yellow/Orange)
+- **High (80-100%)**: `#D9423B` (Red)
+
+## Typography
+
+### Font Weights
+- **Headings**: 600-700 (Semi-bold to Bold)
+- **Body Text**: 400 (Regular)
+- **Buttons/Labels**: 600-700 (Semi-bold to Bold)
+- **Status Badges**: 700 (Bold), Uppercase, Letter-spacing 0.5
+
+### Font Sizes
+- **H1**: 32px
+- **H2**: 28px
+- **H3**: 24px
+- **H4**: 20px
+- **Body**: 16px
+- **Small**: 14px
+- **Caption**: 12px
+
+## Spacing and Layout
+
+### Touch Targets (Glove-Friendly)
+- **Minimum Touch Target**: 48dp (for glove compatibility)
+- **Button Height**: 56dp (primary), 48dp (secondary)
+- **Input Height**: 52dp
+- **Tab Bar Height**: 64dp
+- **List Item Height**: 72dp
+
+### Spacing Scale
+- xs: 4px
+- sm: 8px
+- md: 12px
+- lg: 16px
+- xl: 20px
+- 2xl: 24px
+- 3xl: 32px
+
+### Border Radius
+- xs: 8px
+- sm: 12px
+- md: 16px
+- lg: 20px
+- xl: 24px
+
+## Components
+
+### Buttons
+- **Primary Button**: Orange accent background, white text, 56dp height, rounded corners (lg)
+- **Secondary Button**: White/card background, 2px primary border, primary text, 56dp height
+- **Text/Link Button**: No background, accent or primary text
+- All buttons use bold (700) font weight
+
+### Cards
+- White background with 1px border
+- Border color: `#E1E4E8`
+- Border radius: lg (20px)
+- Padding: 16px
+- Title in primary navy color (bold)
+
+### Status Badges
+- Rounded corners (sm - 12px)
+- Bold uppercase text
+- Solid color background based on status
+- White text
+- Minimum height: 28px
+- Letter-spacing: 0.5
+
+### Filter Chips
+- 48dp minimum height
+- 2px border
+- Rounded corners (sm - 12px)
+- Selected: accent background, white text
+- Unselected: white background, border, dark text
+- Uppercase text with 600 font weight
+
+### Progress Bars
+- Height: 10px
+- Color based on fill level
+- Rounded corners (xs - 8px)
+
+### Icons
+- Standard size: 24px
+- Large size: 32px
+- Use Feather icons for consistency
+- Primary color for navigation, accent for actions
+- NO emojis
+
+## Navigation
+
+### Bottom Tab Bar
+- Height: 64dp
+- 4 Tabs: Tasks, Scanner, Containers, Admin/Profile
+- Active state: Orange accent color
+- Inactive state: Gray (`#8A95A6`)
+- Icon size: 24dp
+- Font weight: 600
+
+### Headers
+- Use transparent headers for list screens
+- Primary navy color for header titles
+- White background for opaque headers
+
+## Accessibility
+
+### Contrast Ratios (WCAG AA)
+- Primary (#1F3650) vs White: 7.6:1
+- Accent (#FF6B2C) vs White: 4.6:1
+- Success (#2EAD4A) vs White: 5.5:1
+- Warning (#F5A524) vs White: 4.6:1
+- Error (#D9423B) vs White: 5.4:1
+
+### Glove-Friendly Design
+- All interactive elements minimum 48dp
+- Clear visual feedback on press
+- Generous spacing between touch targets
+- High contrast for outdoor visibility
+- Large, rounded buttons
+
+## Dark Mode
+
+For dark mode, backgrounds become:
+- Background Root: `#0F1419`
+- Background Default: `#1A1F26`
+- Background Secondary: `#252B33`
+- Background Tertiary: `#303740`
+- Card Surface: `#1A1F26`
+- Card Border: `#303740`
+
+Text colors invert:
+- Text Primary: `#ECEDEE`
+- Text Secondary: `#9BA1A6`
+
+Primary and accent colors remain consistent for brand recognition.
 
 ## Screen Specifications
 
-### 1. Tasks Screen (Home Tab)
+### Tasks Screen
+- Filter chips at top (My Tasks, Today, All)
+- Status filter chips below
+- Card-based task list with status badges
+- Navigation button for GPS directions
+- 48dp+ touch targets throughout
 
-**Layout**:
-- Default navigation header (transparent)
-- Scrollable list as main content
-- Top filter bar (chips/buttons) pinned below header
-- Safe area: top = headerHeight + Spacing.xl, bottom = tabBarHeight + Spacing.xl
+### Admin Dashboard
+- Grid of stat cards (2 columns)
+- Color-coded left border indicators
+- Quick action buttons (56dp height)
+- Orange primary CTA, white secondary buttons
 
-**Components**:
-- Filter chips: "My Tasks" (default), "Today", "All"
-- Status filter buttons: Open (Gray), In Progress (Blue), Completed (Green), Cancelled (Red)
-- Task cards with: container number, location, time window, material type, status badge
-- "Details" button on each card
+### Analytics Screen
+- Weekly delivery bar chart
+- Material distribution progress bars
+- Container fill level monitoring
+- Summary statistics with icons
 
-**Task Detail Screen**:
-- Stack navigation (not modal)
-- Container information, materials, estimated quantity
-- Pickup instructions
-- "Start Navigation" button (opens native maps)
-- "Scan QR Code" button (switches to Scanner tab)
-
-### 2. Scanner Screen
-
-**Layout**:
-- Full-screen camera view with QR alignment overlay
-- Transparent header with close button
-- Floating flashlight toggle button (bottom right)
-- No tab bar visible during scanning
-
-**Components**:
-- Camera viewfinder with centered alignment grid/frame
-- Flashlight button: 48x48dp minimum, orange accent color, subtle drop shadow (offset: 0,2 | opacity: 0.10 | radius: 2)
-- Result modal: Shows container info with confirm/cancel actions
-
-**Interaction Flow**:
-1. Pickup scan → Display container details → Confirm pickup → Record timestamp + GPS
-2. Delivery scan → Validate material match + capacity → Confirm delivery → Update fill level
-
-### 3. Containers Screen
-
-**Layout**:
-- Two sub-tabs: "Customer Containers" and "Warehouse"
-- Searchable/filterable lists
-- Card-based layout for each container
-
-**Customer Container Cards**:
-- Container ID (prominent)
-- Location (hall/room)
-- Material type
-- Last emptied date
-- Current status badge
-
-**Warehouse Container Cards**:
-- Container ID and location
-- Material type
-- **Visual fill-level tracker**: Horizontal progress bar with percentage
-- Current amount / Max capacity (in kg)
-- Color-coded fill levels:
-  - 0-50%: Green (#4CAF50)
-  - 51-79%: Yellow/Orange (#FFA726)
-  - 80-100%: Red (#E53935)
-- Warning badge "Almost Full" when ≥80%
-
-**Container Detail View**:
-- Fill history chart/graph
-- List of recent additions (date, amount, task reference)
-- Display QR code for re-scanning
-
-### 4. Admin Dashboard (Admin Role Only)
-
-**Layout**:
-- Grid of overview cards (2 columns on phone, more on tablet)
-- Quick action buttons below cards
-- Scrollable content
-
-**Overview Cards**:
-- Today's Tasks: Open count, Completed count, Active drivers
-- Container Status: Critical containers (≥80%), Total available capacity
-- Each card uses icon + large number + descriptive label
-
-**Quick Actions** (orange buttons):
-- Create New Task
-- Manage Drivers
-- Edit Containers
-
-**Admin Detail Screens**:
-- **Task Management**: List all tasks, filter by date/driver/status, create new task form (dropdown selectors for container + driver, time picker, priority, notes field)
-- **Container Management**: CRUD operations, material type editor, capacity adjuster, manual fill reset with timestamp
-- **Driver Management**: List drivers, create account (email + auto-generated password), deactivate/delete, view activity log
-- **Activity Log**: Filterable table (date range, driver, container, action type), exportable
-
-## Design System
-
-### Color Palette
-
-**Primary Colors**:
-- Dark Blue: `#1E3A5F` (headers, navigation, primary buttons)
-- Orange: `#FF6B35` (CTA buttons, icons, accents, active states)
-
-**Background & Surfaces**:
-- Light Gray: `#F5F5F5` (app background)
-- White: `#FFFFFF` (cards, dialogs, tab bar)
-
-**Text Colors**:
-- Dark Gray: `#333333` (primary text)
-- Medium Gray: `#757575` (secondary text, captions)
-
-**Status Colors**:
-- Green (Completed/OK): `#4CAF50`
-- Yellow/Orange (Warning): `#FFA726`
-- Red (Urgent/Error): `#E53935`
-- Blue (In Progress): `#42A5F5`
-- Gray (Open/Neutral): `#9E9E9E`
-
-### Typography
-
-**Font Family**: Roboto (system default for React Native)
-
-**Scale**:
-- Headline: Roboto Bold, 24sp
-- Title: Roboto Medium, 20sp
-- Body: Roboto Regular, 16sp
-- Caption: Roboto Regular, 14sp, Gray color
-
-**Requirements**:
-- High contrast ratios (minimum 4.5:1) for outdoor readability
-- No font size below 14sp
-
-### UI Components
-
-**Buttons**:
-- Minimum height: 48dp (work glove friendly)
-- Border radius: 8-12dp (rounded corners)
-- Primary button: Orange background, white text, bold
-- Secondary button: Transparent background, blue border, blue text
-- Text size: Bold, minimum 16sp
-- Visual feedback: Reduced opacity (0.7) on press
-
-**Cards**:
-- Background: White
-- Elevation: 2-4dp subtle shadow
-- Border radius: 12dp
-- Padding: 16dp internal spacing
-- Separation: 12dp vertical gap between cards or 1dp gray divider lines
-
-**Icons**:
-- Use Feather icons from @expo/vector-icons (no emojis)
-- Standard size: 24dp
-- Large (important actions): 32dp
-- Color: Dark blue or orange based on context
-- Minimalist, clearly recognizable
-
-**Form Inputs**:
-- Minimum height: 48dp
-- Border: 1-2dp, gray when inactive, blue when focused
-- Border radius: 8dp
-- Clear label above or placeholder text
-- Error state: Red border + error message below
-
-**Progress Bars** (for fill levels):
-- Height: 8-12dp
-- Full width of container
-- Rounded ends
-- Animated fill transition
-- Color matches fill percentage thresholds
-
-**Badges** (for status):
-- Small pill-shaped components
-- Color-coded background matching status
-- White text, uppercase, 12sp
-- Padding: 4dp vertical, 8dp horizontal
-
-**Floating Action Buttons** (Scanner flashlight, etc.):
-- Size: 56x56dp or 48x48dp minimum
-- Shadow specifications:
-  - shadowOffset: {width: 0, height: 2}
-  - shadowOpacity: 0.10
-  - shadowRadius: 2
-- Orange background for primary actions
-- White icon, 24dp
-
-### Accessibility
-
-**WCAG Compliance**:
-- Text contrast: Minimum 4.5:1 ratio
-- Interactive elements: Minimum 44x44dp touch target (optimized for 48dp for gloved hands)
-- Screen reader support for all critical UI elements
-- Support for system large text settings
-
-**Field Optimization**:
-- High contrast throughout for outdoor visibility
-- Large touch targets for operation with work gloves
-- Clear visual hierarchy
-- Generous spacing between interactive elements
-
-## Assets & Icons
-
-### Required Icons
-- System icons from Feather set for: list, QR code, box/package, person, dashboard, search, filter, map pin, camera, flashlight, check, x, alert triangle, info
-- NO custom illustrations or emojis
-- All icons must be clearly recognizable at 24dp size
-
-### Custom Assets
-- QR codes generated dynamically for each container
-- No decorative images needed
-- Profile avatars: Use initials in colored circles (auto-generated from driver names)
-
-## Push Notifications
-
-**Notification Triggers**:
-- Pickup confirmed → Alert admin
-- Delivery confirmed → Alert admin
-- 80% fill level reached → Alert admin + all drivers
-- New task assigned → Alert assigned driver
-- Task cancelled → Alert admin
-
-**Notification Content**:
-- Short title: Action type + container ID
-- Body: Key details (driver name, location, reason)
-- Deep link to relevant screen when tapped
+### Scanner Screen
+- Full-screen camera view
+- Flashlight toggle (48dp minimum)
+- Result modal with confirm/cancel
 
 ## Interaction Design
 
 ### Touch Feedback
-- All touchable elements show visual feedback (opacity reduction to 0.7 or background color change)
-- Haptic feedback on critical actions (scan confirmation, task completion)
-
-### Transitions
-- Smooth stack navigation (slide from right on iOS, default on Android)
-- Fade transitions for modal dialogs
-- Animated progress bar updates (smooth fill level changes)
+- Opacity reduction to 0.8 on press
+- Scale animation (0.98) for cards
+- Background color change for buttons
 
 ### Loading States
-- Spinner with orange accent color for async operations
-- Skeleton screens for list loading
-- Disabled state for buttons during submission (reduced opacity + loading spinner)
+- Orange accent spinner
+- Skeleton screens for lists
+- Disabled button state with loading indicator
 
 ### Error Handling
-- Red alert dialogs for errors
-- Inline error messages below form fields
-- Toast notifications for success confirmations (green background, white text, auto-dismiss after 3 seconds)
+- Red error badges and borders
+- Inline error messages
+- Toast notifications for success (green)
