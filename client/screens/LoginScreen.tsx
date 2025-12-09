@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, Image } from "react-native";
+import { View, StyleSheet, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -12,10 +12,11 @@ import { Feather } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, loginWithReplit } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isReplitLoading, setIsReplitLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -34,6 +35,19 @@ export default function LoginScreen() {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleReplitLogin = async () => {
+    setError("");
+    setIsReplitLoading(true);
+
+    try {
+      await loginWithReplit();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Replit login failed");
+    } finally {
+      setIsReplitLoading(false);
     }
   };
 
@@ -100,7 +114,7 @@ export default function LoginScreen() {
 
           <Button
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={isLoading || isReplitLoading}
             style={styles.loginButton}
           >
             {isLoading ? (
@@ -110,10 +124,39 @@ export default function LoginScreen() {
             )}
           </Button>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <ThemedText type="small" style={styles.dividerText}>or</ThemedText>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable
+            onPress={handleReplitLogin}
+            disabled={isLoading || isReplitLoading}
+            style={({ pressed }) => [
+              styles.replitButton,
+              pressed && styles.replitButtonPressed,
+              (isLoading || isReplitLoading) && styles.buttonDisabled,
+            ]}
+          >
+            {isReplitLoading ? (
+              <ActivityIndicator size="small" color={Colors.light.primary} />
+            ) : (
+              <>
+                <View style={styles.replitIcon}>
+                  <Feather name="box" size={20} color={Colors.light.primary} />
+                </View>
+                <ThemedText type="bodyBold" style={styles.replitButtonText}>
+                  Continue with Replit
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
+
           <View style={styles.infoContainer}>
             <Feather name="info" size={16} color={Colors.light.textSecondary} />
             <ThemedText type="small" style={styles.infoText}>
-              Only administrators can create new accounts. Contact your admin for access.
+              Sign in with your Replit account or use your email credentials. New Replit users get driver access by default.
             </ThemedText>
           </View>
         </View>
@@ -192,5 +235,43 @@ const styles = StyleSheet.create({
   infoText: {
     color: Colors.light.textSecondary,
     flex: 1,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.light.border,
+  },
+  dividerText: {
+    color: Colors.light.textTertiary,
+    paddingHorizontal: Spacing.lg,
+  },
+  replitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.light.backgroundDefault,
+    borderWidth: 2,
+    borderColor: Colors.light.primary,
+    borderRadius: BorderRadius.md,
+    height: Spacing.buttonHeight,
+    paddingHorizontal: Spacing.xl,
+  },
+  replitButtonPressed: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    opacity: 0.9,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  replitIcon: {
+    marginRight: Spacing.sm,
+  },
+  replitButtonText: {
+    color: Colors.light.primary,
   },
 });
