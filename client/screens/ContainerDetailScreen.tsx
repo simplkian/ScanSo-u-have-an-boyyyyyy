@@ -8,13 +8,10 @@ import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 
+// react-native-maps requires native modules not available in Expo Go
+// Using fallback UI for all platforms to prevent TurboModule crashes
 let MapView: any = null;
 let Marker: any = null;
-if (Platform.OS !== "web") {
-  const RNMaps = require("react-native-maps");
-  MapView = RNMaps.default;
-  Marker = RNMaps.Marker;
-}
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -289,7 +286,7 @@ export default function ContainerDetailScreen() {
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <View style={styles.infoIconWrapper}>
-                    <Feather name="building" size={18} color={Colors.light.accent} />
+                    <Feather name="briefcase" size={18} color={Colors.light.accent} />
                   </View>
                   <View style={styles.infoContent}>
                     <ThemedText type="caption" style={styles.infoLabel}>Customer</ThemedText>
