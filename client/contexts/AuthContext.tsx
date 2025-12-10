@@ -42,7 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+        
+        try {
+          const response = await apiRequest("GET", `/api/users/${parsedUser.id}`);
+          if (response.ok) {
+            const serverUser = await response.json();
+            if (serverUser.isActive) {
+              const updatedUser = { ...parsedUser, ...serverUser };
+              await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+              setUser(updatedUser);
+            } else {
+              await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+            }
+          } else {
+            await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          }
+        } catch {
+          setUser(parsedUser);
+        }
       }
     } catch (error) {
       console.error("Failed to load stored user:", error);

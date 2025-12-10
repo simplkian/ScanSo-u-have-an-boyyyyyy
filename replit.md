@@ -37,9 +37,15 @@ Preferred communication style: Simple, everyday language.
 - **Validation**: Zod schemas generated from Drizzle schemas via `drizzle-zod`
 
 ### Authentication & Authorization
-- Email/password login with session stored in AsyncStorage on mobile
-- Two roles: `driver` (field operations) and `admin` (full access + management)
-- Admin-only user registration (drivers cannot self-register)
+- **Dual Authentication**: Email/password login AND Replit Auth integration
+- **Replit Auth Flow**: 
+  - Web: Direct API call to `/api/auth/replit/login` using Replit's `x-replit-user-id` and `x-replit-user-name` headers
+  - Native: Opens `/__replauthLoginPage` via `expo-web-browser` with `containerflow://auth` callback scheme
+  - First Replit user becomes admin, subsequent users default to driver role
+  - Auto-creates user account on first login with email format `{username}@replit.user`
+- **Session Management**: Stored in AsyncStorage, validated against server on app load
+- **Roles**: `driver` (field operations) and `admin` (full access + management)
+- **User Registration**: Admin-only (drivers cannot self-register)
 - Auth context at `client/contexts/AuthContext.tsx` manages login state
 
 ### Mobile-Specific Features
