@@ -6,10 +6,11 @@ import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 
 interface StatusBadgeProps {
   status: string;
+  label?: string;
   size?: "small" | "medium" | "large";
 }
 
-export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
+export function StatusBadge({ status, label: customLabel, size = "medium" }: StatusBadgeProps) {
   const { theme } = useTheme();
   
   const getStatusConfig = () => {
@@ -50,6 +51,24 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
           color: "#FFFFFF",
           backgroundColor: theme.statusIdle,
         };
+      case "critical":
+        return {
+          label: "Kritisch",
+          color: "#FFFFFF",
+          backgroundColor: theme.fillHigh,
+        };
+      case "warning":
+        return {
+          label: "Warnung",
+          color: "#1E293B",
+          backgroundColor: theme.fillMedium,
+        };
+      case "success":
+        return {
+          label: "OK",
+          color: "#FFFFFF",
+          backgroundColor: theme.fillLow,
+        };
       default:
         return {
           label: status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " "),
@@ -60,6 +79,7 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
   };
 
   const config = getStatusConfig();
+  const displayLabel = customLabel || config.label;
   
   const getSizeStyles = () => {
     switch (size) {
@@ -99,7 +119,7 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
           sizeStyles.label,
         ]}
       >
-        {config.label}
+        {displayLabel}
       </ThemedText>
     </View>
   );

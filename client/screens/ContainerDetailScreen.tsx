@@ -1,27 +1,64 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Pressable } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Pressable, Platform, Dimensions } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+
+let MapView: any = null;
+let Marker: any = null;
+if (Platform.OS !== "web") {
+  const RNMaps = require("react-native-maps");
+  MapView = RNMaps.default;
+  Marker = RNMaps.Marker;
+}
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Button } from "@/components/Button";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ContainersStackParamList } from "@/navigation/ContainersStackNavigator";
 import { CustomerContainer, WarehouseContainer, FillHistory } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
+import { apiRequest } from "@/lib/query-client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type RouteProps = RouteProp<ContainersStackParamList, "ContainerDetail">;
+
+const { width: screenWidth } = Dimensions.get("window");
+
+interface GlassPanelProps {
+  children: React.ReactNode;
+  style?: any;
+  intensity?: number;
+}
+
+function GlassPanel({ children, style, intensity = 60 }: GlassPanelProps) {
+  if (Platform.OS === "ios") {
+    return (
+      <BlurView intensity={intensity} tint="light" style={[styles.glassPanel, style]}>
+        {children}
+      </BlurView>
+    );
+  }
+  return (
+    <View style={[styles.glassPanel, styles.glassPanelFallback, style]}>
+      {children}
+    </View>
+  );
+}
 
 export default function ContainerDetailScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const route = useRoute<RouteProps>();
   const { containerId, type } = route.params;
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: container, isLoading } = useQuery<CustomerContainer | WarehouseContainer>({
     queryKey: [`/api/containers/${type}/${containerId}`],
@@ -44,10 +81,38 @@ export default function ContainerDetailScreen() {
     });
   };
 
+  const formatRelativeTime = (date: string | Date | null) => {
+    if (!date) return "Never";
+    const d = new Date(date);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return formatDate(date);
+  };
+
   const getFillColor = (percentage: number) => {
     if (percentage >= 80) return Colors.light.fillHigh;
     if (percentage >= 51) return Colors.light.fillMedium;
     return Colors.light.fillLow;
+  };
+
+  const getFillStatus = (percentage: number): "critical" | "warning" | "success" => {
+    if (percentage >= 80) return "critical";
+    if (percentage >= 51) return "warning";
+    return "success";
+  };
+
+  const getDaysSinceEmptied = (lastEmptied: string | Date | null) => {
+    if (!lastEmptied) return null;
+    const d = new Date(lastEmptied);
+    const now = new Date();
+    return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const handleNavigation = async () => {
@@ -61,11 +126,20 @@ export default function ContainerDetailScreen() {
       return;
     }
 
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await openMapsNavigation({
       latitude: customerContainer.latitude,
       longitude: customerContainer.longitude,
       label: `${customerContainer.customerName} - ${customerContainer.location}`,
     });
+  };
+
+  const handleShareLocation = async () => {
+    const customerContainer = container as CustomerContainer;
+    if (!customerContainer?.latitude || !customerContainer?.longitude) return;
+    
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert("Share Location", `Container ${container?.id} at ${customerContainer.location}`);
   };
 
   if (isLoading) {
@@ -93,6 +167,8 @@ export default function ContainerDetailScreen() {
   const fillPercentage = isWarehouse
     ? (warehouseContainer.currentAmount / warehouseContainer.maxCapacity) * 100
     : 0;
+  const daysSinceEmptied = !isWarehouse ? getDaysSinceEmptied(customerContainer.lastEmptied) : null;
+  const hasCoordinates = !isWarehouse && customerContainer.latitude && customerContainer.longitude;
 
   return (
     <ThemedView style={styles.container}>
@@ -103,55 +179,62 @@ export default function ContainerDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.headerCard}>
-          <View style={styles.headerRow}>
-            <View style={styles.containerInfo}>
-              <Feather name="package" size={40} color={Colors.light.primary} />
-              <View>
-                <ThemedText type="h3" style={styles.containerId}>
-                  {container.id}
-                </ThemedText>
-                <ThemedText type="body" style={styles.location}>
-                  {container.location}
-                </ThemedText>
-              </View>
+        <GlassPanel style={styles.headerCard}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.containerIconWrapper}>
+              <Feather 
+                name={isWarehouse ? "inbox" : "package"} 
+                size={32} 
+                color={Colors.light.accent} 
+              />
+            </View>
+            <View style={styles.headerContent}>
+              <ThemedText type="h3" style={styles.containerId}>
+                {container.id}
+              </ThemedText>
+              <ThemedText type="body" style={styles.location}>
+                {container.location}
+              </ThemedText>
+            </View>
+            <View style={styles.statusBadgeWrapper}>
+              <StatusBadge 
+                status={isWarehouse ? getFillStatus(fillPercentage) : (daysSinceEmptied && daysSinceEmptied > 30 ? "warning" : "success")} 
+                label={isWarehouse ? `${fillPercentage.toFixed(0)}%` : (daysSinceEmptied ? `${daysSinceEmptied}d` : "OK")}
+              />
             </View>
           </View>
 
-          <View style={styles.materialBadge}>
-            <Feather name="tag" size={16} color={Colors.light.primary} />
-            <ThemedText type="body" style={styles.materialText}>
-              {container.materialType}
-            </ThemedText>
+          <View style={styles.tagRow}>
+            <View style={styles.materialBadge}>
+              <Feather name="tag" size={14} color={Colors.light.primary} />
+              <ThemedText type="small" style={styles.materialText}>
+                {container.materialType}
+              </ThemedText>
+            </View>
+            <View style={styles.typeBadge}>
+              <Feather name={isWarehouse ? "home" : "truck"} size={14} color={Colors.light.accent} />
+              <ThemedText type="small" style={styles.typeText}>
+                {isWarehouse ? "Warehouse" : "Customer"}
+              </ThemedText>
+            </View>
           </View>
-        </Card>
+        </GlassPanel>
 
         {isWarehouse ? (
-          <Card style={styles.fillCard}>
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Fill Level
-            </ThemedText>
+          <GlassPanel style={styles.fillCard}>
+            <View style={styles.sectionHeader}>
+              <Feather name="bar-chart-2" size={20} color={Colors.light.primary} />
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Fill Level
+              </ThemedText>
+            </View>
             
-            <View style={styles.fillStats}>
-              <View style={styles.fillStatItem}>
-                <ThemedText type="h2" style={[styles.fillValue, { color: getFillColor(fillPercentage) }]}>
-                  {fillPercentage.toFixed(0)}%
+            <View style={styles.fillGauge}>
+              <View style={styles.gaugeCircle}>
+                <ThemedText type="h1" style={[styles.gaugeValue, { color: getFillColor(fillPercentage) }]}>
+                  {fillPercentage.toFixed(0)}
                 </ThemedText>
-                <ThemedText type="small" style={styles.fillLabel}>Current</ThemedText>
-              </View>
-              <View style={styles.fillStatDivider} />
-              <View style={styles.fillStatItem}>
-                <ThemedText type="h3" style={styles.capacityValue}>
-                  {warehouseContainer.currentAmount.toFixed(0)}
-                </ThemedText>
-                <ThemedText type="small" style={styles.fillLabel}>kg Used</ThemedText>
-              </View>
-              <View style={styles.fillStatDivider} />
-              <View style={styles.fillStatItem}>
-                <ThemedText type="h3" style={styles.capacityValue}>
-                  {warehouseContainer.maxCapacity}
-                </ThemedText>
-                <ThemedText type="small" style={styles.fillLabel}>kg Max</ThemedText>
+                <ThemedText type="caption" style={styles.gaugeUnit}>%</ThemedText>
               </View>
             </View>
 
@@ -161,77 +244,245 @@ export default function ContainerDetailScreen() {
               style={styles.progressBar}
             />
 
+            <View style={styles.fillMetrics}>
+              <View style={styles.metricItem}>
+                <ThemedText type="h4" style={styles.metricValue}>
+                  {warehouseContainer.currentAmount.toFixed(0)}
+                </ThemedText>
+                <ThemedText type="caption" style={styles.metricLabel}>kg Used</ThemedText>
+              </View>
+              <View style={styles.metricDivider} />
+              <View style={styles.metricItem}>
+                <ThemedText type="h4" style={styles.metricValue}>
+                  {warehouseContainer.maxCapacity}
+                </ThemedText>
+                <ThemedText type="caption" style={styles.metricLabel}>kg Capacity</ThemedText>
+              </View>
+              <View style={styles.metricDivider} />
+              <View style={styles.metricItem}>
+                <ThemedText type="h4" style={styles.metricValue}>
+                  {(warehouseContainer.maxCapacity - warehouseContainer.currentAmount).toFixed(0)}
+                </ThemedText>
+                <ThemedText type="caption" style={styles.metricLabel}>kg Available</ThemedText>
+              </View>
+            </View>
+
             {fillPercentage >= 80 ? (
-              <View style={styles.warningBanner}>
-                <Feather name="alert-triangle" size={20} color={Colors.light.fillHigh} />
-                <ThemedText type="body" style={styles.warningText}>
-                  Container is almost full. Schedule emptying soon.
+              <View style={styles.alertBanner}>
+                <Feather name="alert-triangle" size={18} color="#FFFFFF" />
+                <ThemedText type="small" style={styles.alertText}>
+                  Container almost full - schedule emptying soon
                 </ThemedText>
               </View>
             ) : null}
-          </Card>
+          </GlassPanel>
         ) : (
-          <Card style={styles.infoCard}>
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Customer Information
-            </ThemedText>
-            <View style={styles.infoRow}>
-              <Feather name="building" size={20} color={Colors.light.textSecondary} />
-              <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Customer</ThemedText>
-                <ThemedText type="body">{customerContainer.customerName}</ThemedText>
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <Feather name="calendar" size={20} color={Colors.light.textSecondary} />
-              <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Last Emptied</ThemedText>
-                <ThemedText type="body">{formatDate(customerContainer.lastEmptied)}</ThemedText>
-              </View>
-            </View>
-
-            {customerContainer.latitude && customerContainer.longitude ? (
-              <Pressable style={styles.navButton} onPress={handleNavigation}>
-                <Feather name="navigation" size={20} color={Colors.light.accent} />
-                <ThemedText type="body" style={styles.navButtonText}>
-                  Navigate to Location
+          <>
+            <GlassPanel style={styles.infoCard}>
+              <View style={styles.sectionHeader}>
+                <Feather name="info" size={20} color={Colors.light.primary} />
+                <ThemedText type="h4" style={styles.sectionTitle}>
+                  Container Details
                 </ThemedText>
-              </Pressable>
-            ) : null}
-          </Card>
-        )}
+              </View>
+              
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIconWrapper}>
+                    <Feather name="building" size={18} color={Colors.light.accent} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <ThemedText type="caption" style={styles.infoLabel}>Customer</ThemedText>
+                    <ThemedText type="body" style={styles.infoValue}>{customerContainer.customerName}</ThemedText>
+                  </View>
+                </View>
 
-        <Card style={styles.qrCard}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            QR Code
-          </ThemedText>
-          <View style={styles.qrContainer}>
-            <View style={styles.qrPlaceholder}>
-              <Feather name="maximize" size={48} color={Colors.light.textSecondary} />
-            </View>
-            <ThemedText type="small" style={styles.qrCode}>
-              {container.qrCode}
-            </ThemedText>
-          </View>
-        </Card>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIconWrapper}>
+                    <Feather name="calendar" size={18} color={Colors.light.accent} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <ThemedText type="caption" style={styles.infoLabel}>Last Emptied</ThemedText>
+                    <ThemedText type="body" style={styles.infoValue}>
+                      {formatDate(customerContainer.lastEmptied)}
+                    </ThemedText>
+                    {daysSinceEmptied !== null ? (
+                      <ThemedText 
+                        type="caption" 
+                        style={[
+                          styles.daysBadge, 
+                          { color: daysSinceEmptied > 30 ? Colors.light.fillHigh : Colors.light.fillLow }
+                        ]}
+                      >
+                        {daysSinceEmptied} days ago
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                </View>
 
-        {isWarehouse && fillHistory.length > 0 ? (
-          <Card style={styles.historyCard}>
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Recent Fill History
-            </ThemedText>
-            {fillHistory.slice(0, 5).map((entry) => (
-              <View key={entry.id} style={styles.historyItem}>
-                <View style={styles.historyDot} />
-                <View style={styles.historyContent}>
-                  <ThemedText type="body">+{entry.amountAdded.toFixed(0)} kg</ThemedText>
-                  <ThemedText type="small" style={styles.historyDate}>
-                    {formatDate(entry.createdAt)}
-                  </ThemedText>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIconWrapper}>
+                    <Feather name="map-pin" size={18} color={Colors.light.accent} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <ThemedText type="caption" style={styles.infoLabel}>Location</ThemedText>
+                    <ThemedText type="body" style={styles.infoValue}>{customerContainer.location}</ThemedText>
+                    {hasCoordinates ? (
+                      <ThemedText type="caption" style={styles.coordsText}>
+                        {customerContainer.latitude?.toFixed(4)}, {customerContainer.longitude?.toFixed(4)}
+                      </ThemedText>
+                    ) : null}
+                  </View>
                 </View>
               </View>
-            ))}
-          </Card>
+            </GlassPanel>
+
+            {hasCoordinates ? (
+              <GlassPanel style={styles.mapCard}>
+                <View style={styles.sectionHeader}>
+                  <Feather name="map" size={20} color={Colors.light.primary} />
+                  <ThemedText type="h4" style={styles.sectionTitle}>
+                    Location
+                  </ThemedText>
+                </View>
+                
+                <View style={styles.mapContainer}>
+                  {MapView && Platform.OS !== "web" ? (
+                    <MapView
+                      style={styles.map}
+                      initialRegion={{
+                        latitude: customerContainer.latitude!,
+                        longitude: customerContainer.longitude!,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                      scrollEnabled={false}
+                      zoomEnabled={false}
+                      rotateEnabled={false}
+                      pitchEnabled={false}
+                    >
+                      {Marker ? (
+                        <Marker
+                          coordinate={{
+                            latitude: customerContainer.latitude!,
+                            longitude: customerContainer.longitude!,
+                          }}
+                          title={customerContainer.customerName}
+                          description={customerContainer.location}
+                        />
+                      ) : null}
+                    </MapView>
+                  ) : (
+                    <View style={styles.mapFallback}>
+                      <Feather name="map-pin" size={40} color={Colors.light.accent} />
+                      <ThemedText type="body" style={styles.mapFallbackText}>
+                        {customerContainer.latitude?.toFixed(4)}, {customerContainer.longitude?.toFixed(4)}
+                      </ThemedText>
+                      <ThemedText type="caption" style={styles.mapFallbackHint}>
+                        Run in Expo Go to view map
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.mapActions}>
+                  <Pressable style={styles.mapActionButton} onPress={handleNavigation}>
+                    <Feather name="navigation" size={18} color={Colors.light.textOnAccent} />
+                    <ThemedText type="small" style={styles.mapActionText}>
+                      Navigate
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable style={[styles.mapActionButton, styles.mapActionSecondary]} onPress={handleShareLocation}>
+                    <Feather name="share-2" size={18} color={Colors.light.primary} />
+                    <ThemedText type="small" style={styles.mapActionTextSecondary}>
+                      Share
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </GlassPanel>
+            ) : null}
+          </>
+        )}
+
+        <GlassPanel style={styles.qrCard}>
+          <View style={styles.sectionHeader}>
+            <Feather name="maximize" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4" style={styles.sectionTitle}>
+              QR Code
+            </ThemedText>
+          </View>
+          <View style={styles.qrContainer}>
+            <View style={styles.qrPlaceholder}>
+              <Feather name="grid" size={64} color={Colors.light.textTertiary} />
+            </View>
+            <View style={styles.qrCodeWrapper}>
+              <ThemedText type="caption" style={styles.qrLabel}>Code</ThemedText>
+              <ThemedText type="body" style={styles.qrCode}>
+                {container.qrCode}
+              </ThemedText>
+            </View>
+          </View>
+        </GlassPanel>
+
+        {isWarehouse && fillHistory.length > 0 ? (
+          <GlassPanel style={styles.historyCard}>
+            <View style={styles.sectionHeader}>
+              <Feather name="clock" size={20} color={Colors.light.primary} />
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Activity Timeline
+              </ThemedText>
+            </View>
+            
+            <View style={styles.timeline}>
+              {fillHistory.slice(0, 8).map((entry, index) => (
+                <View key={entry.id} style={styles.timelineItem}>
+                  <View style={styles.timelineLeft}>
+                    <View style={[
+                      styles.timelineDot, 
+                      index === 0 ? styles.timelineDotActive : null
+                    ]} />
+                    {index < Math.min(fillHistory.length - 1, 7) ? (
+                      <View style={styles.timelineLine} />
+                    ) : null}
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <View style={styles.timelineHeader}>
+                      <View style={styles.amountBadge}>
+                        <Feather name="plus" size={12} color={Colors.light.fillLow} />
+                        <ThemedText type="small" style={styles.amountText}>
+                          {entry.amountAdded.toFixed(0)} kg
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="caption" style={styles.timelineTime}>
+                        {formatRelativeTime(entry.createdAt)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="caption" style={styles.timelineDate}>
+                      {formatDate(entry.createdAt)}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {fillHistory.length > 8 ? (
+              <Pressable style={styles.viewAllButton}>
+                <ThemedText type="small" style={styles.viewAllText}>
+                  View all {fillHistory.length} entries
+                </ThemedText>
+                <Feather name="chevron-right" size={16} color={Colors.light.accent} />
+              </Pressable>
+            ) : null}
+          </GlassPanel>
+        ) : null}
+
+        {!isWarehouse && !hasCoordinates ? (
+          <Pressable style={styles.actionButton} onPress={handleNavigation}>
+            <Feather name="navigation" size={20} color={Colors.light.textOnAccent} />
+            <ThemedText type="body" style={styles.actionButtonText}>
+              Open in Maps
+            </ThemedText>
+          </Pressable>
         ) : null}
       </ScrollView>
     </ThemedView>
@@ -258,151 +509,344 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  headerCard: {
-    backgroundColor: Colors.light.backgroundDefault,
+  glassPanel: {
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    padding: Spacing.lg,
   },
-  headerRow: {
-    marginBottom: Spacing.md,
+  glassPanelFallback: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderWidth: 1,
+    borderColor: Colors.light.cardBorder,
   },
-  containerInfo: {
+  headerCard: {},
+  headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  containerIconWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.light.accent}15`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerContent: {
+    flex: 1,
   },
   containerId: {
     color: Colors.light.primary,
+    fontWeight: "700",
   },
   location: {
     color: Colors.light.textSecondary,
+    marginTop: 2,
+  },
+  statusBadgeWrapper: {},
+  tagRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
   },
   materialBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     backgroundColor: Colors.light.backgroundSecondary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    alignSelf: "flex-start",
   },
   materialText: {
     color: Colors.light.primary,
     fontWeight: "500",
   },
-  fillCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.md,
-  },
-  fillStats: {
+  typeBadge: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: Spacing.lg,
-  },
-  fillStatItem: {
     alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${Colors.light.accent}15`,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
-  fillStatDivider: {
-    width: 1,
-    backgroundColor: Colors.light.border,
+  typeText: {
+    color: Colors.light.accent,
+    fontWeight: "500",
   },
-  fillValue: {
-    fontWeight: "700",
-  },
-  capacityValue: {
-    color: Colors.light.text,
-  },
-  fillLabel: {
-    color: Colors.light.textSecondary,
-    marginTop: Spacing.xs,
-  },
-  progressBar: {
-    height: 12,
-    marginBottom: Spacing.md,
-  },
-  warningBanner: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#FFEBEE",
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    color: Colors.light.primary,
+  },
+  fillCard: {},
+  fillGauge: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  gaugeCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.light.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  gaugeValue: {
+    fontWeight: "800",
+  },
+  gaugeUnit: {
+    color: Colors.light.textSecondary,
+    marginLeft: 2,
+    marginTop: 8,
+  },
+  progressBar: {
+    height: 10,
+    marginBottom: Spacing.lg,
+    borderRadius: 5,
+  },
+  fillMetrics: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  metricItem: {
+    alignItems: "center",
+  },
+  metricDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.light.border,
+  },
+  metricValue: {
+    color: Colors.light.text,
+    fontWeight: "600",
+  },
+  metricLabel: {
+    color: Colors.light.textSecondary,
+    marginTop: 4,
+  },
+  alertBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.fillHigh,
     padding: Spacing.md,
-    borderRadius: BorderRadius.xs,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.lg,
   },
-  warningText: {
-    color: Colors.light.fillHigh,
+  alertText: {
+    color: "#FFFFFF",
     flex: 1,
+    fontWeight: "500",
   },
-  infoCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-    gap: Spacing.md,
+  infoCard: {},
+  infoGrid: {
+    gap: Spacing.lg,
   },
-  infoRow: {
+  infoItem: {
     flexDirection: "row",
     gap: Spacing.md,
-    alignItems: "flex-start",
+  },
+  infoIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: `${Colors.light.accent}10`,
+    justifyContent: "center",
+    alignItems: "center",
   },
   infoContent: {
     flex: 1,
+    justifyContent: "center",
   },
   infoLabel: {
-    color: Colors.light.textSecondary,
+    color: Colors.light.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
-  navButton: {
+  infoValue: {
+    color: Colors.light.text,
+    fontWeight: "500",
+  },
+  daysBadge: {
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  coordsText: {
+    color: Colors.light.textTertiary,
+    marginTop: 4,
+    fontFamily: "monospace",
+  },
+  mapCard: {},
+  mapContainer: {
+    height: 180,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapFallback: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.light.backgroundSecondary,
+    gap: Spacing.sm,
+  },
+  mapFallbackText: {
+    color: Colors.light.text,
+    fontWeight: "600",
+  },
+  mapFallbackHint: {
+    color: Colors.light.textSecondary,
+  },
+  mapActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  mapActionButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: `${Colors.light.accent}15`,
+    backgroundColor: Colors.light.accent,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.md,
+    borderRadius: BorderRadius.sm,
   },
-  navButtonText: {
-    color: Colors.light.accent,
+  mapActionSecondary: {
+    backgroundColor: Colors.light.backgroundSecondary,
+  },
+  mapActionText: {
+    color: Colors.light.textOnAccent,
     fontWeight: "600",
   },
-  qrCard: {
-    backgroundColor: Colors.light.backgroundDefault,
+  mapActionTextSecondary: {
+    color: Colors.light.primary,
+    fontWeight: "600",
   },
+  qrCard: {},
   qrContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
   qrPlaceholder: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  qrCode: {
-    color: Colors.light.textSecondary,
-    fontFamily: "monospace",
-  },
-  historyCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
-  historyItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-  },
-  historyDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.light.fillLow,
-    marginTop: 6,
-  },
-  historyContent: {
+  qrCodeWrapper: {
     flex: 1,
   },
-  historyDate: {
+  qrLabel: {
+    color: Colors.light.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  qrCode: {
+    color: Colors.light.text,
+    fontFamily: "monospace",
+    fontWeight: "600",
+  },
+  historyCard: {},
+  timeline: {
+    paddingLeft: Spacing.xs,
+  },
+  timelineItem: {
+    flexDirection: "row",
+    minHeight: 60,
+  },
+  timelineLeft: {
+    alignItems: "center",
+    width: 24,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.light.textTertiary,
+    borderWidth: 2,
+    borderColor: Colors.light.backgroundSecondary,
+  },
+  timelineDotActive: {
+    backgroundColor: Colors.light.accent,
+    borderColor: `${Colors.light.accent}30`,
+  },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: Colors.light.border,
+    marginVertical: 4,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingLeft: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  amountBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${Colors.light.fillLow}15`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+  },
+  amountText: {
+    color: Colors.light.fillLow,
+    fontWeight: "600",
+  },
+  timelineTime: {
     color: Colors.light.textSecondary,
+  },
+  timelineDate: {
+    color: Colors.light.textTertiary,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  viewAllText: {
+    color: Colors.light.accent,
+    fontWeight: "600",
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.accent,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
+  actionButtonText: {
+    color: Colors.light.textOnAccent,
+    fontWeight: "600",
   },
 });
