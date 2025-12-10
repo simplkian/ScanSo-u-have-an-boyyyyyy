@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Platform } from 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
 import * as Location from "expo-location";
+import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -53,12 +54,13 @@ export default function ScannerScreen() {
     setError(null);
 
     try {
-      let response = await fetch(
-        `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/containers/customer/qr/${encodeURIComponent(qrCode)}`
-      );
+      let response = await apiRequest("GET", `/api/containers/customer/qr/${encodeURIComponent(qrCode)}`);
 
       if (response.ok) {
         const container = await response.json();
+        
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
         setScanResult({ type: "customer", container });
         
         const relatedTask = tasks.find(
@@ -68,22 +70,27 @@ export default function ScannerScreen() {
           setActiveTask(relatedTask);
         }
       } else {
-        response = await fetch(
-          `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`
-        );
+        response = await apiRequest("GET", `/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`);
 
         if (response.ok) {
           const container = await response.json();
+          
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          
           setScanResult({ type: "warehouse", container });
           if (inProgressTask) {
             setActiveTask(inProgressTask);
           }
         } else {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setError("Container nicht gefunden. Bitte scannen Sie einen gültigen QR-Code.");
+          scanLock.current = false;
         }
       }
     } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError("Container-Scan fehlgeschlagen. Bitte erneut versuchen.");
+      scanLock.current = false;
     } finally {
       setIsProcessing(false);
     }
