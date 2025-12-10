@@ -21,20 +21,20 @@ Professionelles, industrietaugliches Design für die Abfallcontainer-Verwaltung.
 
 | Name | Hell-Modus | Dunkel-Modus |
 |------|------------|--------------|
-| **Background Root** | `#F8FAFC` | `#0F172A` |
-| **Background Default** | `#F1F5F9` | `#1E293B` |
-| **Background Secondary** | `#E2E8F0` | `#334155` |
-| **Background Tertiary** | `#CBD5E1` | `#475569` |
-| **Card Surface** | `#FFFFFF` | `#1E293B` |
-| **Card Surface Elevated** | `#FFFFFF` | `#334155` |
+| **Background Root** | `#FFFFFF` | `#111827` |
+| **Background Default** | `#F9FAFB` | `#1F2937` |
+| **Background Secondary** | `#F3F4F6` | `#374151` |
+| **Background Tertiary** | `#E5E7EB` | `#4B5563` |
+| **Card Surface** | `#FFFFFF` | `#1F2937` |
+| **Card Surface Elevated** | `#FFFFFF` | `#374151` |
 
 ### Textfarben
 
 | Name | Hell-Modus | Dunkel-Modus |
 |------|------------|--------------|
-| **Text Primary** | `#1E293B` | `#F8FAFC` |
-| **Text Secondary** | `#64748B` | `#94A3B8` |
-| **Text Tertiary** | `#94A3B8` | `#64748B` |
+| **Text Primary** | `#111827` | `#F9FAFB` |
+| **Text Secondary** | `#6B7280` | `#9CA3AF` |
+| **Text Tertiary** | `#9CA3AF` | `#6B7280` |
 | **Text on Primary/Accent** | `#FFFFFF` | `#FFFFFF` |
 
 ### Statusfarben
