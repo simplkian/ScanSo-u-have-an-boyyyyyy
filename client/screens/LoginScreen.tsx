@@ -22,11 +22,10 @@ import Animated, {
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { login, loginWithReplit } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isReplitLoading, setIsReplitLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,19 +44,6 @@ export default function LoginScreen() {
       setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleReplitLogin = async () => {
-    setError("");
-    setIsReplitLoading(true);
-
-    try {
-      await loginWithReplit();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Replit-Anmeldung fehlgeschlagen");
-    } finally {
-      setIsReplitLoading(false);
     }
   };
 
@@ -140,7 +126,7 @@ export default function LoginScreen() {
 
             <Button
               onPress={handleLogin}
-              disabled={isLoading || isReplitLoading}
+              disabled={isLoading}
               variant="primary"
               style={styles.loginButton}
             >
@@ -150,38 +136,6 @@ export default function LoginScreen() {
                 "Anmelden"
               )}
             </Button>
-
-            <View style={styles.dividerContainer}>
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-              <ThemedText type="small" style={[styles.dividerText, { color: theme.textSecondary }]}>
-                oder
-              </ThemedText>
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-            </View>
-
-            <Pressable
-              onPress={handleReplitLogin}
-              disabled={isLoading || isReplitLoading}
-              style={[
-                styles.replitButton,
-                { 
-                  backgroundColor: theme.backgroundSecondary,
-                  borderColor: theme.cardBorder,
-                  opacity: isLoading || isReplitLoading ? 0.6 : 1,
-                },
-              ]}
-            >
-              {isReplitLoading ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <>
-                  <Feather name="code" size={20} color={theme.primary} />
-                  <ThemedText type="body" style={[styles.replitButtonText, { color: theme.text }]}>
-                    Mit Replit anmelden
-                  </ThemedText>
-                </>
-              )}
-            </Pressable>
           </View>
         </Animated.View>
 
@@ -302,30 +256,5 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     lineHeight: 20,
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginVertical: Spacing.xs,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontWeight: "500",
-  },
-  replitButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-  },
-  replitButtonText: {
-    fontWeight: "600",
   },
 });
