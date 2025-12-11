@@ -15,6 +15,20 @@ export interface AuthUser {
   createdAt: string;
 }
 
+// Normalize role from backend (ADMIN/DRIVER) to lowercase (admin/driver)
+function normalizeRole(role: string): UserRole {
+  const normalized = role?.toLowerCase();
+  return normalized === "admin" ? "admin" : "driver";
+}
+
+// Normalize user object to ensure consistent role format
+function normalizeUser(user: any): AuthUser {
+  return {
+    ...user,
+    role: normalizeRole(user.role),
+  };
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
@@ -48,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const serverUser = await response.json();
             if (serverUser.isActive) {
-              const updatedUser = { ...parsedUser, ...serverUser };
+              const updatedUser = normalizeUser({ ...parsedUser, ...serverUser });
               await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
               setUser(updatedUser);
             } else {
@@ -76,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || "Login failed");
     }
 
-    const authUser = data.user as AuthUser;
+    const authUser = normalizeUser(data.user);
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
     setUser(authUser);
   };
@@ -90,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || "Replit login failed. Make sure you're logged into Replit.");
       }
 
-      const authUser = data.user as AuthUser;
+      const authUser = normalizeUser(data.user);
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
       setUser(authUser);
     } else {
@@ -107,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error(data.error || "Replit login failed");
         }
 
-        const authUser = data.user as AuthUser;
+        const authUser = normalizeUser(data.user);
         await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
         setUser(authUser);
       } else if (result.type === "cancel") {

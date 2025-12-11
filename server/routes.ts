@@ -7,6 +7,20 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
+// Normalize user role to lowercase for frontend consistency
+function normalizeUserRole<T extends { role?: string }>(user: T): T {
+  return {
+    ...user,
+    role: user.role?.toLowerCase() || "driver",
+  };
+}
+
+// Helper to prepare user for API response (without password, with normalized role)
+function prepareUserResponse<T extends { password?: string; role?: string }>(user: T): Omit<T, "password"> {
+  const { password, ...userWithoutPassword } = user;
+  return normalizeUserRole(userWithoutPassword);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.head("/api/health", (req, res) => {
     res.status(200).end();
@@ -68,8 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Account is deactivated" });
       }
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      res.json({ user: prepareUserResponse(user) });
     } catch (error) {
       console.error("Replit auth error:", error);
       res.status(500).json({ error: "Replit login failed" });
@@ -98,8 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Account is deactivated" });
       }
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      res.json({ user: prepareUserResponse(user) });
     } catch (error) {
       res.status(500).json({ error: "Login failed" });
     }
@@ -108,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", async (req, res) => {
     try {
       const users = await storage.getUsers();
-      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+      const usersWithoutPasswords = users.map((user) => prepareUserResponse(user));
       res.json(usersWithoutPasswords);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
@@ -121,8 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(prepareUserResponse(user));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
     }
@@ -149,8 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: role || "driver",
       });
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.status(201).json(userWithoutPassword);
+      res.status(201).json(prepareUserResponse(user));
     } catch (error) {
       res.status(500).json({ error: "Failed to create user" });
     }
@@ -162,8 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(prepareUserResponse(user));
     } catch (error) {
       res.status(500).json({ error: "Failed to update user" });
     }

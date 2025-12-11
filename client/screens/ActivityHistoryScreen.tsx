@@ -170,7 +170,10 @@ export default function ActivityHistoryScreen() {
   }, [filteredLogs]);
 
   const drivers = useMemo(() => {
-    return users.filter((u) => u.role === "DRIVER" || u.role === "ADMIN" || u.role === "driver" || u.role === "admin");
+    return users.filter((u) => {
+      const role = u.role?.toLowerCase();
+      return role === "driver" || role === "admin";
+    });
   }, [users]);
 
   const selectedDriverName = selectedDriverId
