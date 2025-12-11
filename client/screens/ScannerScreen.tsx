@@ -58,11 +58,23 @@ export default function ScannerScreen() {
     enabled: !!activeTask?.deliveryContainerID,
   });
 
+  const parseQRCode = (rawData: string): string => {
+    try {
+      const parsed = JSON.parse(rawData);
+      if (parsed.qrCode) return parsed.qrCode;
+      if (parsed.id) return parsed.id;
+      if (parsed.code) return parsed.code;
+      return rawData;
+    } catch {
+      return rawData;
+    }
+  };
+
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     if (scanLock.current || isProcessing) return;
     scanLock.current = true;
 
-    const qrCode = result.data;
+    const qrCode = parseQRCode(result.data);
     setIsProcessing(true);
     setError(null);
 
