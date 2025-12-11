@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NetworkProvider } from "@/contexts/NetworkContext";
 import { ThemeProvider, useThemeContext } from "@/contexts/ThemeContext";
+import { ToastProvider } from "@/components/Toast";
 
 function AppContent() {
   const { isDark } = useThemeContext();
@@ -37,11 +38,13 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <AuthProvider>
-            <NetworkProvider>
-              <AppContent />
-            </NetworkProvider>
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <NetworkProvider>
+                <AppContent />
+              </NetworkProvider>
+            </AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

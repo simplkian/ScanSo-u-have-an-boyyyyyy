@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, FlatList, Modal, ActivityIndicator, Pressable, Alert, Switch, ScrollView } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -14,6 +15,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { FilterChip } from "@/components/FilterChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useToast } from "@/components/Toast";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { CustomerContainer, WarehouseContainer } from "@shared/schema";
@@ -46,6 +48,8 @@ export default function ManageContainersScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const resetAnimationOpacity = useSharedValue(1);
 
   const [activeTab, setActiveTab] = useState<ContainerType>("warehouse");
   const [modalVisible, setModalVisible] = useState(false);
@@ -55,6 +59,7 @@ export default function ManageContainersScreen() {
   const [formData, setFormData] = useState<ContainerFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<ContainerFormData>>({});
+  const [recentlyResetId, setRecentlyResetId] = useState<string | null>(null);
 
   const { data: customerContainers = [], isLoading: loadingCustomer } = useQuery<CustomerContainer[]>({
     queryKey: ["/api/containers/customer"],
@@ -189,10 +194,10 @@ export default function ManageContainersScreen() {
       }
       
       closeModal();
-      Alert.alert("Success", "Container created successfully");
+      showToast("Container wurde erfolgreich erstellt", "success");
     } catch (err) {
       console.error("Failed to create container:", err);
-      Alert.alert("Error", "Failed to create container. Please try again.");
+      showToast("Fehler beim Erstellen des Containers", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -222,10 +227,10 @@ export default function ManageContainersScreen() {
       }
       
       closeModal();
-      Alert.alert("Success", "Container updated successfully");
+      showToast("Container wurde erfolgreich aktualisiert", "success");
     } catch (err) {
       console.error("Failed to update container:", err);
-      Alert.alert("Error", "Failed to update container. Please try again.");
+      showToast("Fehler beim Aktualisieren des Containers", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -252,10 +257,10 @@ export default function ManageContainersScreen() {
         setSelectedCustomerContainer({ ...selectedCustomerContainer, isActive: newStatus });
       }
       
-      Alert.alert("Success", `Container ${newStatus ? "activated" : "deactivated"} successfully`);
+      showToast(`Container wurde ${newStatus ? "aktiviert" : "deaktiviert"}`, "success");
     } catch (err) {
       console.error("Failed to toggle container status:", err);
-      Alert.alert("Error", "Failed to update container status. Please try again.");
+      showToast("Fehler beim Ändern des Container-Status", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -269,12 +274,12 @@ export default function ManageContainersScreen() {
     const newQRCode = generateQRCode(type as ContainerType, container.id);
     
     Alert.alert(
-      "Regenerate QR Code",
-      "This will create a new QR code for this container. The old QR code will no longer work. Continue?",
+      "QR-Code neu generieren",
+      "Dies erstellt einen neuen QR-Code für diesen Container. Der alte QR-Code funktioniert dann nicht mehr. Fortfahren?",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Abbrechen", style: "cancel" },
         {
-          text: "Regenerate",
+          text: "Neu generieren",
           style: "destructive",
           onPress: async () => {
             setIsSubmitting(true);
@@ -291,10 +296,10 @@ export default function ManageContainersScreen() {
                 setSelectedCustomerContainer({ ...selectedCustomerContainer, qrCode: newQRCode });
               }
               
-              Alert.alert("Success", "QR code regenerated successfully");
+              showToast("QR-Code wurde erfolgreich neu generiert", "success");
             } catch (err) {
               console.error("Failed to regenerate QR code:", err);
-              Alert.alert("Error", "Failed to regenerate QR code. Please try again.");
+              showToast("Fehler beim Generieren des QR-Codes", "error");
             } finally {
               setIsSubmitting(false);
             }
@@ -308,16 +313,17 @@ export default function ManageContainersScreen() {
     if (!selectedWarehouseContainer) return;
     
     Alert.alert(
-      "Reset Fill Level",
-      "This will mark the container as emptied and reset the fill level to 0 kg. Continue?",
+      "Füllstand zurücksetzen",
+      `Möchtest du den Container ${selectedWarehouseContainer.id} wirklich auf Null zurücksetzen?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Abbrechen", style: "cancel" },
         {
-          text: "Reset",
+          text: "Ja, zurücksetzen",
           onPress: async () => {
             setIsSubmitting(true);
+            const containerId = selectedWarehouseContainer.id;
             try {
-              await apiRequest("PATCH", `/api/containers/warehouse/${selectedWarehouseContainer.id}`, {
+              await apiRequest("PATCH", `/api/containers/warehouse/${containerId}`, {
                 currentAmount: 0,
                 lastEmptied: new Date().toISOString(),
               });
@@ -327,10 +333,16 @@ export default function ManageContainersScreen() {
                 currentAmount: 0,
                 lastEmptied: new Date(),
               });
-              Alert.alert("Success", "Fill level reset successfully");
+              setRecentlyResetId(containerId);
+              resetAnimationOpacity.value = withSequence(
+                withTiming(0.3, { duration: 150 }),
+                withTiming(1, { duration: 300 })
+              );
+              setTimeout(() => setRecentlyResetId(null), 1000);
+              showToast(`Container ${containerId} wurde erfolgreich geleert`, "success");
             } catch (err) {
               console.error("Failed to reset fill level:", err);
-              Alert.alert("Error", "Failed to reset fill level. Please try again.");
+              showToast("Fehler beim Zurücksetzen des Füllstands", "error");
             } finally {
               setIsSubmitting(false);
             }

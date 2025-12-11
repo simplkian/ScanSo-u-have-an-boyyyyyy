@@ -71,7 +71,7 @@ export function Button({
         return {
           backgroundColor: "transparent",
           borderWidth: 2,
-          borderColor: theme.primary,
+          borderColor: isDark ? theme.primaryLight : theme.primary,
           height: baseHeight,
         };
       case "tertiary":
@@ -95,10 +95,11 @@ export function Button({
   const getTextColor = (): string => {
     switch (variant) {
       case "primary":
+        return "#FFFFFF";
       case "danger":
         return "#FFFFFF";
       case "secondary":
-        return theme.primary;
+        return isDark ? theme.primaryLight : theme.primary;
       case "tertiary":
         return theme.text;
       default:

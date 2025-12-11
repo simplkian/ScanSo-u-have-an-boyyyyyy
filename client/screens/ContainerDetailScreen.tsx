@@ -8,8 +8,6 @@ import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 
-// react-native-maps requires native modules not available in Expo Go
-// Using fallback UI for all platforms to prevent TurboModule crashes
 let MapView: any = null;
 let Marker: any = null;
 import { ThemedText } from "@/components/ThemedText";
@@ -17,14 +15,16 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Colors, Spacing, BorderRadius, AnimationConfig } from "@/constants/theme";
+import { Spacing, BorderRadius, AnimationConfig } from "@/constants/theme";
 import { ContainersStackParamList } from "@/navigation/ContainersStackNavigator";
 import { CustomerContainer, WarehouseContainer, FillHistory } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/Button";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, WithSpringConfig } from "react-native-reanimated";
+import { useToast } from "@/components/Toast";
+import { useTheme } from "@/hooks/useTheme";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, withTiming, WithSpringConfig } from "react-native-reanimated";
 
 const springConfig: WithSpringConfig = {
   damping: AnimationConfig.spring.damping,
@@ -43,18 +43,29 @@ interface GlassPanelProps {
   children: React.ReactNode;
   style?: any;
   intensity?: number;
+  isDark?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
 }
 
-function GlassPanel({ children, style, intensity = 60 }: GlassPanelProps) {
+function GlassPanel({ children, style, intensity = 60, isDark = false, backgroundColor, borderColor }: GlassPanelProps) {
   if (Platform.OS === "ios") {
     return (
-      <BlurView intensity={intensity} tint="light" style={[styles.glassPanel, style]}>
+      <BlurView intensity={intensity} tint={isDark ? "dark" : "light"} style={[styles.glassPanel, style]}>
         {children}
       </BlurView>
     );
   }
   return (
-    <View style={[styles.glassPanel, styles.glassPanelFallback, style]}>
+    <View style={[
+      styles.glassPanel, 
+      { 
+        backgroundColor: backgroundColor || (isDark ? "rgba(30, 30, 30, 0.95)" : "rgba(255, 255, 255, 0.95)"),
+        borderWidth: 1,
+        borderColor: borderColor || (isDark ? "#374151" : "#E5E7EB"),
+      }, 
+      style
+    ]}>
       {children}
     </View>
   );
@@ -67,13 +78,16 @@ export default function ContainerDetailScreen() {
   const { containerId, type } = route.params;
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const { theme, isDark } = useTheme();
   
   const [isEmptying, setIsEmptying] = React.useState(false);
   const [showAllHistory, setShowAllHistory] = React.useState(false);
+  const { showToast } = useToast();
   
   const navButtonScale = useSharedValue(1);
   const shareButtonScale = useSharedValue(1);
   const viewAllScale = useSharedValue(1);
+  const emptyButtonScale = useSharedValue(1);
 
   const { data: container, isLoading } = useQuery<CustomerContainer | WarehouseContainer>({
     queryKey: [`/api/containers/${type}/${containerId}`],
@@ -84,20 +98,21 @@ export default function ContainerDetailScreen() {
     enabled: type === "warehouse",
   });
 
+  const germanMonths = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
   const formatDate = (date: string | Date | null) => {
-    if (!date) return "Never";
+    if (!date) return "Nie";
     const d = new Date(date);
-    return d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const day = d.getDate();
+    const month = germanMonths[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = d.getHours().toString().padStart(2, "0");
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    return `${day}. ${month} ${year}, ${hours}:${minutes}`;
   };
 
   const formatRelativeTime = (date: string | Date | null) => {
-    if (!date) return "Never";
+    if (!date) return "Nie";
     const d = new Date(date);
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
@@ -105,16 +120,19 @@ export default function ContainerDetailScreen() {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays === 0) {
+      if (diffMinutes < 60) return `vor ${diffMinutes} Min.`;
+      return `vor ${diffHours} Std.`;
+    }
+    if (diffDays === 1) return "Gestern";
+    if (diffDays < 7) return `vor ${diffDays} Tagen`;
     return formatDate(date);
   };
 
   const getFillColor = (percentage: number) => {
-    if (percentage >= 80) return Colors.light.fillHigh;
-    if (percentage >= 51) return Colors.light.fillMedium;
-    return Colors.light.fillLow;
+    if (percentage >= 80) return theme.fillHigh;
+    if (percentage >= 51) return theme.fillMedium;
+    return theme.fillLow;
   };
 
   const getFillStatus = (percentage: number): "critical" | "warning" | "success" => {
@@ -134,8 +152,8 @@ export default function ContainerDetailScreen() {
     const customerContainer = container as CustomerContainer;
     if (!customerContainer?.latitude || !customerContainer?.longitude) {
       Alert.alert(
-        "Navigation Unavailable",
-        "Location coordinates are not available for this container.",
+        "Navigation nicht verfügbar",
+        "Für diesen Container sind keine Standortkoordinaten verfügbar.",
         [{ text: "OK" }]
       );
       return;
@@ -154,21 +172,25 @@ export default function ContainerDetailScreen() {
     if (!customerContainer?.latitude || !customerContainer?.longitude) return;
     
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert("Share Location", `Container ${container?.id} at ${customerContainer.location}`);
+    Alert.alert("Standort teilen", `Container ${container?.id} bei ${customerContainer.location}`);
   };
 
   const handleMarkAsEmpty = async () => {
     if (!container || type !== "warehouse") return;
     
     Alert.alert(
-      "Mark Container Empty",
-      "This will reset the container fill level to 0 kg and record the emptying time. Continue?",
+      "Container leeren",
+      `Möchtest du den Füllstand von ${containerId} wirklich auf Null setzen?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Abbrechen", style: "cancel" },
         {
-          text: "Mark Empty",
+          text: "Ja, leeren",
           onPress: async () => {
             setIsEmptying(true);
+            emptyButtonScale.value = withSequence(
+              withTiming(0.95, { duration: 100 }),
+              withTiming(1, { duration: 200 })
+            );
             try {
               await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               await apiRequest("PATCH", `/api/containers/warehouse/${containerId}`, {
@@ -177,10 +199,10 @@ export default function ContainerDetailScreen() {
               });
               queryClient.invalidateQueries({ queryKey: [`/api/containers/${type}/${containerId}`] });
               queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
-              Alert.alert("Success", "Container marked as empty");
+              showToast(`Container ${containerId} wurde erfolgreich geleert`, "success");
             } catch (err) {
               console.error("Failed to mark container as empty:", err);
-              Alert.alert("Error", "Failed to mark container as empty. Please try again.");
+              showToast("Fehler beim Leeren des Containers", "error");
             } finally {
               setIsEmptying(false);
             }
@@ -189,6 +211,10 @@ export default function ContainerDetailScreen() {
       ]
     );
   };
+  
+  const emptyButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: emptyButtonScale.value }],
+  }));
 
   const handleToggleHistory = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -210,7 +236,7 @@ export default function ContainerDetailScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accent} />
+        <ActivityIndicator size="large" color={theme.accent} />
       </ThemedView>
     );
   }
@@ -219,8 +245,8 @@ export default function ContainerDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <View style={styles.errorState}>
-          <Feather name="alert-circle" size={48} color={Colors.light.error} />
-          <ThemedText type="h4">Container not found</ThemedText>
+          <Feather name="alert-circle" size={48} color={theme.error} />
+          <ThemedText type="h4">Container nicht gefunden</ThemedText>
         </View>
       </ThemedView>
     );
@@ -244,62 +270,62 @@ export default function ContainerDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <GlassPanel style={styles.headerCard}>
+        <GlassPanel style={styles.headerCard} isDark={isDark} borderColor={theme.cardBorder}>
           <View style={styles.headerTopRow}>
-            <View style={styles.containerIconWrapper}>
+            <View style={[styles.containerIconWrapper, { backgroundColor: `${theme.accent}15` }]}>
               <Feather 
                 name={isWarehouse ? "inbox" : "package"} 
                 size={32} 
-                color={Colors.light.accent} 
+                color={theme.accent} 
               />
             </View>
             <View style={styles.headerContent}>
-              <ThemedText type="h3" style={styles.containerId}>
+              <ThemedText type="h3" style={[styles.containerId, { color: theme.primary }]}>
                 {container.id}
               </ThemedText>
-              <ThemedText type="body" style={styles.location}>
+              <ThemedText type="body" style={[styles.location, { color: theme.textSecondary }]}>
                 {container.location}
               </ThemedText>
             </View>
             <View style={styles.statusBadgeWrapper}>
               <StatusBadge 
                 status={isWarehouse ? getFillStatus(fillPercentage) : (daysSinceEmptied && daysSinceEmptied > 30 ? "warning" : "success")} 
-                label={isWarehouse ? `${fillPercentage.toFixed(0)}%` : (daysSinceEmptied ? `${daysSinceEmptied}d` : "OK")}
+                label={isWarehouse ? `${fillPercentage.toFixed(0)}%` : (daysSinceEmptied ? `${daysSinceEmptied}T` : "OK")}
               />
             </View>
           </View>
 
           <View style={styles.tagRow}>
-            <View style={styles.materialBadge}>
-              <Feather name="tag" size={14} color={Colors.light.primary} />
-              <ThemedText type="small" style={styles.materialText}>
+            <View style={[styles.materialBadge, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="tag" size={14} color={theme.primary} />
+              <ThemedText type="small" style={[styles.materialText, { color: theme.primary }]}>
                 {container.materialType}
               </ThemedText>
             </View>
-            <View style={styles.typeBadge}>
-              <Feather name={isWarehouse ? "home" : "truck"} size={14} color={Colors.light.accent} />
-              <ThemedText type="small" style={styles.typeText}>
-                {isWarehouse ? "Warehouse" : "Customer"}
+            <View style={[styles.typeBadge, { backgroundColor: `${theme.accent}15` }]}>
+              <Feather name={isWarehouse ? "home" : "truck"} size={14} color={theme.accent} />
+              <ThemedText type="small" style={[styles.typeText, { color: theme.accent }]}>
+                {isWarehouse ? "Lager" : "Kunde"}
               </ThemedText>
             </View>
           </View>
         </GlassPanel>
 
         {isWarehouse ? (
-          <GlassPanel style={styles.fillCard}>
+          <GlassPanel style={styles.fillCard} isDark={isDark} borderColor={theme.cardBorder}>
             <View style={styles.sectionHeader}>
-              <Feather name="bar-chart-2" size={20} color={Colors.light.primary} />
-              <ThemedText type="h4" style={styles.sectionTitle}>
-                Fill Level
+              <Feather name="bar-chart-2" size={20} color={theme.primary} />
+              <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
+                Füllstand
               </ThemedText>
             </View>
             
             <View style={styles.fillGauge}>
-              <View style={styles.gaugeCircle}>
+              <View style={[styles.gaugeCircle, { backgroundColor: theme.backgroundSecondary }]}>
                 <ThemedText type="h1" style={[styles.gaugeValue, { color: getFillColor(fillPercentage) }]}>
                   {fillPercentage.toFixed(0)}
                 </ThemedText>
-                <ThemedText type="caption" style={styles.gaugeUnit}>%</ThemedText>
+                <ThemedText type="caption" style={[styles.gaugeUnit, { color: theme.textSecondary }]}>%</ThemedText>
               </View>
             </View>
 
@@ -311,79 +337,81 @@ export default function ContainerDetailScreen() {
 
             <View style={styles.fillMetrics}>
               <View style={styles.metricItem}>
-                <ThemedText type="h4" style={styles.metricValue}>
+                <ThemedText type="h4" style={[styles.metricValue, { color: theme.text }]}>
                   {warehouseContainer.currentAmount.toFixed(0)}
                 </ThemedText>
-                <ThemedText type="caption" style={styles.metricLabel}>kg Used</ThemedText>
+                <ThemedText type="caption" style={[styles.metricLabel, { color: theme.textSecondary }]}>kg verwendet</ThemedText>
               </View>
-              <View style={styles.metricDivider} />
+              <View style={[styles.metricDivider, { backgroundColor: theme.border }]} />
               <View style={styles.metricItem}>
-                <ThemedText type="h4" style={styles.metricValue}>
+                <ThemedText type="h4" style={[styles.metricValue, { color: theme.text }]}>
                   {warehouseContainer.maxCapacity}
                 </ThemedText>
-                <ThemedText type="caption" style={styles.metricLabel}>kg Capacity</ThemedText>
+                <ThemedText type="caption" style={[styles.metricLabel, { color: theme.textSecondary }]}>kg Kapazität</ThemedText>
               </View>
-              <View style={styles.metricDivider} />
+              <View style={[styles.metricDivider, { backgroundColor: theme.border }]} />
               <View style={styles.metricItem}>
-                <ThemedText type="h4" style={styles.metricValue}>
+                <ThemedText type="h4" style={[styles.metricValue, { color: theme.text }]}>
                   {(warehouseContainer.maxCapacity - warehouseContainer.currentAmount).toFixed(0)}
                 </ThemedText>
-                <ThemedText type="caption" style={styles.metricLabel}>kg Available</ThemedText>
+                <ThemedText type="caption" style={[styles.metricLabel, { color: theme.textSecondary }]}>kg verfügbar</ThemedText>
               </View>
             </View>
 
             {fillPercentage >= 80 ? (
-              <View style={styles.alertBanner}>
-                <Feather name="alert-triangle" size={18} color="#FFFFFF" />
-                <ThemedText type="small" style={styles.alertText}>
-                  Container almost full - schedule emptying soon
+              <View style={[styles.alertBanner, { backgroundColor: theme.fillHigh }]}>
+                <Feather name="alert-triangle" size={18} color={theme.buttonText} />
+                <ThemedText type="small" style={[styles.alertText, { color: theme.buttonText }]}>
+                  Container fast voll - Leerung bald einplanen
                 </ThemedText>
               </View>
             ) : null}
 
             {isAdmin ? (
-              <Button
-                onPress={handleMarkAsEmpty}
-                disabled={isEmptying || warehouseContainer.currentAmount === 0}
-                style={styles.markEmptyButton}
-              >
-                <View style={styles.markEmptyContent}>
-                  <Feather name="refresh-ccw" size={18} color="#FFFFFF" />
-                  <ThemedText type="body" style={styles.markEmptyText}>
-                    {isEmptying ? "Marking Empty..." : "Mark Container Empty"}
-                  </ThemedText>
-                </View>
-              </Button>
+              <Animated.View style={emptyButtonAnimatedStyle}>
+                <Button
+                  onPress={handleMarkAsEmpty}
+                  disabled={isEmptying || warehouseContainer.currentAmount === 0}
+                  style={styles.markEmptyButton}
+                >
+                  <View style={styles.markEmptyContent}>
+                    <Feather name="refresh-ccw" size={18} color={theme.buttonText} />
+                    <ThemedText type="body" style={[styles.markEmptyText, { color: theme.buttonText }]}>
+                      {isEmptying ? "Wird geleert..." : "Container leeren"}
+                    </ThemedText>
+                  </View>
+                </Button>
+              </Animated.View>
             ) : null}
           </GlassPanel>
         ) : (
           <>
-            <GlassPanel style={styles.infoCard}>
+            <GlassPanel style={styles.infoCard} isDark={isDark} borderColor={theme.cardBorder}>
               <View style={styles.sectionHeader}>
-                <Feather name="info" size={20} color={Colors.light.primary} />
-                <ThemedText type="h4" style={styles.sectionTitle}>
+                <Feather name="info" size={20} color={theme.primary} />
+                <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
                   Container Details
                 </ThemedText>
               </View>
               
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <View style={styles.infoIconWrapper}>
-                    <Feather name="briefcase" size={18} color={Colors.light.accent} />
+                  <View style={[styles.infoIconWrapper, { backgroundColor: `${theme.accent}10` }]}>
+                    <Feather name="briefcase" size={18} color={theme.accent} />
                   </View>
                   <View style={styles.infoContent}>
-                    <ThemedText type="caption" style={styles.infoLabel}>Customer</ThemedText>
-                    <ThemedText type="body" style={styles.infoValue}>{customerContainer.customerName}</ThemedText>
+                    <ThemedText type="caption" style={[styles.infoLabel, { color: theme.textTertiary }]}>Kunde</ThemedText>
+                    <ThemedText type="body" style={[styles.infoValue, { color: theme.text }]}>{customerContainer.customerName}</ThemedText>
                   </View>
                 </View>
 
                 <View style={styles.infoItem}>
-                  <View style={styles.infoIconWrapper}>
-                    <Feather name="calendar" size={18} color={Colors.light.accent} />
+                  <View style={[styles.infoIconWrapper, { backgroundColor: `${theme.accent}10` }]}>
+                    <Feather name="calendar" size={18} color={theme.accent} />
                   </View>
                   <View style={styles.infoContent}>
-                    <ThemedText type="caption" style={styles.infoLabel}>Last Emptied</ThemedText>
-                    <ThemedText type="body" style={styles.infoValue}>
+                    <ThemedText type="caption" style={[styles.infoLabel, { color: theme.textTertiary }]}>Zuletzt geleert</ThemedText>
+                    <ThemedText type="body" style={[styles.infoValue, { color: theme.text }]}>
                       {formatDate(customerContainer.lastEmptied)}
                     </ThemedText>
                     {daysSinceEmptied !== null ? (
@@ -391,24 +419,24 @@ export default function ContainerDetailScreen() {
                         type="caption" 
                         style={[
                           styles.daysBadge, 
-                          { color: daysSinceEmptied > 30 ? Colors.light.fillHigh : Colors.light.fillLow }
+                          { color: daysSinceEmptied > 30 ? theme.fillHigh : theme.fillLow }
                         ]}
                       >
-                        {daysSinceEmptied} days ago
+                        vor {daysSinceEmptied} Tagen
                       </ThemedText>
                     ) : null}
                   </View>
                 </View>
 
                 <View style={styles.infoItem}>
-                  <View style={styles.infoIconWrapper}>
-                    <Feather name="map-pin" size={18} color={Colors.light.accent} />
+                  <View style={[styles.infoIconWrapper, { backgroundColor: `${theme.accent}10` }]}>
+                    <Feather name="map-pin" size={18} color={theme.accent} />
                   </View>
                   <View style={styles.infoContent}>
-                    <ThemedText type="caption" style={styles.infoLabel}>Location</ThemedText>
-                    <ThemedText type="body" style={styles.infoValue}>{customerContainer.location}</ThemedText>
+                    <ThemedText type="caption" style={[styles.infoLabel, { color: theme.textTertiary }]}>Standort</ThemedText>
+                    <ThemedText type="body" style={[styles.infoValue, { color: theme.text }]}>{customerContainer.location}</ThemedText>
                     {hasCoordinates ? (
-                      <ThemedText type="caption" style={styles.coordsText}>
+                      <ThemedText type="caption" style={[styles.coordsText, { color: theme.textTertiary }]}>
                         {customerContainer.latitude?.toFixed(4)}, {customerContainer.longitude?.toFixed(4)}
                       </ThemedText>
                     ) : null}
@@ -418,11 +446,11 @@ export default function ContainerDetailScreen() {
             </GlassPanel>
 
             {hasCoordinates ? (
-              <GlassPanel style={styles.mapCard}>
+              <GlassPanel style={styles.mapCard} isDark={isDark} borderColor={theme.cardBorder}>
                 <View style={styles.sectionHeader}>
-                  <Feather name="map" size={20} color={Colors.light.primary} />
-                  <ThemedText type="h4" style={styles.sectionTitle}>
-                    Location
+                  <Feather name="map" size={20} color={theme.primary} />
+                  <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
+                    Standort
                   </ThemedText>
                 </View>
                 
@@ -453,13 +481,13 @@ export default function ContainerDetailScreen() {
                       ) : null}
                     </MapView>
                   ) : (
-                    <View style={styles.mapFallback}>
-                      <Feather name="map-pin" size={40} color={Colors.light.accent} />
-                      <ThemedText type="body" style={styles.mapFallbackText}>
+                    <View style={[styles.mapFallback, { backgroundColor: theme.backgroundSecondary }]}>
+                      <Feather name="map-pin" size={40} color={theme.accent} />
+                      <ThemedText type="body" style={[styles.mapFallbackText, { color: theme.text }]}>
                         {customerContainer.latitude?.toFixed(4)}, {customerContainer.longitude?.toFixed(4)}
                       </ThemedText>
-                      <ThemedText type="caption" style={styles.mapFallbackHint}>
-                        Run in Expo Go to view map
+                      <ThemedText type="caption" style={[styles.mapFallbackHint, { color: theme.textSecondary }]}>
+                        App in Expo Go öffnen um Karte anzuzeigen
                       </ThemedText>
                     </View>
                   )}
@@ -467,25 +495,25 @@ export default function ContainerDetailScreen() {
 
                 <View style={styles.mapActions}>
                   <AnimatedPressable 
-                    style={[styles.mapActionButton, navAnimatedStyle]} 
+                    style={[styles.mapActionButton, { backgroundColor: theme.accent }, navAnimatedStyle]} 
                     onPress={handleNavigation}
                     onPressIn={() => { navButtonScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
                     onPressOut={() => { navButtonScale.value = withSpring(1, springConfig); }}
                   >
-                    <Feather name="navigation" size={18} color={Colors.light.textOnAccent} />
-                    <ThemedText type="small" style={styles.mapActionText}>
-                      Navigate
+                    <Feather name="navigation" size={18} color={theme.textOnAccent} />
+                    <ThemedText type="small" style={[styles.mapActionText, { color: theme.textOnAccent }]}>
+                      Navigation
                     </ThemedText>
                   </AnimatedPressable>
                   <AnimatedPressable 
-                    style={[styles.mapActionButton, styles.mapActionSecondary, shareAnimatedStyle]} 
+                    style={[styles.mapActionButton, { backgroundColor: theme.backgroundSecondary }, shareAnimatedStyle]} 
                     onPress={handleShareLocation}
                     onPressIn={() => { shareButtonScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
                     onPressOut={() => { shareButtonScale.value = withSpring(1, springConfig); }}
                   >
-                    <Feather name="share-2" size={18} color={Colors.light.primary} />
-                    <ThemedText type="small" style={styles.mapActionTextSecondary}>
-                      Share
+                    <Feather name="share-2" size={18} color={theme.primary} />
+                    <ThemedText type="small" style={[styles.mapActionTextSecondary, { color: theme.primary }]}>
+                      Teilen
                     </ThemedText>
                   </AnimatedPressable>
                 </View>
@@ -494,20 +522,20 @@ export default function ContainerDetailScreen() {
           </>
         )}
 
-        <GlassPanel style={styles.qrCard}>
+        <GlassPanel style={styles.qrCard} isDark={isDark} borderColor={theme.cardBorder}>
           <View style={styles.sectionHeader}>
-            <Feather name="maximize" size={20} color={Colors.light.primary} />
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              QR Code
+            <Feather name="maximize" size={20} color={theme.primary} />
+            <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
+              QR-Code
             </ThemedText>
           </View>
           <View style={styles.qrContainer}>
-            <View style={styles.qrPlaceholder}>
-              <Feather name="grid" size={64} color={Colors.light.textTertiary} />
+            <View style={[styles.qrPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="grid" size={64} color={theme.textTertiary} />
             </View>
             <View style={styles.qrCodeWrapper}>
-              <ThemedText type="caption" style={styles.qrLabel}>Code</ThemedText>
-              <ThemedText type="body" style={styles.qrCode}>
+              <ThemedText type="caption" style={[styles.qrLabel, { color: theme.textTertiary }]}>Code</ThemedText>
+              <ThemedText type="body" style={[styles.qrCode, { color: theme.text }]}>
                 {container.qrCode}
               </ThemedText>
             </View>
@@ -515,11 +543,11 @@ export default function ContainerDetailScreen() {
         </GlassPanel>
 
         {isWarehouse && fillHistory.length > 0 ? (
-          <GlassPanel style={styles.historyCard}>
+          <GlassPanel style={styles.historyCard} isDark={isDark} borderColor={theme.cardBorder}>
             <View style={styles.sectionHeader}>
-              <Feather name="clock" size={20} color={Colors.light.primary} />
-              <ThemedText type="h4" style={styles.sectionTitle}>
-                Activity Timeline
+              <Feather name="clock" size={20} color={theme.primary} />
+              <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
+                Aktivitätsverlauf
               </ThemedText>
             </View>
             
@@ -529,25 +557,26 @@ export default function ContainerDetailScreen() {
                   <View style={styles.timelineLeft}>
                     <View style={[
                       styles.timelineDot, 
-                      index === 0 ? styles.timelineDotActive : null
+                      { backgroundColor: theme.textTertiary, borderColor: theme.backgroundSecondary },
+                      index === 0 ? { backgroundColor: theme.accent, borderColor: `${theme.accent}30` } : null
                     ]} />
                     {index < (showAllHistory ? fillHistory.length - 1 : Math.min(fillHistory.length - 1, 7)) ? (
-                      <View style={styles.timelineLine} />
+                      <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
                     ) : null}
                   </View>
                   <View style={styles.timelineContent}>
                     <View style={styles.timelineHeader}>
-                      <View style={styles.amountBadge}>
-                        <Feather name="plus" size={12} color={Colors.light.fillLow} />
-                        <ThemedText type="small" style={styles.amountText}>
+                      <View style={[styles.amountBadge, { backgroundColor: `${theme.fillLow}15` }]}>
+                        <Feather name="plus" size={12} color={theme.fillLow} />
+                        <ThemedText type="small" style={[styles.amountText, { color: theme.fillLow }]}>
                           {entry.amountAdded.toFixed(0)} kg
                         </ThemedText>
                       </View>
-                      <ThemedText type="caption" style={styles.timelineTime}>
+                      <ThemedText type="caption" style={[styles.timelineTime, { color: theme.textSecondary }]}>
                         {formatRelativeTime(entry.createdAt)}
                       </ThemedText>
                     </View>
-                    <ThemedText type="caption" style={styles.timelineDate}>
+                    <ThemedText type="caption" style={[styles.timelineDate, { color: theme.textTertiary }]}>
                       {formatDate(entry.createdAt)}
                     </ThemedText>
                   </View>
@@ -557,18 +586,18 @@ export default function ContainerDetailScreen() {
 
             {fillHistory.length > 8 ? (
               <AnimatedPressable 
-                style={[styles.viewAllButton, viewAllAnimatedStyle]}
+                style={[styles.viewAllButton, { borderTopColor: theme.border }, viewAllAnimatedStyle]}
                 onPress={handleToggleHistory}
                 onPressIn={() => { viewAllScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
                 onPressOut={() => { viewAllScale.value = withSpring(1, springConfig); }}
               >
-                <ThemedText type="small" style={styles.viewAllText}>
-                  {showAllHistory ? "Show less" : `View all ${fillHistory.length} entries`}
+                <ThemedText type="small" style={[styles.viewAllText, { color: theme.accent }]}>
+                  {showAllHistory ? "Weniger anzeigen" : `Alle ${fillHistory.length} Einträge anzeigen`}
                 </ThemedText>
                 <Feather 
                   name={showAllHistory ? "chevron-up" : "chevron-right"} 
                   size={16} 
-                  color={Colors.light.accent} 
+                  color={theme.accent} 
                 />
               </AnimatedPressable>
             ) : null}
@@ -576,10 +605,10 @@ export default function ContainerDetailScreen() {
         ) : null}
 
         {!isWarehouse && !hasCoordinates ? (
-          <Pressable style={styles.actionButton} onPress={handleNavigation}>
-            <Feather name="navigation" size={20} color={Colors.light.textOnAccent} />
-            <ThemedText type="body" style={styles.actionButtonText}>
-              Open in Maps
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.accent }]} onPress={handleNavigation}>
+            <Feather name="navigation" size={20} color={theme.textOnAccent} />
+            <ThemedText type="body" style={[styles.actionButtonText, { color: theme.textOnAccent }]}>
+              In Karten öffnen
             </ThemedText>
           </Pressable>
         ) : null}
@@ -591,7 +620,6 @@ export default function ContainerDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   loadingContainer: {
     flex: 1,
@@ -613,11 +641,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: Spacing.lg,
   },
-  glassPanelFallback: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderWidth: 1,
-    borderColor: Colors.light.cardBorder,
-  },
   headerCard: {},
   headerTopRow: {
     flexDirection: "row",
@@ -629,7 +652,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: BorderRadius.md,
-    backgroundColor: `${Colors.light.accent}15`,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -637,11 +659,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   containerId: {
-    color: Colors.light.primary,
     fontWeight: "700",
   },
   location: {
-    color: Colors.light.textSecondary,
     marginTop: 2,
   },
   statusBadgeWrapper: {},
@@ -653,26 +673,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.light.backgroundSecondary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
   materialText: {
-    color: Colors.light.primary,
     fontWeight: "500",
   },
   typeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: `${Colors.light.accent}15`,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
   typeText: {
-    color: Colors.light.accent,
     fontWeight: "500",
   },
   sectionHeader: {
@@ -681,9 +697,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
   },
-  sectionTitle: {
-    color: Colors.light.primary,
-  },
+  sectionTitle: {},
   fillCard: {},
   fillGauge: {
     alignItems: "center",
@@ -693,7 +707,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.light.backgroundSecondary,
     justifyContent: "center",
     alignItems: "center",
     flexDirection: "row",
@@ -702,7 +715,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   gaugeUnit: {
-    color: Colors.light.textSecondary,
     marginLeft: 2,
     marginTop: 8,
   },
@@ -721,27 +733,22 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1,
     height: 40,
-    backgroundColor: Colors.light.border,
   },
   metricValue: {
-    color: Colors.light.text,
     fontWeight: "600",
   },
   metricLabel: {
-    color: Colors.light.textSecondary,
     marginTop: 4,
   },
   alertBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.light.fillHigh,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginTop: Spacing.lg,
   },
   alertText: {
-    color: "#FFFFFF",
     flex: 1,
     fontWeight: "500",
   },
@@ -757,7 +764,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.sm,
-    backgroundColor: `${Colors.light.accent}10`,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -766,13 +772,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   infoLabel: {
-    color: Colors.light.textTertiary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   infoValue: {
-    color: Colors.light.text,
     fontWeight: "500",
   },
   daysBadge: {
@@ -780,7 +784,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   coordsText: {
-    color: Colors.light.textTertiary,
     marginTop: 4,
     fontFamily: "monospace",
   },
@@ -798,16 +801,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     gap: Spacing.sm,
   },
   mapFallbackText: {
-    color: Colors.light.text,
     fontWeight: "600",
   },
-  mapFallbackHint: {
-    color: Colors.light.textSecondary,
-  },
+  mapFallbackHint: {},
   mapActions: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -818,19 +817,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.light.accent,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.sm,
   },
-  mapActionSecondary: {
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
   mapActionText: {
-    color: Colors.light.textOnAccent,
     fontWeight: "600",
   },
   mapActionTextSecondary: {
-    color: Colors.light.primary,
     fontWeight: "600",
   },
   qrCard: {},
@@ -842,7 +835,6 @@ const styles = StyleSheet.create({
   qrPlaceholder: {
     width: 100,
     height: 100,
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
@@ -851,13 +843,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   qrLabel: {
-    color: Colors.light.textTertiary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   qrCode: {
-    color: Colors.light.text,
     fontFamily: "monospace",
     fontWeight: "600",
   },
@@ -877,18 +867,11 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.light.textTertiary,
     borderWidth: 2,
-    borderColor: Colors.light.backgroundSecondary,
-  },
-  timelineDotActive: {
-    backgroundColor: Colors.light.accent,
-    borderColor: `${Colors.light.accent}30`,
   },
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: Colors.light.border,
     marginVertical: 4,
   },
   timelineContent: {
@@ -906,21 +889,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: `${Colors.light.fillLow}15`,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
   },
   amountText: {
-    color: Colors.light.fillLow,
     fontWeight: "600",
   },
-  timelineTime: {
-    color: Colors.light.textSecondary,
-  },
-  timelineDate: {
-    color: Colors.light.textTertiary,
-  },
+  timelineTime: {},
+  timelineDate: {},
   viewAllButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -929,10 +906,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
   },
   viewAllText: {
-    color: Colors.light.accent,
     fontWeight: "600",
   },
   actionButton: {
@@ -940,12 +915,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.light.accent,
     paddingVertical: Spacing.lg,
     borderRadius: BorderRadius.md,
   },
   actionButtonText: {
-    color: Colors.light.textOnAccent,
     fontWeight: "600",
   },
   markEmptyButton: {
@@ -957,7 +930,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   markEmptyText: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
 });
