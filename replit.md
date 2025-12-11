@@ -28,12 +28,23 @@ Preferred communication style: Simple, everyday language.
 ### Data Layer
 - **Database Schema**: Defined in `shared/schema.ts` using Drizzle's PostgreSQL table definitions
 - **Core Entities**:
-  - `users` - Drivers and admins with role-based access
-  - `customerContainers` - Containers at customer locations
+  - `users` - Drivers and admins with role-based access (UserRole enum: ADMIN, DRIVER)
+  - `customers` - Customer records with contact information
+  - `customerContainers` - Containers at customer locations (linked to customers)
   - `warehouseContainers` - Inventory containers with capacity tracking
-  - `tasks` - Pickup/delivery assignments
-  - `activityLogs` - Audit trail for actions
+  - `tasks` - Pickup/delivery assignments with 8-state lifecycle
+  - `scanEvents` - Comprehensive QR scan tracking with context and location
+  - `activityLogs` - Audit trail with type enum and message field
   - `fillHistory` - Historical fill-level data for warehouse containers
+- **Task Status Lifecycle**: PLANNED → ASSIGNED → ACCEPTED → PICKED_UP → IN_TRANSIT → DELIVERED → COMPLETED (or CANCELLED)
+  - Individual timestamps for each lifecycle state (assignedAt, acceptedAt, pickedUpAt, inTransitAt, deliveredAt, completedAt, cancelledAt)
+  - Status transition validation in service layer
+- **Enums**:
+  - `TaskStatus`: PLANNED, ASSIGNED, ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERED, COMPLETED, CANCELLED
+  - `ScanContext`: INFO, TASK_ACCEPT_AT_CUSTOMER, TASK_DELIVERY, WAREHOUSE_INVENTORY, MANUAL_SCAN
+  - `ActivityLogType`: TASK_CREATED, TASK_ASSIGNED, TASK_ACCEPTED, TASK_PICKED_UP, TASK_IN_TRANSIT, TASK_DELIVERED, TASK_COMPLETED, TASK_CANCELLED, CONTAINER_SCAN, USER_LOGIN, USER_LOGOUT, SYSTEM_EVENT
+  - `UserRole`: ADMIN, DRIVER
+- **German Labels**: All enums export German label maps (TASK_STATUS_LABELS, SCAN_CONTEXT_LABELS, ACTIVITY_LOG_TYPE_LABELS) for UI consistency
 - **Validation**: Zod schemas generated from Drizzle schemas via `drizzle-zod`
 
 ### Authentication & Authorization
