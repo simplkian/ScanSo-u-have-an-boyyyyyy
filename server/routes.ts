@@ -282,22 +282,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/containers/customer", async (req, res) => {
     try {
-      const container = await storage.createCustomerContainer(req.body);
+      const { id, ...rest } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ error: "Container ID is required" });
+      }
+      
+      // Generate stable QR code based on container type and ID (never changes)
+      const stableQrCode = `customer-${id}`;
+      
+      const container = await storage.createCustomerContainer({
+        id,
+        ...rest,
+        qrCode: stableQrCode, // Always use stable QR code
+      });
       res.status(201).json(container);
     } catch (error) {
+      console.error("Error creating customer container:", error);
       res.status(500).json({ error: "Failed to create container" });
     }
   });
 
   app.patch("/api/containers/customer/:id", async (req, res) => {
     try {
-      const container = await storage.updateCustomerContainer(req.params.id, req.body);
+      // IMPORTANT: Never allow qrCode to be changed via regular update
+      // QR codes must remain stable - use regenerate endpoint for explicit changes
+      const { qrCode, ...updateData } = req.body;
+      
+      const container = await storage.updateCustomerContainer(req.params.id, updateData);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
       res.json(container);
     } catch (error) {
       res.status(500).json({ error: "Failed to update container" });
+    }
+  });
+
+  // Admin-only: Regenerate QR code for customer container
+  app.post("/api/containers/customer/:id/regenerate-qr", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      const existingContainer = await storage.getCustomerContainer(req.params.id);
+      if (!existingContainer) {
+        return res.status(404).json({ error: "Container not found" });
+      }
+
+      const oldQrCode = existingContainer.qrCode;
+      // Generate new stable QR code with timestamp suffix for uniqueness
+      const newQrCode = `customer-${req.params.id}-${Date.now()}`;
+      
+      const container = await storage.updateCustomerContainer(req.params.id, {
+        qrCode: newQrCode,
+      });
+
+      if (!container) {
+        return res.status(500).json({ error: "Failed to regenerate QR code" });
+      }
+
+      // Log this significant action
+      await storage.createActivityLog({
+        type: "SYSTEM_EVENT",
+        action: "SYSTEM_EVENT",
+        message: `QR-Code für Container ${req.params.id} wurde neu generiert. Bitte neuen Code ausdrucken und am Container anbringen.`,
+        userId: userId || null,
+        taskId: null,
+        containerId: req.params.id,
+        scanEventId: null,
+        location: null,
+        timestamp: new Date(),
+        details: `Alter QR-Code: ${oldQrCode}`,
+        metadata: { oldQrCode, newQrCode, action: "QR_CODE_REGENERATED" },
+      });
+
+      res.json(container);
+    } catch (error) {
+      console.error("Error regenerating QR code:", error);
+      res.status(500).json({ error: "Failed to regenerate QR code" });
     }
   });
 
@@ -344,16 +406,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/containers/warehouse", async (req, res) => {
     try {
-      const container = await storage.createWarehouseContainer(req.body);
+      const { id, ...rest } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ error: "Container ID is required" });
+      }
+      
+      // Generate stable QR code based on container type and ID (never changes)
+      const stableQrCode = `warehouse-${id}`;
+      
+      const container = await storage.createWarehouseContainer({
+        id,
+        ...rest,
+        qrCode: stableQrCode, // Always use stable QR code
+      });
       res.status(201).json(container);
     } catch (error) {
+      console.error("Error creating warehouse container:", error);
       res.status(500).json({ error: "Failed to create container" });
     }
   });
 
   app.patch("/api/containers/warehouse/:id", async (req, res) => {
     try {
-      const container = await storage.updateWarehouseContainer(req.params.id, req.body);
+      // IMPORTANT: Never allow qrCode to be changed via regular update
+      // QR codes must remain stable - use regenerate endpoint for explicit changes
+      const { qrCode, ...updateData } = req.body;
+      
+      const container = await storage.updateWarehouseContainer(req.params.id, updateData);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -361,6 +441,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating warehouse container:", error);
       res.status(500).json({ error: "Failed to update container", details: String(error) });
+    }
+  });
+
+  // Admin-only: Regenerate QR code for warehouse container
+  app.post("/api/containers/warehouse/:id/regenerate-qr", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      const existingContainer = await storage.getWarehouseContainer(req.params.id);
+      if (!existingContainer) {
+        return res.status(404).json({ error: "Container not found" });
+      }
+
+      const oldQrCode = existingContainer.qrCode;
+      // Generate new stable QR code with timestamp suffix for uniqueness
+      const newQrCode = `warehouse-${req.params.id}-${Date.now()}`;
+      
+      const container = await storage.updateWarehouseContainer(req.params.id, {
+        qrCode: newQrCode,
+      });
+
+      if (!container) {
+        return res.status(500).json({ error: "Failed to regenerate QR code" });
+      }
+
+      // Log this significant action
+      await storage.createActivityLog({
+        type: "SYSTEM_EVENT",
+        action: "SYSTEM_EVENT",
+        message: `QR-Code für Container ${req.params.id} wurde neu generiert. Bitte neuen Code ausdrucken und am Container anbringen.`,
+        userId: userId || null,
+        taskId: null,
+        containerId: req.params.id,
+        scanEventId: null,
+        location: null,
+        timestamp: new Date(),
+        details: `Alter QR-Code: ${oldQrCode}`,
+        metadata: { oldQrCode, newQrCode, action: "QR_CODE_REGENERATED" },
+      });
+
+      res.json(container);
+    } catch (error) {
+      console.error("Error regenerating QR code:", error);
+      res.status(500).json({ error: "Failed to regenerate QR code" });
     }
   });
 
@@ -384,6 +508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "CONTAINER_STATUS_CHANGED",
+        action: "CONTAINER_STATUS_CHANGED",
         message: `Container ${req.params.id} wurde geleert (${previousAmount} ${existingContainer.quantityUnit} entfernt)`,
         userId: userId || null,
         taskId: null,
@@ -453,6 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.createActivityLog({
         type: "TASK_CREATED",
+        action: "TASK_CREATED",
         message: `Auftrag erstellt für Container ${task.containerID}`,
         userId: req.body.createdBy || null,
         taskId: task.id,
@@ -501,6 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "TASK_ASSIGNED",
+        action: "TASK_ASSIGNED",
         message: `Auftrag ${task.id} wurde Fahrer ${driverName} zugewiesen`,
         userId: assignedBy || null,
         taskId: task.id,
@@ -556,6 +683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "TASK_ACCEPTED",
+        action: "TASK_ACCEPTED",
         message: `Fahrer ${driverName} hat Auftrag ${task.id} beim Kunden angenommen`,
         userId,
         taskId: task.id,
@@ -622,6 +750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "TASK_DELIVERED",
+        action: "TASK_DELIVERED",
         message: `Container ${task.containerID} wurde im Lager abgeliefert`,
         userId,
         taskId: task.id,
@@ -657,6 +786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "TASK_COMPLETED",
+        action: "TASK_COMPLETED",
         message: `Auftrag ${task.id} abgeschlossen, ${amount} kg erfasst`,
         userId,
         taskId: task.id,
@@ -694,6 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createActivityLog({
         type: "TASK_CANCELLED",
+        action: "TASK_CANCELLED",
         message: `Auftrag ${task.id} wurde storniert: ${reason || 'Kein Grund angegeben'}`,
         userId,
         taskId: task.id,
@@ -769,6 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const logType = locationType === "WAREHOUSE" ? "CONTAINER_SCANNED_AT_WAREHOUSE" : "CONTAINER_SCANNED_AT_CUSTOMER";
       await storage.createActivityLog({
         type: logType,
+        action: logType,
         message: `Container ${containerId} wurde gescannt (${scanContext})`,
         userId,
         taskId: taskId || null,

@@ -71,9 +71,8 @@ export default function ManageContainersScreen() {
 
   const isLoading = activeTab === "customer" ? loadingCustomer : loadingWarehouse;
 
-  const generateQRCode = (type: ContainerType, id: string): string => {
-    return `${type}-${id}-${Date.now()}`;
-  };
+  // QR codes are now generated server-side and remain stable
+  // No frontend QR code generation - backend handles it
 
   const validateForm = (): boolean => {
     const errors: Partial<ContainerFormData> = {};
@@ -166,8 +165,7 @@ export default function ManageContainersScreen() {
     
     setIsSubmitting(true);
     try {
-      const qrCode = generateQRCode(activeTab, formData.id);
-      
+      // QR code is generated server-side for stability
       if (activeTab === "warehouse") {
         await apiRequest("POST", "/api/containers/warehouse", {
           id: formData.id.trim(),
@@ -175,7 +173,6 @@ export default function ManageContainersScreen() {
           materialType: formData.materialType.trim(),
           maxCapacity: parseFloat(formData.maxCapacity),
           currentAmount: 0,
-          qrCode,
           isActive: true,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
@@ -187,7 +184,6 @@ export default function ManageContainersScreen() {
           materialType: formData.materialType.trim(),
           latitude: formData.latitude ? parseFloat(formData.latitude) : null,
           longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-          qrCode,
           isActive: true,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/containers/customer"] });
@@ -271,32 +267,36 @@ export default function ManageContainersScreen() {
     if (!container) return;
     
     const type = selectedWarehouseContainer ? "warehouse" : "customer";
-    const newQRCode = generateQRCode(type as ContainerType, container.id);
     
     Alert.alert(
       "QR-Code neu generieren",
-      "Dies erstellt einen neuen QR-Code für diesen Container. Der alte QR-Code funktioniert dann nicht mehr. Fortfahren?",
+      "ACHTUNG: Beim Neugenerieren wird der alte QR-Code ungültig. Bitte den neuen Code ausdrucken und am Container anbringen. Fortfahren?",
       [
         { text: "Abbrechen", style: "cancel" },
         {
-          text: "Neu generieren",
+          text: "Ja, neu generieren",
           style: "destructive",
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              await apiRequest("PATCH", `/api/containers/${type}/${container.id}`, {
-                qrCode: newQRCode,
+              // Use dedicated regenerate endpoint - backend handles stable QR code generation
+              const response = await apiRequest("POST", `/api/containers/${type}/${container.id}/regenerate-qr`, {
+                userId: null, // Could pass current user ID if available
               });
               
               queryClient.invalidateQueries({ queryKey: [`/api/containers/${type}`] });
               
-              if (selectedWarehouseContainer) {
-                setSelectedWarehouseContainer({ ...selectedWarehouseContainer, qrCode: newQRCode });
-              } else if (selectedCustomerContainer) {
-                setSelectedCustomerContainer({ ...selectedCustomerContainer, qrCode: newQRCode });
+              // Update local state with new container data from response
+              if (response.ok) {
+                const updatedContainer = await response.json();
+                if (selectedWarehouseContainer) {
+                  setSelectedWarehouseContainer(updatedContainer);
+                } else if (selectedCustomerContainer) {
+                  setSelectedCustomerContainer(updatedContainer);
+                }
               }
               
-              showToast("QR-Code wurde erfolgreich neu generiert", "success");
+              showToast("QR-Code wurde erfolgreich neu generiert. Bitte neuen Code ausdrucken!", "success");
             } catch (err) {
               console.error("Failed to regenerate QR code:", err);
               showToast("Fehler beim Generieren des QR-Codes", "error");
