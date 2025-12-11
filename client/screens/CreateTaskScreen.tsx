@@ -66,6 +66,13 @@ export default function CreateTaskScreen() {
       return;
     }
 
+    // Validate materialType is available from container data
+    const materialType = selectedContainerData?.materialType;
+    if (!materialType) {
+      setError("Materialtyp konnte nicht ermittelt werden. Bitte wählen Sie einen gültigen Container.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -73,13 +80,13 @@ export default function CreateTaskScreen() {
       await apiRequest("POST", "/api/tasks", {
         containerID: selectedContainer,
         assignedTo: selectedDriver,
-        materialType: selectedContainerData?.materialType || "Unknown",
+        materialType: materialType,
         estimatedAmount: estimatedAmount ? parseFloat(estimatedAmount) : null,
         priority,
         notes: notes.trim() || null,
         createdBy: user?.id,
         scheduledTime: new Date().toISOString(),
-        status: "open",
+        status: "PLANNED",
         deliveryContainerID: selectedWarehouseContainer || null,
       });
 
