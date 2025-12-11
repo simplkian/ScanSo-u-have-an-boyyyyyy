@@ -4,12 +4,16 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-// Database connection configuration
-// Supports both Replit built-in PostgreSQL and Supabase PostgreSQL
-// 
-// For Supabase: Get your connection string from Supabase Dashboard:
-//   Settings → Database → Connection String (URI format)
-// Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+// ============================================================================
+// DATABASE CONFIGURATION
+// ============================================================================
+// Supabase PostgreSQL is the ONLY active database for this application.
+// The backend connects via DATABASE_URL environment variable.
+// No fallback databases, no conditional connections.
+//
+// Connection String (from Supabase Dashboard → Settings → Database):
+// postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+// ============================================================================
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

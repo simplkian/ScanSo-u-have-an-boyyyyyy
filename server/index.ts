@@ -226,6 +226,9 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  // Log database configuration at startup
+  log(`Using Supabase PostgreSQL via DATABASE_URL`);
+  
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);

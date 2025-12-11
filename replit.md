@@ -79,12 +79,14 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary data store via Supabase or Replit built-in PostgreSQL
+- **PostgreSQL**: Supabase PostgreSQL is the ONLY active database for this application
 - **Drizzle ORM**: Type-safe database access with schema in `shared/schema.ts`
 - **Drizzle Kit**: Database migrations stored in `migrations/` directory
+- **Connection**: Backend connects via `DATABASE_URL` environment variable with SSL enabled
+- **Architecture**: Expo app NEVER connects directly to database - all access goes through Express API
 
-### Supabase Configuration (Optional)
-The app supports Supabase as a PostgreSQL database provider. To use Supabase:
+### Supabase Configuration
+The backend uses Supabase as its PostgreSQL database provider:
 
 1. **Create a Supabase project** at https://supabase.com
 2. **Get your connection string** from Supabase Dashboard → Settings → Database → Connection String (use "URI" format)
@@ -110,13 +112,9 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
 
 ### Runtime Environment
 - **Environment Variables Required**:
-  - `DATABASE_URL` - PostgreSQL connection string (Supabase or Replit)
+  - `DATABASE_URL` - Supabase PostgreSQL connection string (required, no fallback)
   - `EXPO_PUBLIC_DOMAIN` - Public API domain for mobile app to connect to backend
   - `REPLIT_DEV_DOMAIN` / `REPLIT_INTERNAL_APP_DOMAIN` - Replit-specific domain configuration
-- **Optional Environment Variables** (alternative to DATABASE_URL for Supabase):
-  - `SUPABASE_URL` - Supabase project URL (https://[project-ref].supabase.co)
-  - `DB_PASSWORD` - Supabase database password
-  - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (for admin operations if needed)
 
 ### Development Tools
 - TypeScript with strict mode
