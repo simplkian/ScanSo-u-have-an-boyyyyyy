@@ -20,34 +20,34 @@ function AppContent() {
   const { isDark } = useThemeContext();
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.root}>
-        <KeyboardProvider>
-          <NavigationContainer>
-            <RootStackNavigator />
-          </NavigationContainer>
-          <StatusBar style={isDark ? "light" : "dark"} />
-        </KeyboardProvider>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <KeyboardProvider>
+        <NavigationContainer>
+          <RootStackNavigator />
+        </NavigationContainer>
+        <StatusBar style={isDark ? "light" : "dark"} />
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <ToastProvider>
-            <AuthProvider>
-              <NetworkProvider>
-                <AppContent />
-              </NetworkProvider>
-            </AuthProvider>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <NetworkProvider>
+                  <AppContent />
+                </NetworkProvider>
+              </AuthProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 
