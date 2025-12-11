@@ -4,39 +4,29 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-// Support both Replit PostgreSQL (DATABASE_URL) and Supabase PostgreSQL
-// Supabase connection format: postgresql://postgres:[DB_PASSWORD]@[HOST]:6543/postgres
-// Or use the direct connection string from Supabase dashboard
+// Database connection configuration
+// Supports both Replit built-in PostgreSQL and Supabase PostgreSQL
+// 
+// For Supabase: Get your connection string from Supabase Dashboard:
+//   Settings → Database → Connection String (URI format)
+// Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 
-function getDatabaseUrl(): string {
-  // If DATABASE_URL is set, use it (works for both Replit and Supabase)
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
-  }
-  
-  // Build connection string from Supabase environment variables
-  if (process.env.SUPABASE_URL && process.env.DB_PASSWORD) {
-    // Extract project ref from SUPABASE_URL (https://[project-ref].supabase.co)
-    const supabaseUrl = new URL(process.env.SUPABASE_URL);
-    const projectRef = supabaseUrl.hostname.split('.')[0];
-    // Use pooler connection (port 6543) for better connection handling
-    return `postgresql://postgres.${projectRef}:${process.env.DB_PASSWORD}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
-  }
-  
+if (!process.env.DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set, or provide SUPABASE_URL and DB_PASSWORD.",
+    "DATABASE_URL must be set. For Supabase, copy the connection string from your Supabase Dashboard → Settings → Database → Connection String (URI format).",
   );
 }
 
-const databaseUrl = getDatabaseUrl();
+const databaseUrl = process.env.DATABASE_URL;
 
 // Configure SSL for Supabase connections (required for external connections)
-const isSupabase = databaseUrl.includes('supabase');
+// Supabase URLs contain 'supabase' or use port 6543
+const isSupabase = databaseUrl.includes('supabase') || databaseUrl.includes(':6543');
 const poolConfig: pg.PoolConfig = {
   connectionString: databaseUrl,
   ...(isSupabase && {
     ssl: {
-      rejectUnauthorized: false, // Supabase uses self-signed certs
+      rejectUnauthorized: false, // Required for Supabase pooler connections
     },
   }),
 };
