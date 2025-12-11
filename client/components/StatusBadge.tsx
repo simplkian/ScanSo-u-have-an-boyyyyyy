@@ -15,12 +15,14 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
   const { theme } = useTheme();
   
   const getStatusConfig = () => {
+    const darkTextOnYellow = "#1E293B";
+    
     switch (status) {
       case "PLANNED":
         return {
           label: TASK_STATUS_LABELS.PLANNED || "Geplant",
           color: "#FFFFFF",
-          backgroundColor: theme.statusOpen,
+          backgroundColor: theme.statusIdle,
         };
       case "ASSIGNED":
         return {
@@ -31,20 +33,20 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
       case "ACCEPTED":
         return {
           label: TASK_STATUS_LABELS.ACCEPTED || "Angenommen",
-          color: "#1E293B",
+          color: darkTextOnYellow,
           backgroundColor: theme.statusInProgress,
         };
       case "PICKED_UP":
         return {
           label: TASK_STATUS_LABELS.PICKED_UP || "Abgeholt",
-          color: "#1E293B",
+          color: darkTextOnYellow,
           backgroundColor: theme.statusInProgress,
         };
       case "IN_TRANSIT":
         return {
           label: TASK_STATUS_LABELS.IN_TRANSIT || "Unterwegs",
-          color: "#1E293B",
-          backgroundColor: theme.statusInProgress,
+          color: "#FFFFFF",
+          backgroundColor: theme.info,
         };
       case "DELIVERED":
         return {
@@ -73,7 +75,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
       case "in_progress":
         return {
           label: "In Bearbeitung",
-          color: "#1E293B",
+          color: darkTextOnYellow,
           backgroundColor: theme.statusInProgress,
         };
       case "completed":
@@ -109,7 +111,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
       case "warning":
         return {
           label: "Warnung",
-          color: "#1E293B",
+          color: darkTextOnYellow,
           backgroundColor: theme.fillMedium,
         };
       case "success":
