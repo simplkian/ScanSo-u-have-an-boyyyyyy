@@ -273,6 +273,53 @@ Professionelles, industrietaugliches Design für die Abfallcontainer-Verwaltung.
 
 ---
 
+## Wiederverwendbare Komponenten
+
+### LoadingScreen
+
+Konsistente Ladezustände mit optionaler Nachricht:
+
+```tsx
+import { LoadingScreen } from "@/components/LoadingScreen";
+
+// Vollbild-Ladebildschirm
+<LoadingScreen message="Daten werden geladen..." />
+
+// Inline-Ladeindikator
+<LoadingScreen fullScreen={false} message="Wird aktualisiert..." />
+```
+
+### EmptyState
+
+Konsistente Leerzustände mit Icon, Titel und optionaler Aktion:
+
+```tsx
+import { EmptyState } from "@/components/EmptyState";
+
+<EmptyState
+  icon="inbox"
+  title="Keine Aufgaben"
+  message="Es sind keine Aufgaben verfügbar"
+  actionLabel="Aufgabe erstellen"
+  onAction={() => navigation.navigate("CreateTask")}
+/>
+```
+
+### StatusBadge
+
+Statusanzeige mit konsistenten Farben und hohem Kontrast:
+
+```tsx
+import { StatusBadge } from "@/components/StatusBadge";
+
+<StatusBadge status="in_progress" size="small" />
+<StatusBadge status="completed" label="Erledigt" />
+```
+
+Alle Status-Badges verwenden weiße Schrift für maximalen Kontrast.
+
+---
+
 ## Best Practices
 
 1. Theme-Farben aus `constants/theme.ts` verwenden
@@ -285,3 +332,5 @@ Professionelles, industrietaugliches Design für die Abfallcontainer-Verwaltung.
 8. ErrorBoundary um die gesamte App
 9. Feather Icons, niemals Emojis
 10. Outdoor-Lesbarkeit prüfen
+11. LoadingScreen für konsistente Ladezustände
+12. EmptyState für leere Listen mit Aktionsmöglichkeit
