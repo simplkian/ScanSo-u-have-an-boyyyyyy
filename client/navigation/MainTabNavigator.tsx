@@ -35,7 +35,8 @@ export default function MainTabNavigator() {
           height: Spacing.tabBarHeight,
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: theme.backgroundDefault,
+            android: theme.backgroundRoot,
+            web: theme.backgroundRoot,
           }),
           borderTopWidth: 1,
           borderTopColor: theme.border,
