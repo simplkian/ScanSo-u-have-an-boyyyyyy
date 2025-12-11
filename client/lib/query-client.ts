@@ -1,5 +1,9 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// API URL Configuration
+// EXPO_PUBLIC_DOMAIN is set by Replit at startup to "$REPLIT_DEV_DOMAIN:5000"
+// This ensures all API requests go to the Express backend on port 5000
+// The Expo app NEVER connects directly to Supabase - all DB access goes through the backend
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -7,6 +11,7 @@ export function getApiUrl(): string {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
+  // Build HTTPS URL pointing to Express backend
   let url = new URL(`https://${host}`);
 
   return url.href;

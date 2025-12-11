@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { createHash } from "crypto";
+import { checkDatabaseHealth } from "./db";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -22,12 +23,38 @@ function prepareUserResponse<T extends { password?: string; role?: string }>(use
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint - verifies backend is running and database is connected
+  // Used for monitoring and validating Supabase/PostgreSQL connectivity
   app.head("/api/health", (req, res) => {
     res.status(200).end();
   });
 
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  app.get("/api/health", async (req, res) => {
+    try {
+      const dbHealth = await checkDatabaseHealth();
+      
+      if (dbHealth.connected) {
+        res.status(200).json({ 
+          status: "ok", 
+          database: "connected",
+          timestamp: new Date().toISOString() 
+        });
+      } else {
+        res.status(503).json({ 
+          status: "degraded", 
+          database: "disconnected",
+          error: dbHealth.error,
+          timestamp: new Date().toISOString() 
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        status: "error", 
+        database: "unknown",
+        error: error instanceof Error ? error.message : 'Health check failed',
+        timestamp: new Date().toISOString() 
+      });
+    }
   });
 
   app.get("/api/auth/replit", (req, res) => {
