@@ -54,7 +54,7 @@ const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [permission, requestPermission] = useCameraPermissions();
@@ -576,7 +576,7 @@ export default function ScannerScreen() {
           <Card style={{ ...styles.targetWarehouseCard, backgroundColor: theme.infoLight }}>
             <View style={styles.targetWarehouseHeader}>
               <View style={[styles.targetWarehouseIconContainer, { backgroundColor: theme.info }]}>
-                <Feather name="truck" size={20} color="#FFFFFF" />
+                <Feather name="truck" size={20} color={theme.textOnPrimary} />
               </View>
               <ThemedText type="bodyBold" style={{ color: theme.info }}>
                 Zielcontainer im Lager
@@ -675,7 +675,7 @@ export default function ScannerScreen() {
                 style={[styles.confirmButton, { backgroundColor: theme.primary }]}
               >
                 {isProcessing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
                 ) : (
                   "Auftrag annehmen"
                 )}
@@ -687,7 +687,7 @@ export default function ScannerScreen() {
                 style={[styles.confirmButton, { backgroundColor: theme.accent }]}
               >
                 {isProcessing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
                 ) : (
                   "Abholung bestätigen"
                 )}
@@ -700,7 +700,7 @@ export default function ScannerScreen() {
               style={[styles.confirmButton, { backgroundColor: theme.accent }]}
             >
               {isProcessing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
                 "Lieferung bestätigen"
               )}
@@ -769,10 +769,10 @@ export default function ScannerScreen() {
               ]}
               onPress={() => setAppMode("info")}
             >
-              <Feather name="info" size={18} color={appMode === "info" ? "#FFFFFF" : theme.textSecondary} />
+              <Feather name="info" size={18} color={appMode === "info" ? theme.textOnPrimary : theme.textSecondary} />
               <ThemedText
                 type="smallBold"
-                style={{ color: appMode === "info" ? "#FFFFFF" : theme.textSecondary }}
+                style={{ color: appMode === "info" ? theme.textOnPrimary : theme.textSecondary }}
               >
                 Info
               </ThemedText>
@@ -784,10 +784,10 @@ export default function ScannerScreen() {
               ]}
               onPress={() => setAppMode("task")}
             >
-              <Feather name="clipboard" size={18} color={appMode === "task" ? "#FFFFFF" : theme.textSecondary} />
+              <Feather name="clipboard" size={18} color={appMode === "task" ? theme.textOnPrimary : theme.textSecondary} />
               <ThemedText
                 type="smallBold"
-                style={{ color: appMode === "task" ? "#FFFFFF" : theme.textSecondary }}
+                style={{ color: appMode === "task" ? theme.textOnPrimary : theme.textSecondary }}
               >
                 Aufgabe
               </ThemedText>
@@ -798,7 +798,7 @@ export default function ScannerScreen() {
             style={[styles.flashButton, { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" }]}
             onPress={() => setFlashOn(!flashOn)}
           >
-            <Feather name={flashOn ? "zap" : "zap-off"} size={20} color="#FFFFFF" />
+            <Feather name={flashOn ? "zap" : "zap-off"} size={20} color={theme.textOnPrimary} />
           </Pressable>
         </View>
 
@@ -814,7 +814,7 @@ export default function ScannerScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
           <View style={[styles.modeIndicator, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
             <Feather name={getModeIcon() as any} size={20} color={appMode === "info" ? theme.info : theme.accent} />
-            <ThemedText type="bodyBold" style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
+            <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.sm }}>
               {getModeDisplayText()}
             </ThemedText>
           </View>
@@ -835,8 +835,8 @@ export default function ScannerScreen() {
         transparent
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
             {success ? (
               <View style={styles.successContainer}>
                 <View style={[styles.successIcon, { backgroundColor: `${theme.success}20` }]}>
@@ -988,7 +988,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {

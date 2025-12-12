@@ -192,7 +192,7 @@ export default function ContainersScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.containerIdSection}>
             <View style={[styles.containerIdBadge, { backgroundColor: theme.primary }]}>
-              <Feather name="package" size={18} color="#FFFFFF" />
+              <Feather name="package" size={18} color={theme.textOnPrimary} />
             </View>
             <View style={styles.containerIdText}>
               <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>{item.id}</ThemedText>
@@ -202,8 +202,8 @@ export default function ContainersScreen() {
           <View style={styles.badgeContainer}>
             {isCritical ? (
               <View style={[styles.priorityBadge, { backgroundColor: theme.error }]}>
-                <Feather name="alert-circle" size={12} color="#FFFFFF" />
-                <ThemedText type="caption" style={styles.priorityBadgeText}>Kritisch</ThemedText>
+                <Feather name="alert-circle" size={12} color={theme.textOnPrimary} />
+                <ThemedText type="caption" style={[styles.priorityBadgeText, { color: theme.textOnPrimary }]}>Kritisch</ThemedText>
               </View>
             ) : null}
           </View>
@@ -242,8 +242,8 @@ export default function ContainersScreen() {
                 openInMaps(item.latitude, item.longitude, item.location);
               }}
             >
-              <Feather name="navigation" size={16} color="#FFFFFF" />
-              <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>Route</ThemedText>
+              <Feather name="navigation" size={16} color={theme.textOnPrimary} />
+              <ThemedText type="small" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>Route</ThemedText>
             </Pressable>
           ) : null}
           <Pressable
@@ -271,7 +271,7 @@ export default function ContainersScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.containerIdSection}>
             <View style={[styles.containerIdBadge, { backgroundColor: theme.accent }]}>
-              <Feather name="home" size={18} color="#FFFFFF" />
+              <Feather name="home" size={18} color={theme.textOnAccent} />
             </View>
             <View style={styles.containerIdText}>
               <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>{item.id}</ThemedText>
@@ -281,8 +281,8 @@ export default function ContainersScreen() {
           <View style={styles.badgeContainer}>
             {isCritical ? (
               <View style={[styles.priorityBadge, { backgroundColor: theme.error }]}>
-                <Feather name="alert-triangle" size={12} color="#FFFFFF" />
-                <ThemedText type="caption" style={styles.priorityBadgeText}>Fast voll</ThemedText>
+                <Feather name="alert-triangle" size={12} color={theme.textOnPrimary} />
+                <ThemedText type="caption" style={[styles.priorityBadgeText, { color: theme.textOnPrimary }]}>Fast voll</ThemedText>
               </View>
             ) : null}
           </View>
@@ -348,7 +348,7 @@ export default function ContainersScreen() {
             setMaterialFilter("all");
           }}
         >
-          <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>Filter zurücksetzen</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>Filter zurücksetzen</ThemedText>
         </Pressable>
       ) : null}
     </View>
@@ -506,7 +506,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   priorityBadgeText: {
-    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 10,
     textTransform: "uppercase",

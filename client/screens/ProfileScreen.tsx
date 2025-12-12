@@ -230,8 +230,8 @@ export default function ProfileScreen() {
 
         <Button onPress={handleLogout} style={[styles.logoutButton, { backgroundColor: theme.error }]}>
           <View style={styles.logoutContent}>
-            <Feather name="log-out" size={20} color="#FFFFFF" />
-            <ThemedText type="body" style={styles.logoutText}>
+            <Feather name="log-out" size={20} color={theme.textOnPrimary} />
+            <ThemedText type="body" style={[styles.logoutText, { color: theme.textOnPrimary }]}>
               Abmelden
             </ThemedText>
           </View>
@@ -323,7 +323,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   logoutText: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   versionText: {

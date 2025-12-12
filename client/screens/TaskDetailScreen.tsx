@@ -260,8 +260,8 @@ export default function TaskDetailScreen() {
             </Button>
             <Button onPress={goToScanner} style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
               <View style={styles.buttonContent}>
-                <Feather name="maximize" size={20} color="#FFFFFF" />
-                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                <Feather name="maximize" size={20} color={theme.textOnAccent} />
+                <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
                   QR-Code scannen
                 </ThemedText>
               </View>

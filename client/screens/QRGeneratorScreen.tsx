@@ -250,7 +250,7 @@ export default function QRGeneratorScreen() {
             </ThemedText>
             
             <View style={styles.qrContainer}>
-              <View style={[styles.qrWrapper, { backgroundColor: "#FFFFFF", borderColor: theme.border }]}>
+              <View style={[styles.qrWrapper, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}>
                 <View style={styles.qrImageContainer}>
                   {Platform.OS === "web" ? (
                     <img 

@@ -60,7 +60,7 @@ export default function LoginScreen() {
           style={styles.logoContainer}
         >
           <View style={[styles.iconContainer, { backgroundColor: theme.primary }]}>
-            <View style={styles.iconInner}>
+            <View style={[styles.iconInner, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.15)' }]}>
               <Feather name="package" size={44} color={theme.accent} />
             </View>
           </View>
@@ -116,7 +116,7 @@ export default function LoginScreen() {
             {error ? (
               <View style={[styles.errorContainer, { backgroundColor: theme.errorLight }]}>
                 <View style={[styles.errorIconContainer, { backgroundColor: theme.error }]}>
-                  <Feather name="alert-circle" size={14} color="#FFFFFF" />
+                  <Feather name="alert-circle" size={14} color={theme.textOnPrimary} />
                 </View>
                 <ThemedText type="small" style={[styles.errorText, { color: theme.error }]}>
                   {error}
@@ -131,7 +131,7 @@ export default function LoginScreen() {
               style={styles.loginButton}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
                 "Anmelden"
               )}
@@ -144,7 +144,7 @@ export default function LoginScreen() {
           style={[styles.infoContainer, { backgroundColor: theme.backgroundSecondary }]}
         >
           <View style={[styles.infoIconContainer, { backgroundColor: theme.info }]}>
-            <Feather name="info" size={14} color="#FFFFFF" />
+            <Feather name="info" size={14} color={theme.textOnPrimary} />
           </View>
           <ThemedText type="small" style={[styles.infoText, { color: theme.textSecondary }]}>
             Sie haben noch kein Konto? Bitte kontaktieren Sie Ihren Administrator oder Manager.
@@ -180,7 +180,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },

@@ -10,7 +10,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { TextInput } from "@/components/TextInput";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Task, ActivityLog } from "@shared/schema";
@@ -259,7 +259,7 @@ export default function ManageDriversScreen() {
               { backgroundColor: item.isActive ? theme.primary : theme.textTertiary },
               !item.isActive && styles.inactiveAvatar
             ]}>
-              <ThemedText type="body" style={styles.avatarText}>
+              <ThemedText type="body" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
                 {getInitials(item.name)}
               </ThemedText>
             </View>
@@ -380,7 +380,7 @@ export default function ManageDriversScreen() {
           {drivers.length} Fahrer
         </ThemedText>
         <Button
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: theme.accent }]}
           onPress={() => {
             setFormData({ name: "", email: "", password: generatePassword() });
             setError("");
@@ -388,8 +388,8 @@ export default function ManageDriversScreen() {
           }}
         >
           <View style={styles.addContent}>
-            <Feather name="plus" size={18} color="#FFFFFF" />
-            <ThemedText type="small" style={styles.addText}>Fahrer hinzufügen</ThemedText>
+            <Feather name="plus" size={18} color={theme.textOnAccent} />
+            <ThemedText type="small" style={[styles.addText, { color: theme.textOnAccent }]}>Fahrer hinzufügen</ThemedText>
           </View>
         </Button>
       </View>
@@ -418,7 +418,7 @@ export default function ManageDriversScreen() {
         transparent
         onRequestClose={() => setShowCreateModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
           <KeyboardAwareScrollViewCompat
             contentContainerStyle={styles.modalScrollContent}
           >
@@ -486,14 +486,16 @@ export default function ManageDriversScreen() {
                   Abbrechen
                 </Button>
                 <Button
-                  style={styles.submitButton}
+                  style={[styles.submitButton, { backgroundColor: theme.accent }]}
                   onPress={handleCreateDriver}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={theme.textOnAccent} />
                   ) : (
-                    "Fahrer erstellen"
+                    <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
+                      Fahrer erstellen
+                    </ThemedText>
                   )}
                 </Button>
               </View>
@@ -508,7 +510,7 @@ export default function ManageDriversScreen() {
         transparent
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
           <KeyboardAwareScrollViewCompat
             contentContainerStyle={styles.modalScrollContent}
           >
@@ -578,12 +580,12 @@ export default function ManageDriversScreen() {
                         <Feather 
                           name="truck" 
                           size={16} 
-                          color={editFormData.role === "driver" ? "#FFFFFF" : theme.text} 
+                          color={editFormData.role === "driver" ? theme.textOnPrimary : theme.text} 
                         />
                         <ThemedText 
                           type="small" 
                           style={{ 
-                            color: editFormData.role === "driver" ? "#FFFFFF" : theme.text,
+                            color: editFormData.role === "driver" ? theme.textOnPrimary : theme.text,
                             fontWeight: "600"
                           }}
                         >
@@ -604,12 +606,12 @@ export default function ManageDriversScreen() {
                         <Feather 
                           name="shield" 
                           size={16} 
-                          color={editFormData.role === "admin" ? "#FFFFFF" : theme.text} 
+                          color={editFormData.role === "admin" ? theme.textOnAccent : theme.text} 
                         />
                         <ThemedText 
                           type="small" 
                           style={{ 
-                            color: editFormData.role === "admin" ? "#FFFFFF" : theme.text,
+                            color: editFormData.role === "admin" ? theme.textOnAccent : theme.text,
                             fontWeight: "600"
                           }}
                         >
@@ -638,14 +640,16 @@ export default function ManageDriversScreen() {
                   Abbrechen
                 </Button>
                 <Button
-                  style={styles.submitButton}
+                  style={[styles.submitButton, { backgroundColor: theme.accent }]}
                   onPress={handleEditDriver}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={theme.textOnAccent} />
                   ) : (
-                    "Speichern"
+                    <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
+                      Speichern
+                    </ThemedText>
                   )}
                 </Button>
               </View>
@@ -660,7 +664,7 @@ export default function ManageDriversScreen() {
         transparent
         onRequestClose={() => setShowDetailModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.detailModalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3" style={{ color: theme.text }}>Fahrer-Details</ThemedText>
@@ -683,7 +687,7 @@ export default function ManageDriversScreen() {
                     styles.detailAvatar, 
                     { backgroundColor: selectedDriver.isActive ? theme.primary : theme.textTertiary }
                   ]}>
-                    <ThemedText type="h3" style={styles.avatarText}>
+                    <ThemedText type="h3" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
                       {getInitials(selectedDriver.name)}
                     </ThemedText>
                   </View>
@@ -834,8 +838,8 @@ export default function ManageDriversScreen() {
                   }}
                 >
                   <View style={styles.addContent}>
-                    <Feather name="edit-2" size={18} color="#FFFFFF" />
-                    <ThemedText type="small" style={styles.addText}>Fahrer bearbeiten</ThemedText>
+                    <Feather name="edit-2" size={18} color={theme.textOnPrimary} />
+                    <ThemedText type="small" style={[styles.addText, { color: theme.textOnPrimary }]}>Fahrer bearbeiten</ThemedText>
                   </View>
                 </Button>
               </ScrollView>
@@ -859,7 +863,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   addButton: {
-    backgroundColor: Colors.light.accent,
     paddingHorizontal: Spacing.md,
     height: 40,
   },
@@ -869,7 +872,6 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   addText: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   loadingContainer: {
@@ -921,7 +923,6 @@ const styles = StyleSheet.create({
   },
   inactiveAvatar: {},
   avatarText: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   editButton: {
@@ -976,7 +977,6 @@ const styles = StyleSheet.create({
   emptySubtitle: {},
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalScrollContent: {
@@ -1060,7 +1060,6 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flex: 1,
-    backgroundColor: Colors.light.accent,
   },
   detailScroll: {
     flex: 1,

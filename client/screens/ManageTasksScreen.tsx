@@ -259,7 +259,7 @@ export default function ManageTasksScreen() {
           {item.assignedTo ? (
             <>
               <View style={[styles.driverAvatar, { backgroundColor: theme.primary }]}>
-                <ThemedText type="caption" style={styles.avatarText}>
+                <ThemedText type="caption" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
                   {getInitials(getDriverName(item.assignedTo))}
                 </ThemedText>
               </View>
@@ -275,7 +275,7 @@ export default function ManageTasksScreen() {
           ) : (
             <>
               <View style={[styles.driverAvatar, { backgroundColor: theme.textTertiary }]}>
-                <Feather name="user-x" size={12} color="#FFFFFF" />
+                <Feather name="user-x" size={12} color={theme.textOnPrimary} />
               </View>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Nicht zugewiesen
@@ -309,7 +309,7 @@ export default function ManageTasksScreen() {
           type="small"
           style={[
             styles.filterText,
-            { color: filterStatus === "all" ? "#FFFFFF" : theme.text },
+            { color: filterStatus === "all" ? theme.textOnPrimary : theme.text },
           ]}
         >
           Alle ({tasks.length})
@@ -333,13 +333,13 @@ export default function ManageTasksScreen() {
             <Feather
               name={option.icon}
               size={14}
-              color={filterStatus === option.value ? "#FFFFFF" : getStatusColor(option.value)}
+              color={filterStatus === option.value ? theme.textOnPrimary : getStatusColor(option.value)}
             />
             <ThemedText
               type="small"
               style={[
                 styles.filterText,
-                { color: filterStatus === option.value ? "#FFFFFF" : theme.text },
+                { color: filterStatus === option.value ? theme.textOnPrimary : theme.text },
               ]}
             >
               {option.label} ({count})
@@ -405,9 +405,9 @@ export default function ManageTasksScreen() {
         transparent
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.divider }]}>
               <ThemedText type="h3" style={{ color: theme.text }}>
                 Aufgabe bearbeiten
               </ThemedText>
@@ -511,7 +511,7 @@ export default function ManageTasksScreen() {
                       onPress={() => setNewDriver("")}
                     >
                       <View style={[styles.driverAvatar, { backgroundColor: theme.textTertiary }]}>
-                        <Feather name="user-x" size={14} color="#FFFFFF" />
+                        <Feather name="user-x" size={14} color={theme.textOnPrimary} />
                       </View>
                       <ThemedText
                         type="small"
@@ -541,7 +541,7 @@ export default function ManageTasksScreen() {
                         onPress={() => setNewDriver(driver.id)}
                       >
                         <View style={[styles.driverAvatar, { backgroundColor: theme.primary }]}>
-                          <ThemedText type="caption" style={styles.avatarText}>
+                          <ThemedText type="caption" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
                             {getInitials(driver.name)}
                           </ThemedText>
                         </View>
@@ -579,7 +579,7 @@ export default function ManageTasksScreen() {
               </View>
             ) : null}
 
-            <View style={styles.modalActions}>
+            <View style={[styles.modalActions, { borderTopColor: theme.divider }]}>
               <Button
                 style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}
                 onPress={() => setShowEditModal(false)}
@@ -589,14 +589,14 @@ export default function ManageTasksScreen() {
                 </ThemedText>
               </Button>
               <Button
-                style={styles.submitButton}
+                style={[styles.submitButton, { backgroundColor: theme.accent }]}
                 onPress={handleUpdateTask}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
                 ) : (
-                  <ThemedText type="body" style={styles.submitText}>
+                  <ThemedText type="body" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
                     Speichern
                   </ThemedText>
                 )}
@@ -717,7 +717,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarText: {
-    color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 10,
   },
@@ -736,7 +735,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
@@ -750,7 +748,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   closeButton: {
     padding: Spacing.xs,
@@ -811,17 +808,12 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.1)",
   },
   cancelButton: {
     flex: 1,
   },
   submitButton: {
     flex: 1,
-  },
-  submitText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
   },
   cancellationReasonContainer: {
     marginTop: Spacing.md,

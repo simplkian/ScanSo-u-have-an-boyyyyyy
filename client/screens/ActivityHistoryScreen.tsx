@@ -34,7 +34,24 @@ interface GroupedActivity {
 export default function ActivityHistoryScreen() {
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+
+  const getStatusBackground = (color: string) => {
+    if (color === theme.statusOpen) return isDark ? theme.infoLight : `${theme.info}15`;
+    if (color === theme.statusInProgress) return isDark ? theme.warningLight : `${theme.warning}15`;
+    if (color === theme.statusCompleted) return isDark ? theme.successLight : `${theme.success}15`;
+    if (color === theme.statusCancelled) return isDark ? theme.errorLight : `${theme.error}15`;
+    if (color === theme.primary) return isDark ? theme.backgroundSecondary : `${theme.primary}10`;
+    return isDark ? theme.backgroundSecondary : theme.backgroundSecondary;
+  };
+
+  const getInactiveBackground = () => {
+    return isDark ? theme.backgroundSecondary : `${theme.textSecondary}08`;
+  };
+
+  const getAccentBackground = () => {
+    return isDark ? theme.backgroundSecondary : `${theme.accent}12`;
+  };
   
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
@@ -259,7 +276,7 @@ export default function ActivityHistoryScreen() {
     }
 
     return (
-      <View style={styles.lifecycleContainer}>
+      <View style={[styles.lifecycleContainer, { borderTopColor: theme.divider }]}>
         {lifecycleSteps.filter(step => step.completed || step.timestamp).map((step, index) => (
           <View key={step.label} style={styles.lifecycleStep}>
             <View style={styles.lifecycleIconRow}>
@@ -267,7 +284,7 @@ export default function ActivityHistoryScreen() {
                 style={[
                   styles.lifecycleIcon,
                   {
-                    backgroundColor: step.completed ? `${step.color}20` : `${theme.textSecondary}10`,
+                    backgroundColor: step.completed ? getStatusBackground(step.color) : getInactiveBackground(),
                     borderColor: step.completed ? step.color : theme.border,
                   },
                 ]}
@@ -336,7 +353,7 @@ export default function ActivityHistoryScreen() {
     return (
       <Card style={{ ...styles.logCard, backgroundColor: theme.cardSurface }}>
         <View style={styles.logHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: `${config.color}20` }]}>
+          <View style={[styles.iconContainer, { backgroundColor: getStatusBackground(config.color) }]}>
             <Feather name={config.icon} size={20} color={config.color} />
           </View>
           <View style={styles.logMainContent}>
@@ -433,7 +450,7 @@ export default function ActivityHistoryScreen() {
       onRequestClose={() => setShowDriverPicker(false)}
     >
       <Pressable
-        style={styles.modalOverlay}
+        style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
         onPress={() => setShowDriverPicker(false)}
       >
         <View style={[styles.pickerModal, { backgroundColor: theme.cardSurface }]}>
@@ -444,7 +461,7 @@ export default function ActivityHistoryScreen() {
             <Pressable
               style={[
                 styles.pickerItem,
-                selectedDriverId === null && { backgroundColor: `${theme.accent}20` },
+                selectedDriverId === null && { backgroundColor: getAccentBackground() },
               ]}
               onPress={() => {
                 setSelectedDriverId(null);
@@ -474,7 +491,7 @@ export default function ActivityHistoryScreen() {
                 key={driver.id}
                 style={[
                   styles.pickerItem,
-                  selectedDriverId === driver.id && { backgroundColor: `${theme.accent}20` },
+                  selectedDriverId === driver.id && { backgroundColor: getAccentBackground() },
                 ]}
                 onPress={() => {
                   setSelectedDriverId(driver.id);
@@ -578,7 +595,7 @@ export default function ActivityHistoryScreen() {
 
         {hasActiveFilters ? (
           <Pressable
-            style={[styles.clearFiltersSmall, { backgroundColor: `${theme.error}15` }]}
+            style={[styles.clearFiltersSmall, { backgroundColor: isDark ? theme.errorLight : `${theme.error}10` }]}
             onPress={clearFilters}
           >
             <Feather name="x" size={14} color={theme.error} />
@@ -703,7 +720,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.1)",
   },
   lifecycleStep: {
     flexDirection: "row",
@@ -751,7 +767,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,

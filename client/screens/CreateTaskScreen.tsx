@@ -178,7 +178,7 @@ export default function CreateTaskScreen() {
                     selectedDriver === driver.id && { backgroundColor: theme.accent },
                   ]}
                 >
-                  <ThemedText type="small" style={styles.driverInitials}>
+                  <ThemedText type="small" style={[styles.driverInitials, { color: theme.textOnPrimary }]}>
                     {driver.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                   </ThemedText>
                 </View>
@@ -359,11 +359,11 @@ export default function CreateTaskScreen() {
           disabled={isSubmitting || !selectedContainer || !selectedDriver}
         >
           {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={theme.textOnAccent} />
           ) : (
             <View style={styles.submitContent}>
-              <Feather name="plus-circle" size={20} color="#FFFFFF" />
-              <ThemedText type="body" style={styles.submitText}>
+              <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
+              <ThemedText type="body" style={[styles.submitText, { color: theme.textOnAccent }]}>
                 Aufgabe erstellen
               </ThemedText>
             </View>
@@ -431,7 +431,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   driverInitials: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   prioritySection: {
@@ -470,7 +469,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   submitText: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   warehouseList: {

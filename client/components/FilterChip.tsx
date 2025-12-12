@@ -71,7 +71,7 @@ export function FilterChip({
         style={[
           styles.label,
           small && styles.labelSmall,
-          { color: selected ? "#FFFFFF" : theme.text },
+          { color: selected ? theme.textOnAccent : theme.text },
         ]}
       >
         {label}

@@ -90,9 +90,9 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           transparent={true}
           onRequestClose={() => setIsModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
             <View style={[styles.modalContainer, { backgroundColor: theme.backgroundDefault }]}>
-              <View style={styles.modalHeader}>
+              <View style={[styles.modalHeader, { borderBottomColor: theme.divider }]}>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Error Details
                 </Text>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing["2xl"],
     minWidth: 200,
-    shadowColor: "#000",
+    shadowColor: "#0F172A",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -200,7 +200,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
   },
   modalContainer: {
@@ -217,7 +216,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(128, 128, 128, 0.2)",
   },
   modalTitle: {
     fontSize: 20,

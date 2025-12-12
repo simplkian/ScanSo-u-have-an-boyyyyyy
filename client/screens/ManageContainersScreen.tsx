@@ -16,7 +16,8 @@ import { FilterChip } from "@/components/FilterChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, getFillLevelColor } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { apiRequest } from "@/lib/query-client";
 import { CustomerContainer, WarehouseContainer } from "@shared/schema";
 
@@ -49,6 +50,7 @@ export default function ManageContainersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { theme, isDark } = useTheme();
   const resetAnimationOpacity = useSharedValue(1);
 
   const [activeTab, setActiveTab] = useState<ContainerType>("warehouse");
@@ -362,9 +364,7 @@ export default function ManageContainersScreen() {
   };
 
   const getFillColor = (percentage: number) => {
-    if (percentage >= 80) return Colors.light.fillHigh;
-    if (percentage >= 51) return Colors.light.fillMedium;
-    return Colors.light.fillLow;
+    return getFillLevelColor(percentage, isDark);
   };
 
   const formatDate = (date: string | Date | null) => {
@@ -378,30 +378,30 @@ export default function ManageContainersScreen() {
     const fillColor = getFillColor(fillPercentage);
 
     return (
-      <Card style={[styles.containerCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item, "warehouse")}>
+      <Card style={[styles.containerCard, { backgroundColor: theme.cardSurface }, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item, "warehouse")}>
         <View style={styles.cardHeader}>
           <View style={styles.containerInfo}>
-            <Feather name="package" size={24} color={item.isActive ? Colors.light.primary : Colors.light.textTertiary} />
+            <Feather name="package" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
             <View>
               <View style={styles.idRow}>
-                <ThemedText type="h4" style={[styles.containerId, !item.isActive && styles.inactiveText]}>{item.id}</ThemedText>
+                <ThemedText type="h4" style={[styles.containerId, { color: theme.primary }, !item.isActive && { color: theme.textTertiary }]}>{item.id}</ThemedText>
                 {!item.isActive ? <StatusBadge status="cancelled" label="Inactive" size="small" /> : null}
               </View>
-              <ThemedText type="small" style={styles.location}>{item.location}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.location}</ThemedText>
             </View>
           </View>
-          <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
         </View>
 
         <View style={styles.fillInfo}>
           <View style={styles.fillHeader}>
-            <ThemedText type="small" style={styles.materialType}>{item.materialType}</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.materialType}</ThemedText>
             <ThemedText type="body" style={[styles.fillPercentage, { color: fillColor }]}>
               {fillPercentage.toFixed(0)}%
             </ThemedText>
           </View>
           <ProgressBar progress={fillPercentage / 100} color={fillColor} />
-          <ThemedText type="small" style={styles.capacityText}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
             {item.currentAmount.toFixed(0)} / {item.maxCapacity} kg
           </ThemedText>
         </View>
@@ -410,31 +410,31 @@ export default function ManageContainersScreen() {
   };
 
   const renderCustomerContainer = ({ item }: { item: CustomerContainer }) => (
-    <Card style={[styles.containerCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item, "customer")}>
+    <Card style={[styles.containerCard, { backgroundColor: theme.cardSurface }, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item, "customer")}>
       <View style={styles.cardHeader}>
         <View style={styles.containerInfo}>
-          <Feather name="package" size={24} color={item.isActive ? Colors.light.primary : Colors.light.textTertiary} />
+          <Feather name="package" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
           <View>
             <View style={styles.idRow}>
-              <ThemedText type="h4" style={[styles.containerId, !item.isActive && styles.inactiveText]}>{item.id}</ThemedText>
+              <ThemedText type="h4" style={[styles.containerId, { color: theme.primary }, !item.isActive && { color: theme.textTertiary }]}>{item.id}</ThemedText>
               {!item.isActive ? <StatusBadge status="cancelled" label="Inactive" size="small" /> : null}
             </View>
-            <ThemedText type="small" style={styles.location}>{item.customerName}</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.customerName}</ThemedText>
           </View>
         </View>
-        <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
       </View>
       <View style={styles.detailsRow}>
         <View style={styles.detailItem}>
-          <Feather name="map-pin" size={14} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>{item.location}</ThemedText>
+          <Feather name="map-pin" size={14} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.location}</ThemedText>
         </View>
         <View style={styles.detailItem}>
-          <Feather name="tag" size={14} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>{item.materialType}</ThemedText>
+          <Feather name="tag" size={14} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.materialType}</ThemedText>
         </View>
       </View>
-      <ThemedText type="small" style={styles.lastEmptied}>
+      <ThemedText type="small" style={{ color: theme.textSecondary }}>
         Last emptied: {formatDate(item.lastEmptied)}
       </ThemedText>
     </Card>
@@ -442,9 +442,9 @@ export default function ManageContainersScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Feather name="package" size={48} color={Colors.light.textSecondary} />
+      <Feather name="package" size={48} color={theme.textSecondary} />
       <ThemedText type="h4">No containers</ThemedText>
-      <ThemedText type="body" style={styles.emptySubtitle}>
+      <ThemedText type="body" style={{ color: theme.textSecondary }}>
         No {activeTab} containers found
       </ThemedText>
       <Button onPress={openCreateModal} style={styles.emptyButton}>
@@ -556,25 +556,25 @@ export default function ManageContainersScreen() {
     
     return (
       <ScrollView contentContainerStyle={styles.viewScrollContent}>
-        <Card style={styles.detailCard}>
+        <Card style={[styles.detailCard, { backgroundColor: theme.cardSurface }]}>
           <View style={styles.containerInfo}>
-            <Feather name="package" size={32} color={container.isActive ? Colors.light.primary : Colors.light.textTertiary} />
+            <Feather name="package" size={32} color={container.isActive ? theme.primary : theme.textTertiary} />
             <View style={styles.containerHeaderText}>
               <ThemedText type="h4">{container.id}</ThemedText>
-              <ThemedText type="small" style={styles.location}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 {isWarehouse ? (container as WarehouseContainer).location : (container as CustomerContainer).customerName}
               </ThemedText>
             </View>
             <View style={styles.statusToggle}>
-              <ThemedText type="small" style={styles.statusLabel}>
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
                 {container.isActive ? "Active" : "Inactive"}
               </ThemedText>
               <Switch
                 value={container.isActive}
                 onValueChange={handleToggleActive}
                 disabled={isSubmitting}
-                trackColor={{ false: Colors.light.backgroundTertiary, true: Colors.light.success }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: theme.backgroundTertiary, true: theme.success }}
+                thumbColor={theme.backgroundRoot}
               />
             </View>
           </View>
@@ -582,22 +582,22 @@ export default function ManageContainersScreen() {
           <View style={styles.detailsList}>
             {!isWarehouse ? (
               <View style={styles.detailRow}>
-                <ThemedText type="small" style={styles.detailLabel}>Customer</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Customer</ThemedText>
                 <ThemedText type="body">{(container as CustomerContainer).customerName}</ThemedText>
               </View>
             ) : null}
             <View style={styles.detailRow}>
-              <ThemedText type="small" style={styles.detailLabel}>Location</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Location</ThemedText>
               <ThemedText type="body">{container.location}</ThemedText>
             </View>
             <View style={styles.detailRow}>
-              <ThemedText type="small" style={styles.detailLabel}>Material</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Material</ThemedText>
               <ThemedText type="body">{container.materialType}</ThemedText>
             </View>
             {isWarehouse ? (
               <>
                 <View style={styles.detailRow}>
-                  <ThemedText type="small" style={styles.detailLabel}>Current Fill</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>Current Fill</ThemedText>
                   <ThemedText type="body">
                     {(container as WarehouseContainer).currentAmount.toFixed(0)} / {(container as WarehouseContainer).maxCapacity} kg
                   </ThemedText>
@@ -611,16 +611,16 @@ export default function ManageContainersScreen() {
               </>
             ) : null}
             <View style={styles.detailRow}>
-              <ThemedText type="small" style={styles.detailLabel}>Last Emptied</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Last Emptied</ThemedText>
               <ThemedText type="body">{formatDate(container.lastEmptied)}</ThemedText>
             </View>
             <View style={styles.detailRow}>
-              <ThemedText type="small" style={styles.detailLabel}>Created</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Created</ThemedText>
               <ThemedText type="body">{formatDate(container.createdAt)}</ThemedText>
             </View>
             {!isWarehouse && (container as CustomerContainer).latitude ? (
               <View style={styles.detailRow}>
-                <ThemedText type="small" style={styles.detailLabel}>Coordinates</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Coordinates</ThemedText>
                 <ThemedText type="body">
                   {(container as CustomerContainer).latitude?.toFixed(4)}, {(container as CustomerContainer).longitude?.toFixed(4)}
                 </ThemedText>
@@ -629,12 +629,12 @@ export default function ManageContainersScreen() {
           </View>
         </Card>
 
-        <Card style={styles.qrCard}>
+        <Card style={[styles.qrCard, { backgroundColor: theme.cardSurface }]}>
           <View style={styles.qrHeader}>
-            <Feather name="grid" size={20} color={Colors.light.primary} />
-            <ThemedText type="bodyBold" style={styles.qrTitle}>QR Code</ThemedText>
+            <Feather name="grid" size={20} color={theme.primary} />
+            <ThemedText type="bodyBold" style={{ color: theme.primary }}>QR Code</ThemedText>
           </View>
-          <ThemedText type="small" style={styles.qrCode}>{container.qrCode}</ThemedText>
+          <ThemedText type="small" style={[styles.qrCode, { color: theme.textSecondary, backgroundColor: theme.backgroundSecondary }]}>{container.qrCode}</ThemedText>
           <Button
             variant="tertiary"
             size="small"
@@ -643,8 +643,8 @@ export default function ManageContainersScreen() {
             style={styles.regenerateButton}
           >
             <View style={styles.buttonContent}>
-              <Feather name="refresh-cw" size={16} color={Colors.light.text} />
-              <ThemedText type="small" style={styles.regenerateText}>Regenerate QR Code</ThemedText>
+              <Feather name="refresh-cw" size={16} color={theme.text} />
+              <ThemedText type="small" style={{ color: theme.text }}>Regenerate QR Code</ThemedText>
             </View>
           </Button>
         </Card>
@@ -656,8 +656,8 @@ export default function ManageContainersScreen() {
             style={styles.actionButton}
           >
             <View style={styles.buttonContent}>
-              <Feather name="edit-2" size={18} color={Colors.light.primary} />
-              <ThemedText type="body" style={styles.editButtonText}>Edit Details</ThemedText>
+              <Feather name="edit-2" size={18} color={theme.primary} />
+              <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>Edit Details</ThemedText>
             </View>
           </Button>
           
@@ -668,8 +668,8 @@ export default function ManageContainersScreen() {
               style={styles.actionButton}
             >
               <View style={styles.buttonContent}>
-                <Feather name="refresh-ccw" size={18} color="#FFFFFF" />
-                <ThemedText type="body" style={styles.resetText}>Reset Fill Level</ThemedText>
+                <Feather name="refresh-ccw" size={18} color={theme.buttonText} />
+                <ThemedText type="body" style={{ color: theme.buttonText, fontWeight: "600" }}>Container leeren</ThemedText>
               </View>
             </Button>
           ) : null}
@@ -685,8 +685,8 @@ export default function ManageContainersScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={[styles.tabContainer, { marginTop: headerHeight }]}>
+    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={[styles.tabContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <FilterChip
           label="Warehouse"
           selected={activeTab === "warehouse"}
@@ -698,14 +698,14 @@ export default function ManageContainersScreen() {
           onPress={() => setActiveTab("customer")}
         />
         <View style={styles.tabSpacer} />
-        <Pressable style={styles.addButton} onPress={openCreateModal}>
-          <Feather name="plus" size={24} color="#FFFFFF" />
+        <Pressable style={[styles.addButton, { backgroundColor: theme.accent }]} onPress={openCreateModal}>
+          <Feather name="plus" size={24} color={theme.textOnAccent} />
         </Pressable>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.light.accent} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -727,12 +727,12 @@ export default function ManageContainersScreen() {
         transparent
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <View style={styles.modalHeader}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <ThemedText type="h3">{getModalTitle()}</ThemedText>
               <Pressable onPress={closeModal} style={styles.closeButton}>
-                <Feather name="x" size={24} color={Colors.light.text} />
+                <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
             
@@ -747,14 +747,12 @@ export default function ManageContainersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   tabContainer: {
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.light.backgroundDefault,
     alignItems: "center",
   },
   tabSpacer: {
@@ -764,7 +762,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.light.accent,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -777,14 +774,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  containerCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
+  containerCard: {},
   inactiveCard: {
     opacity: 0.7,
-  },
-  inactiveText: {
-    color: Colors.light.textTertiary,
   },
   cardHeader: {
     flexDirection: "row",
@@ -806,12 +798,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  containerId: {
-    color: Colors.light.primary,
-  },
-  location: {
-    color: Colors.light.textSecondary,
-  },
+  containerId: {},
   fillInfo: {
     gap: Spacing.sm,
   },
@@ -819,15 +806,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  materialType: {
-    color: Colors.light.textSecondary,
-  },
   fillPercentage: {
     fontWeight: "700",
-  },
-  capacityText: {
-    color: Colors.light.textSecondary,
-    textAlign: "right",
   },
   detailsRow: {
     flexDirection: "row",
@@ -839,12 +819,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
   },
-  detailText: {
-    color: Colors.light.textSecondary,
-  },
-  lastEmptied: {
-    color: Colors.light.textSecondary,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -852,19 +826,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing["5xl"],
     gap: Spacing.md,
   },
-  emptySubtitle: {
-    color: Colors.light.textSecondary,
-  },
   emptyButton: {
     marginTop: Spacing.lg,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.light.backgroundRoot,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
@@ -875,7 +844,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   closeButton: {
     padding: Spacing.sm,
@@ -889,7 +857,6 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   formSectionTitle: {
-    color: Colors.light.textSecondary,
     marginTop: Spacing.md,
   },
   coordsRow: {
@@ -907,15 +874,9 @@ const styles = StyleSheet.create({
   formButton: {
     flex: 1,
   },
-  detailCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
+  detailCard: {},
   statusToggle: {
     alignItems: "flex-end",
-  },
-  statusLabel: {
-    color: Colors.light.textSecondary,
-    marginBottom: Spacing.xs,
   },
   detailsList: {
     marginTop: Spacing.lg,
@@ -926,14 +887,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  detailLabel: {
-    color: Colors.light.textSecondary,
-  },
   fillProgressContainer: {
     marginTop: -Spacing.sm,
   },
   qrCard: {
-    backgroundColor: Colors.light.backgroundDefault,
     gap: Spacing.sm,
   },
   qrHeader: {
@@ -941,13 +898,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  qrTitle: {
-    color: Colors.light.primary,
-  },
   qrCode: {
     fontFamily: "monospace",
-    color: Colors.light.textSecondary,
-    backgroundColor: Colors.light.backgroundSecondary,
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
@@ -961,21 +913,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  regenerateText: {
-    color: Colors.light.text,
-  },
   actionButtons: {
     gap: Spacing.md,
   },
   actionButton: {
     width: "100%",
-  },
-  editButtonText: {
-    color: Colors.light.primary,
-    fontWeight: "600",
-  },
-  resetText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
   },
 });

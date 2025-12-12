@@ -30,7 +30,15 @@ export default function AdminDashboardScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+
+  const getStatusBackground = (color: string) => {
+    if (color === theme.statusOpen) return isDark ? theme.infoLight : `${theme.info}15`;
+    if (color === theme.statusInProgress) return isDark ? theme.warningLight : `${theme.warning}15`;
+    if (color === theme.statusCompleted || color === theme.success) return isDark ? theme.successLight : `${theme.success}15`;
+    if (color === theme.primary) return isDark ? theme.backgroundSecondary : `${theme.primary}15`;
+    return isDark ? theme.backgroundSecondary : theme.backgroundSecondary;
+  };
 
   const { data: stats, isLoading, refetch, isRefetching } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -55,11 +63,12 @@ export default function AdminDashboardScreen() {
         { 
           borderLeftColor: color,
           backgroundColor: theme.cardSurface,
+          borderColor: theme.cardBorder,
         },
       ]}
       onPress={onPress}
     >
-      <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
+      <View style={[styles.statIconContainer, { backgroundColor: getStatusBackground(color) }]}>
         <Feather name={icon} size={IndustrialDesign.iconSize} color={color} />
       </View>
       <ThemedText type="h2" style={styles.statValue}>
@@ -133,7 +142,9 @@ export default function AdminDashboardScreen() {
         <View style={styles.statsRow}>
           <Card style={{
             ...styles.alertCard,
-            backgroundColor: stats?.criticalContainers ? `${theme.error}15` : theme.cardSurface,
+            backgroundColor: stats?.criticalContainers ? (isDark ? theme.errorLight : `${theme.error}10`) : theme.cardSurface,
+            borderWidth: stats?.criticalContainers ? 1 : 0,
+            borderColor: stats?.criticalContainers ? theme.error : 'transparent',
           }}>
             <View style={styles.alertContent}>
               <Feather
@@ -311,6 +322,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     borderLeftWidth: 4,
+    borderWidth: 1,
     minHeight: IndustrialDesign.minTouchTarget * 2,
   },
   statIconContainer: {

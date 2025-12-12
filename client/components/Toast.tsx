@@ -81,35 +81,35 @@ function ToastItem({ message, variant, onDismiss }: ToastItemProps) {
     switch (variant) {
       case "success":
         return {
-          background: isDark ? "#052E16" : "#D1FAE5",
-          border: isDark ? theme.success : "#10B981",
+          background: theme.successLight,
+          border: theme.success,
           icon: theme.success,
-          text: isDark ? "#FFFFFF" : "#065F46",
+          text: isDark ? theme.textOnPrimary : theme.text,
         };
       case "error":
         return {
-          background: isDark ? "#450A0A" : "#FEE2E2",
-          border: isDark ? theme.error : "#EF4444",
+          background: theme.errorLight,
+          border: theme.error,
           icon: theme.error,
-          text: isDark ? "#FFFFFF" : "#991B1B",
+          text: isDark ? theme.textOnPrimary : theme.text,
         };
       case "warning":
         return {
-          background: isDark ? "#451A03" : "#FEF3C7",
-          border: isDark ? theme.warning : "#F59E0B",
+          background: theme.warningLight,
+          border: theme.warning,
           icon: theme.warning,
-          text: isDark ? "#FFFFFF" : "#92400E",
+          text: isDark ? theme.textOnPrimary : theme.text,
         };
       case "info":
         return {
-          background: isDark ? "#172554" : "#DBEAFE",
-          border: isDark ? theme.info : "#3B82F6",
+          background: theme.infoLight,
+          border: theme.info,
           icon: theme.info,
-          text: isDark ? "#FFFFFF" : "#1E40AF",
+          text: isDark ? theme.textOnPrimary : theme.text,
         };
       default:
         return {
-          background: isDark ? theme.backgroundSecondary : "#FFFFFF",
+          background: theme.cardSurface,
           border: theme.border,
           icon: theme.text,
           text: theme.text,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     maxWidth: screenWidth - Spacing.lg * 2,
     minWidth: 200,
-    shadowColor: "#000",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
