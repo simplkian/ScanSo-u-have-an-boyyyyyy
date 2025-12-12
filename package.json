@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "containerflow",
   "main": "client/index.js",
   "version": "1.0.0",
   "scripts": {
@@ -8,14 +8,16 @@
     "all:dev": "npm run expo:dev & npm run server:dev",
     "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "esbuild server/index.ts --platform=node --target=node18 --bundle --format=cjs --outdir=server_dist",
+    "server:build": "npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist",
     "server:start": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
     "check:types": "tsc --noEmit",
     "check:format": "prettier --check \"**/*.{js,ts,tsx,css,json}\"",
-    "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\""
+    "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\"",
+    "build": "npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist",
+    "start": "NODE_ENV=production node server_dist/index.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -77,5 +79,8 @@
     "eslint-plugin-prettier": "^5.5.4",
     "prettier": "3.6.2"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

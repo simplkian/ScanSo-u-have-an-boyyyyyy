@@ -1,14 +1,36 @@
+"use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc2) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // server/index.ts
-import express from "express";
+var import_express = __toESM(require("express"));
 
 // server/routes.ts
-import { createServer } from "node:http";
+var import_node_http = require("node:http");
 
 // shared/schema.ts
 var schema_exports = {};
@@ -52,11 +74,11 @@ __export(schema_exports, {
   warehouseContainers: () => warehouseContainers,
   warehouseContainersRelations: () => warehouseContainersRelations
 });
-import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, real, jsonb, pgEnum } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-var userRoleEnum = pgEnum("user_role", ["ADMIN", "DRIVER"]);
-var containerStatusEnum = pgEnum("container_status", [
+var import_drizzle_orm = require("drizzle-orm");
+var import_pg_core = require("drizzle-orm/pg-core");
+var import_drizzle_zod = require("drizzle-zod");
+var userRoleEnum = (0, import_pg_core.pgEnum)("user_role", ["ADMIN", "DRIVER"]);
+var containerStatusEnum = (0, import_pg_core.pgEnum)("container_status", [
   "AT_WAREHOUSE",
   // Container is at the warehouse
   "AT_CUSTOMER",
@@ -66,7 +88,7 @@ var containerStatusEnum = pgEnum("container_status", [
   "OUT_OF_SERVICE"
   // Container is not available (maintenance, etc.)
 ]);
-var taskStatusEnum = pgEnum("task_status", [
+var taskStatusEnum = (0, import_pg_core.pgEnum)("task_status", [
   "OFFEN",
   // Task created, open and not yet assigned (initial state)
   "PLANNED",
@@ -86,7 +108,7 @@ var taskStatusEnum = pgEnum("task_status", [
   "CANCELLED"
   // Task was cancelled
 ]);
-var scanContextEnum = pgEnum("scan_context", [
+var scanContextEnum = (0, import_pg_core.pgEnum)("scan_context", [
   "WAREHOUSE_INFO",
   // General info scan in warehouse (no task)
   "CUSTOMER_INFO",
@@ -102,12 +124,12 @@ var scanContextEnum = pgEnum("scan_context", [
   "MAINTENANCE"
   // Maintenance-related scan
 ]);
-var locationTypeEnum = pgEnum("location_type", [
+var locationTypeEnum = (0, import_pg_core.pgEnum)("location_type", [
   "WAREHOUSE",
   "CUSTOMER",
   "OTHER"
 ]);
-var activityLogTypeEnum = pgEnum("activity_log_type", [
+var activityLogTypeEnum = (0, import_pg_core.pgEnum)("activity_log_type", [
   "TASK_CREATED",
   "TASK_ASSIGNED",
   "TASK_ACCEPTED",
@@ -124,60 +146,60 @@ var activityLogTypeEnum = pgEnum("activity_log_type", [
   "MANUAL_EDIT",
   "SYSTEM_EVENT"
 ]);
-var priorityEnum = pgEnum("priority", ["normal", "high", "urgent"]);
-var quantityUnitEnum = pgEnum("quantity_unit", ["kg", "t", "m3", "pcs"]);
-var users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  role: text("role").notNull().default("DRIVER"),
+var priorityEnum = (0, import_pg_core.pgEnum)("priority", ["normal", "high", "urgent"]);
+var quantityUnitEnum = (0, import_pg_core.pgEnum)("quantity_unit", ["kg", "t", "m3", "pcs"]);
+var users = (0, import_pg_core.pgTable)("users", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  email: (0, import_pg_core.text)("email").notNull().unique(),
+  password: (0, import_pg_core.text)("password").notNull(),
+  name: (0, import_pg_core.text)("name").notNull(),
+  phone: (0, import_pg_core.text)("phone"),
+  role: (0, import_pg_core.text)("role").notNull().default("DRIVER"),
   // ADMIN or DRIVER
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
+  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
 });
-var usersRelations = relations(users, ({ many }) => ({
+var usersRelations = (0, import_drizzle_orm.relations)(users, ({ many }) => ({
   createdTasks: many(tasks, { relationName: "taskCreator" }),
   assignedTasks: many(tasks, { relationName: "taskAssignee" }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs)
 }));
-var customers = pgTable("customers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  address: text("address"),
-  contactName: text("contact_name"),
-  contactPhone: text("contact_phone"),
-  contactEmail: text("contact_email"),
-  notes: text("notes"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+var customers = (0, import_pg_core.pgTable)("customers", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  name: (0, import_pg_core.text)("name").notNull(),
+  address: (0, import_pg_core.text)("address"),
+  contactName: (0, import_pg_core.text)("contact_name"),
+  contactPhone: (0, import_pg_core.text)("contact_phone"),
+  contactEmail: (0, import_pg_core.text)("contact_email"),
+  notes: (0, import_pg_core.text)("notes"),
+  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
+  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
 });
-var customersRelations = relations(customers, ({ many }) => ({
+var customersRelations = (0, import_drizzle_orm.relations)(customers, ({ many }) => ({
   containers: many(customerContainers)
 }));
-var customerContainers = pgTable("customer_containers", {
-  id: varchar("id").primaryKey(),
-  customerId: varchar("customer_id").references(() => customers.id),
-  customerName: text("customer_name").notNull(),
+var customerContainers = (0, import_pg_core.pgTable)("customer_containers", {
+  id: (0, import_pg_core.varchar)("id").primaryKey(),
+  customerId: (0, import_pg_core.varchar)("customer_id").references(() => customers.id),
+  customerName: (0, import_pg_core.text)("customer_name").notNull(),
   // Denormalized for convenience
-  location: text("location").notNull(),
-  latitude: real("latitude"),
-  longitude: real("longitude"),
-  qrCode: text("qr_code").notNull().unique(),
-  materialType: text("material_type").notNull(),
-  contentDescription: text("content_description"),
-  status: text("status").notNull().default("AT_CUSTOMER"),
+  location: (0, import_pg_core.text)("location").notNull(),
+  latitude: (0, import_pg_core.real)("latitude"),
+  longitude: (0, import_pg_core.real)("longitude"),
+  qrCode: (0, import_pg_core.text)("qr_code").notNull().unique(),
+  materialType: (0, import_pg_core.text)("material_type").notNull(),
+  contentDescription: (0, import_pg_core.text)("content_description"),
+  status: (0, import_pg_core.text)("status").notNull().default("AT_CUSTOMER"),
   // AT_CUSTOMER, IN_TRANSIT, etc.
-  lastEmptied: timestamp("last_emptied"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  lastEmptied: (0, import_pg_core.timestamp)("last_emptied"),
+  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
+  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
 });
-var customerContainersRelations = relations(customerContainers, ({ one, many }) => ({
+var customerContainersRelations = (0, import_drizzle_orm.relations)(customerContainers, ({ one, many }) => ({
   customer: one(customers, {
     fields: [customerContainers.customerId],
     references: [customers.id]
@@ -185,40 +207,40 @@ var customerContainersRelations = relations(customerContainers, ({ one, many }) 
   tasks: many(tasks),
   scanEvents: many(scanEvents)
 }));
-var warehouseContainers = pgTable("warehouse_containers", {
-  id: varchar("id").primaryKey(),
-  location: text("location").notNull(),
-  warehouseZone: text("warehouse_zone"),
+var warehouseContainers = (0, import_pg_core.pgTable)("warehouse_containers", {
+  id: (0, import_pg_core.varchar)("id").primaryKey(),
+  location: (0, import_pg_core.text)("location").notNull(),
+  warehouseZone: (0, import_pg_core.text)("warehouse_zone"),
   // e.g., "A-17", "Tor 3"
-  qrCode: text("qr_code").notNull().unique(),
-  materialType: text("material_type").notNull(),
-  contentDescription: text("content_description"),
-  currentAmount: real("current_amount").notNull().default(0),
-  maxCapacity: real("max_capacity").notNull(),
-  quantityUnit: text("quantity_unit").notNull().default("kg"),
+  qrCode: (0, import_pg_core.text)("qr_code").notNull().unique(),
+  materialType: (0, import_pg_core.text)("material_type").notNull(),
+  contentDescription: (0, import_pg_core.text)("content_description"),
+  currentAmount: (0, import_pg_core.real)("current_amount").notNull().default(0),
+  maxCapacity: (0, import_pg_core.real)("max_capacity").notNull(),
+  quantityUnit: (0, import_pg_core.text)("quantity_unit").notNull().default("kg"),
   // kg, t, m3
-  status: text("status").notNull().default("AT_WAREHOUSE"),
+  status: (0, import_pg_core.text)("status").notNull().default("AT_WAREHOUSE"),
   // AT_WAREHOUSE, OUT_OF_SERVICE
-  lastEmptied: timestamp("last_emptied"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  lastEmptied: (0, import_pg_core.timestamp)("last_emptied"),
+  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
+  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
 });
-var warehouseContainersRelations = relations(warehouseContainers, ({ many }) => ({
+var warehouseContainersRelations = (0, import_drizzle_orm.relations)(warehouseContainers, ({ many }) => ({
   tasks: many(tasks),
   fillHistory: many(fillHistory),
   scanEvents: many(scanEvents)
 }));
-var fillHistory = pgTable("fill_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  warehouseContainerId: varchar("warehouse_container_id").notNull().references(() => warehouseContainers.id),
-  amountAdded: real("amount_added").notNull(),
-  quantityUnit: text("quantity_unit").notNull().default("kg"),
-  taskId: varchar("task_id").references(() => tasks.id),
-  recordedByUserId: varchar("recorded_by_user_id").references(() => users.id),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+var fillHistory = (0, import_pg_core.pgTable)("fill_history", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  warehouseContainerId: (0, import_pg_core.varchar)("warehouse_container_id").notNull().references(() => warehouseContainers.id),
+  amountAdded: (0, import_pg_core.real)("amount_added").notNull(),
+  quantityUnit: (0, import_pg_core.text)("quantity_unit").notNull().default("kg"),
+  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
+  recordedByUserId: (0, import_pg_core.varchar)("recorded_by_user_id").references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
 });
-var fillHistoryRelations = relations(fillHistory, ({ one }) => ({
+var fillHistoryRelations = (0, import_drizzle_orm.relations)(fillHistory, ({ one }) => ({
   warehouseContainer: one(warehouseContainers, {
     fields: [fillHistory.warehouseContainerId],
     references: [warehouseContainers.id]
@@ -232,55 +254,55 @@ var fillHistoryRelations = relations(fillHistory, ({ one }) => ({
     references: [users.id]
   })
 }));
-var tasks = pgTable("tasks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+var tasks = (0, import_pg_core.pgTable)("tasks", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
   // Task Details
-  title: text("title"),
+  title: (0, import_pg_core.text)("title"),
   // Short description, e.g., "Abholung bei ABC GmbH"
-  description: text("description"),
+  description: (0, import_pg_core.text)("description"),
   // Detailed description
   // Container References
-  containerID: varchar("container_id").notNull().references(() => customerContainers.id),
-  deliveryContainerID: varchar("delivery_container_id").references(() => warehouseContainers.id),
+  containerID: (0, import_pg_core.varchar)("container_id").notNull().references(() => customerContainers.id),
+  deliveryContainerID: (0, import_pg_core.varchar)("delivery_container_id").references(() => warehouseContainers.id),
   // User References
-  createdBy: varchar("created_by").references(() => users.id),
-  assignedTo: varchar("assigned_to").references(() => users.id),
+  createdBy: (0, import_pg_core.varchar)("created_by").references(() => users.id),
+  assignedTo: (0, import_pg_core.varchar)("assigned_to").references(() => users.id),
   // Planning
-  scheduledTime: timestamp("scheduled_time"),
+  scheduledTime: (0, import_pg_core.timestamp)("scheduled_time"),
   // Planned execution time
-  plannedQuantity: real("planned_quantity"),
+  plannedQuantity: (0, import_pg_core.real)("planned_quantity"),
   // Expected amount
-  plannedQuantityUnit: text("planned_quantity_unit").default("kg"),
-  priority: text("priority").notNull().default("normal"),
+  plannedQuantityUnit: (0, import_pg_core.text)("planned_quantity_unit").default("kg"),
+  priority: (0, import_pg_core.text)("priority").notNull().default("normal"),
   // normal, high, urgent
-  materialType: text("material_type").notNull(),
+  materialType: (0, import_pg_core.text)("material_type").notNull(),
   // Status and Lifecycle
-  status: text("status").notNull().default("PLANNED"),
+  status: (0, import_pg_core.text)("status").notNull().default("PLANNED"),
   // Lifecycle Timestamps - Set when status changes
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  assignedAt: timestamp("assigned_at"),
-  acceptedAt: timestamp("accepted_at"),
-  pickedUpAt: timestamp("picked_up_at"),
-  inTransitAt: timestamp("in_transit_at"),
-  deliveredAt: timestamp("delivered_at"),
-  completedAt: timestamp("completed_at"),
-  cancelledAt: timestamp("cancelled_at"),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
+  assignedAt: (0, import_pg_core.timestamp)("assigned_at"),
+  acceptedAt: (0, import_pg_core.timestamp)("accepted_at"),
+  pickedUpAt: (0, import_pg_core.timestamp)("picked_up_at"),
+  inTransitAt: (0, import_pg_core.timestamp)("in_transit_at"),
+  deliveredAt: (0, import_pg_core.timestamp)("delivered_at"),
+  completedAt: (0, import_pg_core.timestamp)("completed_at"),
+  cancelledAt: (0, import_pg_core.timestamp)("cancelled_at"),
   // Legacy fields for backward compatibility
-  pickupTimestamp: timestamp("pickup_timestamp"),
-  pickupLocation: jsonb("pickup_location"),
-  deliveryTimestamp: timestamp("delivery_timestamp"),
+  pickupTimestamp: (0, import_pg_core.timestamp)("pickup_timestamp"),
+  pickupLocation: (0, import_pg_core.jsonb)("pickup_location"),
+  deliveryTimestamp: (0, import_pg_core.timestamp)("delivery_timestamp"),
   // Actual recorded values
-  actualQuantity: real("actual_quantity"),
+  actualQuantity: (0, import_pg_core.real)("actual_quantity"),
   // Actually measured amount
-  actualQuantityUnit: text("actual_quantity_unit").default("kg"),
+  actualQuantityUnit: (0, import_pg_core.text)("actual_quantity_unit").default("kg"),
   // Additional info
-  notes: text("notes"),
-  cancellationReason: text("cancellation_reason"),
-  estimatedAmount: real("estimated_amount"),
+  notes: (0, import_pg_core.text)("notes"),
+  cancellationReason: (0, import_pg_core.text)("cancellation_reason"),
+  estimatedAmount: (0, import_pg_core.real)("estimated_amount"),
   // Legacy, use plannedQuantity
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
 });
-var tasksRelations = relations(tasks, ({ one, many }) => ({
+var tasksRelations = (0, import_drizzle_orm.relations)(tasks, ({ one, many }) => ({
   container: one(customerContainers, {
     fields: [tasks.containerID],
     references: [customerContainers.id]
@@ -303,39 +325,39 @@ var tasksRelations = relations(tasks, ({ one, many }) => ({
   activityLogs: many(activityLogs),
   fillHistory: many(fillHistory)
 }));
-var scanEvents = pgTable("scan_events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+var scanEvents = (0, import_pg_core.pgTable)("scan_events", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
   // What was scanned
-  containerId: varchar("container_id").notNull(),
+  containerId: (0, import_pg_core.varchar)("container_id").notNull(),
   // Can be customer or warehouse container
-  containerType: text("container_type").notNull(),
+  containerType: (0, import_pg_core.text)("container_type").notNull(),
   // "customer" or "warehouse"
   // Task context (optional - null for info-only scans)
-  taskId: varchar("task_id").references(() => tasks.id),
+  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
   // Who scanned
-  scannedByUserId: varchar("scanned_by_user_id").notNull().references(() => users.id),
+  scannedByUserId: (0, import_pg_core.varchar)("scanned_by_user_id").notNull().references(() => users.id),
   // When and where
-  scannedAt: timestamp("scanned_at").notNull().defaultNow(),
+  scannedAt: (0, import_pg_core.timestamp)("scanned_at").notNull().defaultNow(),
   // Scan context - what was the purpose of this scan
-  scanContext: text("scan_context").notNull(),
+  scanContext: (0, import_pg_core.text)("scan_context").notNull(),
   // WAREHOUSE_INFO, TASK_ACCEPT_AT_CUSTOMER, etc.
   // Location information
-  locationType: text("location_type").notNull(),
+  locationType: (0, import_pg_core.text)("location_type").notNull(),
   // WAREHOUSE, CUSTOMER, OTHER
-  locationDetails: text("location_details"),
+  locationDetails: (0, import_pg_core.text)("location_details"),
   // Free text, e.g., "Tor 3", "Regal A-17"
-  geoLocation: jsonb("geo_location"),
+  geoLocation: (0, import_pg_core.jsonb)("geo_location"),
   // { latitude, longitude, accuracy }
   // Scan result
-  scanResult: text("scan_result").notNull().default("SUCCESS"),
+  scanResult: (0, import_pg_core.text)("scan_result").notNull().default("SUCCESS"),
   // SUCCESS, INVALID_CONTAINER, ERROR
-  resultMessage: text("result_message"),
+  resultMessage: (0, import_pg_core.text)("result_message"),
   // Human-readable result description
   // Additional data for debugging/audit
-  extraData: jsonb("extra_data"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  extraData: (0, import_pg_core.jsonb)("extra_data"),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
 });
-var scanEventsRelations = relations(scanEvents, ({ one }) => ({
+var scanEventsRelations = (0, import_drizzle_orm.relations)(scanEvents, ({ one }) => ({
   scannedBy: one(users, {
     fields: [scanEvents.scannedByUserId],
     references: [users.id]
@@ -345,36 +367,36 @@ var scanEventsRelations = relations(scanEvents, ({ one }) => ({
     references: [tasks.id]
   })
 }));
-var activityLogs = pgTable("activity_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+var activityLogs = (0, import_pg_core.pgTable)("activity_logs", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
   // Event classification
-  type: text("type").notNull(),
+  type: (0, import_pg_core.text)("type").notNull(),
   // TASK_CREATED, TASK_ACCEPTED, CONTAINER_SCANNED_AT_WAREHOUSE, etc.
-  action: text("action").notNull(),
+  action: (0, import_pg_core.text)("action").notNull(),
   // Legacy field, same as type for backward compatibility
   // Human-readable message for UI display
-  message: text("message").notNull(),
+  message: (0, import_pg_core.text)("message").notNull(),
   // e.g., "Fahrer Müller hat Container XYZ beim Kunden gescannt"
   // References
-  userId: varchar("user_id").references(() => users.id),
+  userId: (0, import_pg_core.varchar)("user_id").references(() => users.id),
   // Who triggered this event
-  taskId: varchar("task_id").references(() => tasks.id),
-  containerId: varchar("container_id"),
+  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
+  containerId: (0, import_pg_core.varchar)("container_id"),
   // Can be customer or warehouse container ID
-  scanEventId: varchar("scan_event_id").references(() => scanEvents.id),
+  scanEventId: (0, import_pg_core.varchar)("scan_event_id").references(() => scanEvents.id),
   // Link to scan if applicable
   // Location at time of event
-  location: jsonb("location"),
+  location: (0, import_pg_core.jsonb)("location"),
   // Additional structured details
-  details: text("details"),
+  details: (0, import_pg_core.text)("details"),
   // Legacy field
-  metadata: jsonb("metadata"),
+  metadata: (0, import_pg_core.jsonb)("metadata"),
   // Additional structured data
   // Timestamp
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  timestamp: (0, import_pg_core.timestamp)("timestamp").notNull().defaultNow(),
+  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
 });
-var activityLogsRelations = relations(activityLogs, ({ one }) => ({
+var activityLogsRelations = (0, import_drizzle_orm.relations)(activityLogs, ({ one }) => ({
   user: one(users, {
     fields: [activityLogs.userId],
     references: [users.id]
@@ -388,20 +410,20 @@ var activityLogsRelations = relations(activityLogs, ({ one }) => ({
     references: [scanEvents.id]
   })
 }));
-var insertUserSchema = createInsertSchema(users).pick({
+var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users).pick({
   email: true,
   password: true,
   name: true,
   phone: true,
   role: true
 });
-var insertCustomerSchema = createInsertSchema(customers);
-var insertCustomerContainerSchema = createInsertSchema(customerContainers);
-var insertWarehouseContainerSchema = createInsertSchema(warehouseContainers);
-var insertTaskSchema = createInsertSchema(tasks);
-var insertScanEventSchema = createInsertSchema(scanEvents);
-var insertActivityLogSchema = createInsertSchema(activityLogs);
-var insertFillHistorySchema = createInsertSchema(fillHistory);
+var insertCustomerSchema = (0, import_drizzle_zod.createInsertSchema)(customers);
+var insertCustomerContainerSchema = (0, import_drizzle_zod.createInsertSchema)(customerContainers);
+var insertWarehouseContainerSchema = (0, import_drizzle_zod.createInsertSchema)(warehouseContainers);
+var insertTaskSchema = (0, import_drizzle_zod.createInsertSchema)(tasks);
+var insertScanEventSchema = (0, import_drizzle_zod.createInsertSchema)(scanEvents);
+var insertActivityLogSchema = (0, import_drizzle_zod.createInsertSchema)(activityLogs);
+var insertFillHistorySchema = (0, import_drizzle_zod.createInsertSchema)(fillHistory);
 var VALID_TASK_TRANSITIONS = {
   OFFEN: ["ASSIGNED", "ACCEPTED", "CANCELLED"],
   // New task - can be assigned or directly accepted
@@ -476,9 +498,9 @@ var ACTIVITY_LOG_TYPE_LABELS = {
 };
 
 // server/db.ts
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
-var { Pool } = pg;
+var import_node_postgres = require("drizzle-orm/node-postgres");
+var import_pg = __toESM(require("pg"));
+var { Pool } = import_pg.default;
 if (!process.env.DATABASE_URL) {
   throw new Error(
     "DATABASE_URL must be set. For Supabase, copy the connection string from your Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection String (URI format)."
@@ -498,7 +520,7 @@ var poolConfig = {
   }
 };
 var pool = new Pool(poolConfig);
-var db = drizzle(pool, { schema: schema_exports });
+var db = (0, import_node_postgres.drizzle)(pool, { schema: schema_exports });
 pool.on("error", (err) => {
   console.error("[DB POOL] Unexpected error on idle client:", err.message);
 });
@@ -544,17 +566,17 @@ async function runDbTest() {
 }
 
 // server/storage.ts
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+var import_drizzle_orm2 = require("drizzle-orm");
 var DatabaseStorage = class {
   // ============================================================================
   // USERS
   // ============================================================================
   async getUser(id) {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where((0, import_drizzle_orm2.eq)(users.id, id));
     return user || void 0;
   }
   async getUserByEmail(email) {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users).where((0, import_drizzle_orm2.eq)(users.email, email));
     return user || void 0;
   }
   async createUser(insertUser) {
@@ -562,21 +584,21 @@ var DatabaseStorage = class {
     return user;
   }
   async getUsers() {
-    return db.select().from(users).where(eq(users.isActive, true));
+    return db.select().from(users).where((0, import_drizzle_orm2.eq)(users.isActive, true));
   }
   async updateUser(id, data) {
     const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [user] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    const [user] = await db.update(users).set(updateData).where((0, import_drizzle_orm2.eq)(users.id, id)).returning();
     return user || void 0;
   }
   // ============================================================================
   // CUSTOMERS
   // ============================================================================
   async getCustomers() {
-    return db.select().from(customers).where(eq(customers.isActive, true));
+    return db.select().from(customers).where((0, import_drizzle_orm2.eq)(customers.isActive, true));
   }
   async getCustomer(id) {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    const [customer] = await db.select().from(customers).where((0, import_drizzle_orm2.eq)(customers.id, id));
     return customer || void 0;
   }
   async createCustomer(data) {
@@ -585,21 +607,21 @@ var DatabaseStorage = class {
   }
   async updateCustomer(id, data) {
     const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [customer] = await db.update(customers).set(updateData).where(eq(customers.id, id)).returning();
+    const [customer] = await db.update(customers).set(updateData).where((0, import_drizzle_orm2.eq)(customers.id, id)).returning();
     return customer || void 0;
   }
   // ============================================================================
   // CUSTOMER CONTAINERS
   // ============================================================================
   async getCustomerContainers() {
-    return db.select().from(customerContainers).where(eq(customerContainers.isActive, true));
+    return db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.isActive, true));
   }
   async getCustomerContainer(id) {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.id, id));
+    const [container] = await db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.id, id));
     return container || void 0;
   }
   async getCustomerContainerByQR(qrCode) {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.qrCode, qrCode));
+    const [container] = await db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createCustomerContainer(data) {
@@ -608,21 +630,21 @@ var DatabaseStorage = class {
   }
   async updateCustomerContainer(id, data) {
     const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [container] = await db.update(customerContainers).set(updateData).where(eq(customerContainers.id, id)).returning();
+    const [container] = await db.update(customerContainers).set(updateData).where((0, import_drizzle_orm2.eq)(customerContainers.id, id)).returning();
     return container || void 0;
   }
   // ============================================================================
   // WAREHOUSE CONTAINERS
   // ============================================================================
   async getWarehouseContainers() {
-    return db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
+    return db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.isActive, true));
   }
   async getWarehouseContainer(id) {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+    const [container] = await db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.id, id));
     return container || void 0;
   }
   async getWarehouseContainerByQR(qrCode) {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.qrCode, qrCode));
+    const [container] = await db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createWarehouseContainer(data) {
@@ -631,7 +653,7 @@ var DatabaseStorage = class {
   }
   async updateWarehouseContainer(id, data) {
     const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [container] = await db.update(warehouseContainers).set(updateData).where(eq(warehouseContainers.id, id)).returning();
+    const [container] = await db.update(warehouseContainers).set(updateData).where((0, import_drizzle_orm2.eq)(warehouseContainers.id, id)).returning();
     return container || void 0;
   }
   // ============================================================================
@@ -640,26 +662,26 @@ var DatabaseStorage = class {
   async getTasks(filters) {
     const conditions = [];
     if (filters?.assignedTo) {
-      conditions.push(eq(tasks.assignedTo, filters.assignedTo));
+      conditions.push((0, import_drizzle_orm2.eq)(tasks.assignedTo, filters.assignedTo));
     }
     if (filters?.status) {
-      conditions.push(eq(tasks.status, filters.status));
+      conditions.push((0, import_drizzle_orm2.eq)(tasks.status, filters.status));
     }
     if (filters?.date) {
       const startOfDay = new Date(filters.date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(filters.date);
       endOfDay.setHours(23, 59, 59, 999);
-      conditions.push(gte(tasks.scheduledTime, startOfDay));
-      conditions.push(lte(tasks.scheduledTime, endOfDay));
+      conditions.push((0, import_drizzle_orm2.gte)(tasks.scheduledTime, startOfDay));
+      conditions.push((0, import_drizzle_orm2.lte)(tasks.scheduledTime, endOfDay));
     }
     if (conditions.length > 0) {
-      return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt));
+      return db.select().from(tasks).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(tasks.createdAt));
     }
-    return db.select().from(tasks).orderBy(desc(tasks.createdAt));
+    return db.select().from(tasks).orderBy((0, import_drizzle_orm2.desc)(tasks.createdAt));
   }
   async getTask(id) {
-    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    const [task] = await db.select().from(tasks).where((0, import_drizzle_orm2.eq)(tasks.id, id));
     return task || void 0;
   }
   async createTask(data) {
@@ -668,7 +690,7 @@ var DatabaseStorage = class {
   }
   async updateTask(id, data) {
     const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    const [task] = await db.update(tasks).set(updateData).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
     return task || void 0;
   }
   /**
@@ -702,7 +724,7 @@ var DatabaseStorage = class {
       updateData.assignedTo = userId;
       updateData.assignedAt = /* @__PURE__ */ new Date();
     }
-    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    const [task] = await db.update(tasks).set(updateData).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
     return task || void 0;
   }
   /**
@@ -713,10 +735,10 @@ var DatabaseStorage = class {
     const existingTask = await this.getTask(id);
     if (!existingTask)
       return false;
-    await db.update(scanEvents).set({ taskId: null }).where(eq(scanEvents.taskId, id));
-    await db.update(activityLogs).set({ taskId: null }).where(eq(activityLogs.taskId, id));
-    await db.update(fillHistory).set({ taskId: null }).where(eq(fillHistory.taskId, id));
-    const result = await db.delete(tasks).where(eq(tasks.id, id)).returning();
+    await db.update(scanEvents).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(scanEvents.taskId, id));
+    await db.update(activityLogs).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(activityLogs.taskId, id));
+    await db.update(fillHistory).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(fillHistory.taskId, id));
+    const result = await db.delete(tasks).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
     return result.length > 0;
   }
   // ============================================================================
@@ -725,21 +747,21 @@ var DatabaseStorage = class {
   async getScanEvents(filters) {
     const conditions = [];
     if (filters?.containerId) {
-      conditions.push(eq(scanEvents.containerId, filters.containerId));
+      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.containerId, filters.containerId));
     }
     if (filters?.taskId) {
-      conditions.push(eq(scanEvents.taskId, filters.taskId));
+      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.taskId, filters.taskId));
     }
     if (filters?.userId) {
-      conditions.push(eq(scanEvents.scannedByUserId, filters.userId));
+      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.scannedByUserId, filters.userId));
     }
     if (conditions.length > 0) {
-      return db.select().from(scanEvents).where(and(...conditions)).orderBy(desc(scanEvents.scannedAt));
+      return db.select().from(scanEvents).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(scanEvents.scannedAt));
     }
-    return db.select().from(scanEvents).orderBy(desc(scanEvents.scannedAt));
+    return db.select().from(scanEvents).orderBy((0, import_drizzle_orm2.desc)(scanEvents.scannedAt));
   }
   async getScanEvent(id) {
-    const [event] = await db.select().from(scanEvents).where(eq(scanEvents.id, id));
+    const [event] = await db.select().from(scanEvents).where((0, import_drizzle_orm2.eq)(scanEvents.id, id));
     return event || void 0;
   }
   async createScanEvent(data) {
@@ -752,21 +774,21 @@ var DatabaseStorage = class {
   async getActivityLogs(filters) {
     const conditions = [];
     if (filters?.userId) {
-      conditions.push(eq(activityLogs.userId, filters.userId));
+      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.userId, filters.userId));
     }
     if (filters?.containerId) {
-      conditions.push(eq(activityLogs.containerId, filters.containerId));
+      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.containerId, filters.containerId));
     }
     if (filters?.type) {
-      conditions.push(eq(activityLogs.type, filters.type));
+      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.type, filters.type));
     }
     if (filters?.taskId) {
-      conditions.push(eq(activityLogs.taskId, filters.taskId));
+      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.taskId, filters.taskId));
     }
     if (conditions.length > 0) {
-      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.timestamp));
+      return db.select().from(activityLogs).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(activityLogs.timestamp));
     }
-    return db.select().from(activityLogs).orderBy(desc(activityLogs.timestamp));
+    return db.select().from(activityLogs).orderBy((0, import_drizzle_orm2.desc)(activityLogs.timestamp));
   }
   async createActivityLog(data) {
     const logData = {
@@ -780,7 +802,7 @@ var DatabaseStorage = class {
   // FILL HISTORY
   // ============================================================================
   async getFillHistory(warehouseContainerId) {
-    return db.select().from(fillHistory).where(eq(fillHistory.warehouseContainerId, warehouseContainerId)).orderBy(desc(fillHistory.createdAt));
+    return db.select().from(fillHistory).where((0, import_drizzle_orm2.eq)(fillHistory.warehouseContainerId, warehouseContainerId)).orderBy((0, import_drizzle_orm2.desc)(fillHistory.createdAt));
   }
   async createFillHistory(data) {
     const [history] = await db.insert(fillHistory).values(data).returning();
@@ -790,9 +812,9 @@ var DatabaseStorage = class {
 var storage = new DatabaseStorage();
 
 // server/routes.ts
-import { createHash } from "crypto";
+var import_crypto = require("crypto");
 function hashPassword(password) {
-  return createHash("sha256").update(password).digest("hex");
+  return (0, import_crypto.createHash)("sha256").update(password).digest("hex");
 }
 async function requireAuth(req, res, next) {
   const userId = req.headers["x-user-id"] || req.body?.userId;
@@ -2272,14 +2294,14 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch driver overview" });
     }
   });
-  const httpServer = createServer(app2);
+  const httpServer = (0, import_node_http.createServer)(app2);
   return httpServer;
 }
 
 // server/index.ts
-import * as fs from "fs";
-import * as path from "path";
-var app = express();
+var fs = __toESM(require("fs"));
+var path = __toESM(require("path"));
+var app = (0, import_express.default)();
 var log = console.log;
 function setupCors(app2) {
   app2.use((req, res, next) => {
@@ -2319,13 +2341,13 @@ function setupCors(app2) {
 }
 function setupBodyParsing(app2) {
   app2.use(
-    express.json({
+    import_express.default.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       }
     })
   );
-  app2.use(express.urlencoded({ extended: false }));
+  app2.use(import_express.default.urlencoded({ extended: false }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -2428,8 +2450,8 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app2.use(express.static(path.resolve(process.cwd(), "static-build")));
+  app2.use("/assets", import_express.default.static(path.resolve(process.cwd(), "assets")));
+  app2.use(import_express.default.static(path.resolve(process.cwd(), "static-build")));
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {

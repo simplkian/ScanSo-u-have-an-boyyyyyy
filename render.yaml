@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: containerflow-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist
+    startCommand: NODE_ENV=production node server_dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_DOMAIN
+        sync: false
+    healthCheckPath: /api/health
+    autoDeploy: true
