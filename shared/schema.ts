@@ -160,6 +160,27 @@ export const taskTypeEnum = pgEnum("task_type", [
 // ============================================================================
 
 /**
+ * Departments Table
+ * Organizational units for grouping users and tracking context
+ */
+export const departments = pgTable("departments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const departmentsRelations = relations(departments, ({ many }) => ({
+  users: many(users),
+  taskEvents: many(taskEvents),
+}));
+
+/**
  * Users Table
  * Stores admin and driver accounts
  */
@@ -172,12 +193,17 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   phone: text("phone"),
   role: text("role").notNull().default("DRIVER"), // ADMIN or DRIVER
+  departmentId: varchar("department_id").references(() => departments.id),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  department: one(departments, {
+    fields: [users.departmentId],
+    references: [departments.id],
+  }),
   createdTasks: many(tasks, { relationName: "taskCreator" }),
   assignedTasks: many(tasks, { relationName: "taskAssignee" }),
   claimedTasks: many(tasks, { relationName: "taskClaimer" }),
@@ -332,6 +358,7 @@ export const stands = pgTable("stands", {
   sequence: integer("sequence"),
   positionMeta: jsonb("position_meta"),
   dailyFull: boolean("daily_full").notNull().default(false),
+  dailyTaskTimeLocal: text("daily_task_time_local"), // e.g., "06:00"
   lastDailyTaskGeneratedAt: timestamp("last_daily_task_generated_at"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -543,6 +570,10 @@ export const tasks = pgTable("tasks", {
   // Task categorization
   taskType: text("task_type").notNull().default("LEGACY"), // DAILY_FULL, MANUAL, LEGACY
   
+  // Daily task scheduling
+  scheduledFor: timestamp("scheduled_for"), // Date for which daily task is scheduled
+  dedupKey: text("dedup_key").unique(), // Format: DAILY:${standId}:${YYYY-MM-DD}
+  
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -610,6 +641,9 @@ export const taskEvents = pgTable("task_events", {
   entityId: varchar("entity_id"),
   beforeData: jsonb("before_data"),
   afterData: jsonb("after_data"),
+  actorRole: text("actor_role"),
+  actorDepartmentId: varchar("actor_department_id").references(() => departments.id),
+  metaJson: jsonb("meta_json"), // Contains stationId, hallId, standId, boxId, materialId, containerId, qrType
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
@@ -621,6 +655,10 @@ export const taskEventsRelations = relations(taskEvents, ({ one }) => ({
   actorUser: one(users, {
     fields: [taskEvents.actorUserId],
     references: [users.id],
+  }),
+  actorDepartment: one(departments, {
+    fields: [taskEvents.actorDepartmentId],
+    references: [departments.id],
   }),
 }));
 
@@ -736,12 +774,15 @@ export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
 // SCHEMAS AND TYPES
 // ============================================================================
 
+export const insertDepartmentSchema = createInsertSchema(departments);
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   name: true,
   phone: true,
   role: true,
+  departmentId: true,
 });
 
 export const insertCustomerSchema = createInsertSchema(customers);
@@ -759,6 +800,9 @@ export const insertStationSchema = createInsertSchema(stations);
 export const insertStandSchema = createInsertSchema(stands);
 export const insertBoxSchema = createInsertSchema(boxes);
 export const insertTaskEventSchema = createInsertSchema(taskEvents);
+
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
