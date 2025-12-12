@@ -123,6 +123,19 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
   - `DATABASE_URL` - Supabase PostgreSQL connection string (required, no fallback)
   - `EXPO_PUBLIC_DOMAIN` - Public API domain for mobile app to connect to backend
   - `REPLIT_DEV_DOMAIN` / `REPLIT_INTERNAL_APP_DOMAIN` - Replit-specific domain configuration
+  - `NODE_ENV` - Set to `production` for production builds
+  - `PORT` - Server port (defaults to 5000)
+- **Optional Environment Variables**:
+  - `DB_DEBUG=true` - Enable database pool debug logging (logs pool stats every 30 seconds)
+
+### Database Connection Pooling
+- **Single Pool Instance**: Created once at process startup in `server/db.ts`
+- **Pool Configuration**: max=10, idleTimeoutMillis=30000, connectionTimeoutMillis=10000
+- **SSL**: Automatically enabled for Supabase connections
+- **Health Endpoints**:
+  - `GET /api/health` - Returns database connection status (200 OK or 503 degraded)
+  - `GET /api/db-test` - Runs `SELECT now()` and returns pool stats (temporary debugging)
+  - `GET /api/pool-stats` - Returns current pool statistics (totalCount, idleCount, waitingCount)
 
 ### Development Tools
 - TypeScript with strict mode

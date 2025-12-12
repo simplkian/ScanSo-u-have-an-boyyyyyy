@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { createHash } from "crypto";
-import { checkDatabaseHealth } from "./db";
+import { checkDatabaseHealth, getPoolStats, runDbTest } from "./db";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -104,6 +104,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString() 
       });
     }
+  });
+
+  // Database test endpoint - temporary for debugging
+  // Executes a simple query to verify DB connectivity
+  app.get("/api/db-test", async (req, res) => {
+    try {
+      const result = await runDbTest();
+      if (result.success) {
+        res.json({
+          status: "ok",
+          dbTime: result.timestamp,
+          pool: getPoolStats(),
+        });
+      } else {
+        res.status(503).json({
+          status: "error",
+          error: result.error,
+          pool: getPoolStats(),
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        error: error instanceof Error ? error.message : "DB test failed",
+      });
+    }
+  });
+
+  // Pool statistics endpoint - for monitoring connection pool health
+  app.get("/api/pool-stats", (req, res) => {
+    res.json(getPoolStats());
   });
 
   app.get("/api/auth/replit", (req, res) => {
