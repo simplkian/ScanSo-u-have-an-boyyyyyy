@@ -4,9 +4,9 @@ import { storage } from "./storage";
 import { createHash } from "crypto";
 import { checkDatabaseHealth, db } from "./db";
 import { 
-  materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers, users, departments,
+  materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers, users, departments, taskSchedules,
   assertAutomotiveTransition, getAutomotiveTimestampFieldForStatus,
-  type Material, type Hall, type Station, type Stand, type Box, type TaskEvent
+  type Material, type Hall, type Station, type Stand, type Box, type TaskEvent, type TaskSchedule
 } from "@shared/schema";
 import { eq, and, desc, notInArray, isNull, gte, lte, sql, inArray, count, sum, avg } from "drizzle-orm";
 
@@ -600,6 +600,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Department deactivated" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete department" });
+    }
+  });
+
+  // ============================================================================
+  // TASK SCHEDULES - Flexible scheduling for automated task generation
+  // ============================================================================
+
+  app.get("/api/admin/schedules", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const schedulesList = await db.select({
+        schedule: taskSchedules,
+        stand: stands,
+        station: stations,
+      })
+        .from(taskSchedules)
+        .leftJoin(stands, eq(taskSchedules.standId, stands.id))
+        .leftJoin(stations, eq(taskSchedules.stationId, stations.id))
+        .orderBy(desc(taskSchedules.createdAt));
+
+      const result = schedulesList.map(row => ({
+        ...row.schedule,
+        stand: row.stand,
+        station: row.station,
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("[Schedules] Failed to fetch schedules:", error);
+      res.status(500).json({ error: "Failed to fetch schedules" });
+    }
+  });
+
+  app.get("/api/admin/schedules/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [schedule] = await db.select({
+        schedule: taskSchedules,
+        stand: stands,
+        station: stations,
+      })
+        .from(taskSchedules)
+        .leftJoin(stands, eq(taskSchedules.standId, stands.id))
+        .leftJoin(stations, eq(taskSchedules.stationId, stations.id))
+        .where(eq(taskSchedules.id, req.params.id));
+
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      res.json({
+        ...schedule.schedule,
+        stand: schedule.stand,
+        station: schedule.station,
+      });
+    } catch (error) {
+      console.error("[Schedules] Failed to fetch schedule:", error);
+      res.status(500).json({ error: "Failed to fetch schedule" });
+    }
+  });
+
+  app.post("/api/admin/schedules", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const { name, standId, stationId, ruleType, timeLocal, weekdays, everyNDays, startDate, timezone, createDaysAhead } = req.body;
+
+      if (!name || !standId || !ruleType || !timeLocal) {
+        return res.status(400).json({ error: "Name, standId, ruleType, and timeLocal are required" });
+      }
+
+      if (!["DAILY", "WEEKLY", "INTERVAL"].includes(ruleType)) {
+        return res.status(400).json({ error: "ruleType must be DAILY, WEEKLY, or INTERVAL" });
+      }
+
+      if (ruleType === "WEEKLY" && (!weekdays || !Array.isArray(weekdays) || weekdays.length === 0)) {
+        return res.status(400).json({ error: "weekdays is required for WEEKLY rule type" });
+      }
+
+      if (ruleType === "INTERVAL" && (!everyNDays || everyNDays < 1)) {
+        return res.status(400).json({ error: "everyNDays (>=1) is required for INTERVAL rule type" });
+      }
+
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const resolvedStationId = stationId || stand.stationId;
+
+      const [newSchedule] = await db.insert(taskSchedules).values({
+        name,
+        standId,
+        stationId: resolvedStationId,
+        ruleType,
+        timeLocal,
+        weekdays: ruleType === "WEEKLY" ? weekdays : null,
+        everyNDays: ruleType === "INTERVAL" ? everyNDays : null,
+        startDate: ruleType === "INTERVAL" && startDate ? new Date(startDate) : null,
+        timezone: timezone || "Europe/Berlin",
+        createDaysAhead: createDaysAhead ?? 7,
+        createdById: authUser.id,
+        isActive: true,
+      }).returning();
+
+      res.status(201).json(newSchedule);
+    } catch (error) {
+      console.error("[Schedules] Failed to create schedule:", error);
+      res.status(500).json({ error: "Failed to create schedule" });
+    }
+  });
+
+  app.patch("/api/admin/schedules/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, standId, stationId, ruleType, timeLocal, weekdays, everyNDays, startDate, timezone, createDaysAhead, isActive } = req.body;
+
+      const [existing] = await db.select().from(taskSchedules).where(eq(taskSchedules.id, id));
+      if (!existing) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      const finalRuleType = ruleType ?? existing.ruleType;
+
+      if (ruleType && !["DAILY", "WEEKLY", "INTERVAL"].includes(ruleType)) {
+        return res.status(400).json({ error: "ruleType must be DAILY, WEEKLY, or INTERVAL" });
+      }
+
+      const updateData: Partial<typeof taskSchedules.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+
+      if (name !== undefined) updateData.name = name;
+      if (standId !== undefined) updateData.standId = standId;
+      if (stationId !== undefined) updateData.stationId = stationId;
+      if (ruleType !== undefined) updateData.ruleType = ruleType;
+      if (timeLocal !== undefined) updateData.timeLocal = timeLocal;
+      if (timezone !== undefined) updateData.timezone = timezone;
+      if (createDaysAhead !== undefined) updateData.createDaysAhead = createDaysAhead;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      if (finalRuleType === "WEEKLY") {
+        if (weekdays !== undefined) updateData.weekdays = weekdays;
+        updateData.everyNDays = null;
+        updateData.startDate = null;
+      } else if (finalRuleType === "INTERVAL") {
+        if (everyNDays !== undefined) updateData.everyNDays = everyNDays;
+        if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+        updateData.weekdays = null;
+      } else if (finalRuleType === "DAILY") {
+        updateData.weekdays = null;
+        updateData.everyNDays = null;
+        updateData.startDate = null;
+      }
+
+      const [updated] = await db.update(taskSchedules)
+        .set(updateData)
+        .where(eq(taskSchedules.id, id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("[Schedules] Failed to update schedule:", error);
+      res.status(500).json({ error: "Failed to update schedule" });
+    }
+  });
+
+  app.delete("/api/admin/schedules/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const [existing] = await db.select().from(taskSchedules).where(eq(taskSchedules.id, id));
+      if (!existing) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      await db.update(taskSchedules)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(taskSchedules.id, id));
+
+      res.json({ success: true, message: "Schedule deactivated" });
+    } catch (error) {
+      console.error("[Schedules] Failed to delete schedule:", error);
+      res.status(500).json({ error: "Failed to delete schedule" });
+    }
+  });
+
+  app.post("/api/admin/schedules/:id/run", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = (req as any).authUser;
+
+      const [schedule] = await db.select({
+        schedule: taskSchedules,
+        stand: stands,
+      })
+        .from(taskSchedules)
+        .leftJoin(stands, eq(taskSchedules.standId, stands.id))
+        .where(eq(taskSchedules.id, id));
+
+      if (!schedule || !schedule.schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      if (!schedule.schedule.isActive) {
+        return res.status(400).json({ error: "Cannot run inactive schedule" });
+      }
+
+      const today = getTodayBerlin();
+      const todayStr = formatDateBerlin(new Date());
+      const dedupKey = `SCHEDULED:${schedule.schedule.id}:${todayStr}`;
+
+      const [existingTask] = await db.select().from(tasks).where(eq(tasks.dedupKey, dedupKey));
+      if (existingTask) {
+        return res.status(409).json({ 
+          error: "Task already exists for this schedule today",
+          existingTaskId: existingTask.id 
+        });
+      }
+
+      const standIdentifier = schedule.stand?.identifier || "Unknown";
+      const [newTask] = await db.insert(tasks).values({
+        title: `${schedule.schedule.name} - Stand ${standIdentifier}`,
+        description: `Manuell ausgelöst von ${authUser.name}`,
+        containerID: schedule.schedule.standId,
+        standId: schedule.schedule.standId,
+        materialType: schedule.stand?.materialId || null,
+        taskType: "MANUAL",
+        source: "SCHEDULED",
+        scheduleId: schedule.schedule.id,
+        status: "OPEN",
+        priority: "normal",
+        scheduledFor: today,
+        dedupKey,
+        createdBy: authUser.id,
+      }).returning();
+
+      const standMeta = await buildStandContextMeta(schedule.schedule.standId);
+      await createAuditEvent({
+        taskId: newTask.id,
+        actorUserId: authUser.id,
+        action: "TASK_CREATED",
+        entityType: "task",
+        entityId: newTask.id,
+        beforeData: null,
+        afterData: { status: "OPEN", taskType: "MANUAL", source: "SCHEDULED", scheduleId: schedule.schedule.id },
+        metaJson: {
+          ...standMeta,
+          source: "MANUAL_TRIGGER",
+        },
+      });
+
+      res.status(201).json(newTask);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: "Task already exists for this schedule today" });
+      }
+      console.error("[Schedules] Failed to run schedule:", error);
+      res.status(500).json({ error: "Failed to run schedule" });
     }
   });
 

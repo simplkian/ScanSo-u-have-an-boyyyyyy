@@ -155,6 +155,27 @@ export const taskTypeEnum = pgEnum("task_type", [
   "LEGACY",      // Legacy task (backward compatibility)
 ]);
 
+/**
+ * Task Source Enum
+ * Indicates how the task was created
+ */
+export const taskSourceEnum = pgEnum("task_source", [
+  "SCHEDULED",  // Created by flexible scheduler from TaskSchedule
+  "MANUAL",     // Manually created by admin
+  "ADHOC",      // Created on-the-fly (e.g., driver scan)
+  "LEGACY",     // Legacy task or migration
+]);
+
+/**
+ * Task Schedule Rule Type Enum
+ * Defines the recurrence pattern for scheduled tasks
+ */
+export const taskScheduleRuleTypeEnum = pgEnum("task_schedule_rule_type", [
+  "DAILY",     // Every day
+  "WEEKLY",    // Specific weekdays
+  "INTERVAL",  // Every N days from start date
+]);
+
 // ============================================================================
 // TABLES
 // ============================================================================
@@ -376,6 +397,47 @@ export const standsRelations = relations(stands, ({ one, many }) => ({
   }),
   boxes: many(boxes),
   tasks: many(tasks),
+  taskSchedules: many(taskSchedules),
+}));
+
+/**
+ * Task Schedules Table
+ * Flexible scheduling rules for automated task generation
+ */
+export const taskSchedules = pgTable("task_schedules", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  standId: varchar("stand_id").notNull().references(() => stands.id),
+  stationId: varchar("station_id").references(() => stations.id),
+  ruleType: text("rule_type").notNull(), // DAILY, WEEKLY, INTERVAL
+  timeLocal: text("time_local").notNull(), // e.g., "06:00"
+  weekdays: integer("weekdays").array(), // For WEEKLY: [1,2,3,4,5] = Mon-Fri (1=Monday, 7=Sunday)
+  everyNDays: integer("every_n_days"), // For INTERVAL: every N days
+  startDate: timestamp("start_date"), // For INTERVAL: start date for counting
+  timezone: text("timezone").notNull().default("Europe/Berlin"),
+  createDaysAhead: integer("create_days_ahead").notNull().default(7),
+  createdById: varchar("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const taskSchedulesRelations = relations(taskSchedules, ({ one, many }) => ({
+  stand: one(stands, {
+    fields: [taskSchedules.standId],
+    references: [stands.id],
+  }),
+  station: one(stations, {
+    fields: [taskSchedules.stationId],
+    references: [stations.id],
+  }),
+  createdBy: one(users, {
+    fields: [taskSchedules.createdById],
+    references: [users.id],
+  }),
+  tasks: many(tasks),
 }));
 
 /**
@@ -430,6 +492,7 @@ export const warehouseContainers = pgTable("warehouse_containers", {
   materialId: varchar("material_id").references(() => materials.id),
   isFull: boolean("is_full").notNull().default(false),
   isBlocked: boolean("is_blocked").notNull().default(false),
+  notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -569,10 +632,12 @@ export const tasks = pgTable("tasks", {
   
   // Task categorization
   taskType: text("task_type").notNull().default("LEGACY"), // DAILY_FULL, MANUAL, LEGACY
+  source: text("source").notNull().default("LEGACY"), // SCHEDULED, MANUAL, ADHOC, LEGACY
+  scheduleId: varchar("schedule_id").references(() => taskSchedules.id), // Link to the schedule that created this task
   
   // Daily task scheduling
   scheduledFor: timestamp("scheduled_for"), // Date for which daily task is scheduled
-  dedupKey: text("dedup_key").unique(), // Format: DAILY:${standId}:${YYYY-MM-DD}
+  dedupKey: text("dedup_key").unique(), // Format: SCHED:${scheduleId}:${YYYY-MM-DD} or DAILY:${standId}:${YYYY-MM-DD}
   
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -619,6 +684,10 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   stand: one(stands, {
     fields: [tasks.standId],
     references: [stands.id],
+  }),
+  schedule: one(taskSchedules, {
+    fields: [tasks.scheduleId],
+    references: [taskSchedules.id],
   }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs),
@@ -800,6 +869,7 @@ export const insertStationSchema = createInsertSchema(stations);
 export const insertStandSchema = createInsertSchema(stands);
 export const insertBoxSchema = createInsertSchema(boxes);
 export const insertTaskEventSchema = createInsertSchema(taskEvents);
+export const insertTaskScheduleSchema = createInsertSchema(taskSchedules);
 
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type Department = typeof departments.$inferSelect;
@@ -828,6 +898,8 @@ export type Station = typeof stations.$inferSelect;
 export type Stand = typeof stands.$inferSelect;
 export type Box = typeof boxes.$inferSelect;
 export type TaskEvent = typeof taskEvents.$inferSelect;
+export type InsertTaskSchedule = z.infer<typeof insertTaskScheduleSchema>;
+export type TaskSchedule = typeof taskSchedules.$inferSelect;
 
 // ============================================================================
 // STATUS TRANSITION VALIDATION
