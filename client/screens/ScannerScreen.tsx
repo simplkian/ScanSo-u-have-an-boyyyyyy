@@ -212,6 +212,8 @@ export default function ScannerScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSuccess("Auftrag angenommen! Sie können nun die Abholung bestätigen.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       
     } catch (err) {
       setError("Auftragsannahme fehlgeschlagen. Bitte erneut versuchen.");
@@ -245,6 +247,8 @@ export default function ScannerScreen() {
 
       setSuccess("Abholung bestätigt! Container ist jetzt unterwegs.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       
       setTimeout(() => {
         setScanResult(null);
@@ -307,6 +311,8 @@ export default function ScannerScreen() {
       setSuccess("Lieferung bestätigt! Aufgabe abgeschlossen.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       
       setTimeout(() => {
         setScanResult(null);

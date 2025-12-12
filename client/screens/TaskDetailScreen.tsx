@@ -43,6 +43,8 @@ export default function TaskDetailScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       Alert.alert("Erfolg", "Auftrag wurde erfolgreich gelöscht", [
         { text: "OK", onPress: () => navigation.goBack() }
       ]);

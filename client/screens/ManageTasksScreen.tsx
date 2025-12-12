@@ -170,6 +170,8 @@ export default function ManageTasksScreen() {
         await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, updates);
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
         queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       }
 
       setShowEditModal(false);

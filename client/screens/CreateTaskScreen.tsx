@@ -91,6 +91,8 @@ export default function CreateTaskScreen() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       navigation.goBack();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Aufgabe konnte nicht erstellt werden");

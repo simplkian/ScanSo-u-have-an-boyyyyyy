@@ -16,6 +16,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { User, Task, ActivityLog } from "@shared/schema";
 import { useTheme } from "@/hooks/useTheme";
 
+const OPEN_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED"];
+const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+const COMPLETED_STATUSES = ["COMPLETED"];
+const CANCELLED_STATUSES = ["CANCELLED"];
+
 type UserWithoutPassword = Omit<User, "password">;
 
 interface DriverStats {
@@ -63,13 +68,13 @@ export default function ManageDriversScreen() {
     drivers.forEach((driver) => {
       const driverTasks = tasks.filter((t) => t.assignedTo === driver.id);
       const tasksCompletedToday = driverTasks.filter((t) => {
-        if (t.status !== "completed" || !t.deliveryTimestamp) return false;
+        if (!COMPLETED_STATUSES.includes(t.status) || !t.deliveryTimestamp) return false;
         const completedDate = new Date(t.deliveryTimestamp);
         completedDate.setHours(0, 0, 0, 0);
         return completedDate.getTime() === today.getTime();
       }).length;
 
-      const tasksInProgress = driverTasks.filter((t) => t.status === "in_progress").length;
+      const tasksInProgress = driverTasks.filter((t) => IN_PROGRESS_STATUSES.includes(t.status)).length;
 
       const driverLogs = activityLogs.filter((log) => log.userId === driver.id);
       const lastActivity = driverLogs.length > 0
@@ -97,10 +102,10 @@ export default function ManageDriversScreen() {
   const selectedDriverStats = useMemo(() => {
     if (!selectedDriver) return null;
     const driverTasks = tasks.filter((t) => t.assignedTo === selectedDriver.id);
-    const totalCompleted = driverTasks.filter((t) => t.status === "completed").length;
-    const totalCancelled = driverTasks.filter((t) => t.status === "cancelled").length;
-    const totalInProgress = driverTasks.filter((t) => t.status === "in_progress").length;
-    const totalOpen = driverTasks.filter((t) => t.status === "open").length;
+    const totalCompleted = driverTasks.filter((t) => COMPLETED_STATUSES.includes(t.status)).length;
+    const totalCancelled = driverTasks.filter((t) => CANCELLED_STATUSES.includes(t.status)).length;
+    const totalInProgress = driverTasks.filter((t) => IN_PROGRESS_STATUSES.includes(t.status)).length;
+    const totalOpen = driverTasks.filter((t) => OPEN_STATUSES.includes(t.status)).length;
     return { totalCompleted, totalCancelled, totalInProgress, totalOpen, totalTasks: driverTasks.length };
   }, [selectedDriver, tasks]);
 
@@ -131,6 +136,8 @@ export default function ManageDriversScreen() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       setShowCreateModal(false);
       setFormData({ name: "", email: "", password: "" });
     } catch (err) {
@@ -167,6 +174,8 @@ export default function ManageDriversScreen() {
       await apiRequest("PATCH", `/api/users/${selectedDriver.id}`, updateData);
 
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
       setShowEditModal(false);
       setSelectedDriver(null);
       setEditFormData({ name: "", email: "", password: "", role: "driver" });
