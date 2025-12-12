@@ -138,6 +138,17 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
 7. **Role Enforcement**: Admin-only routes protected with middleware
 8. **Error Handling**: Consistent JSON error responses with proper HTTP status codes
 
+### Recent Updates (December 2024)
+1. **Activity UI Consolidation**: Merged duplicate ActivityLog and ActivityHistory screens into single ActivityHistory screen with advanced features (date grouping, driver filtering, task lifecycle visualization)
+2. **Task Creation Fixes**: 
+   - Fixed timestamp bug (scheduledTime, assignedAt, etc.) by converting date strings to Date objects before Drizzle insert
+   - Added capacity validation for target warehouse container before task creation
+3. **Warehouse Container Reset**: 
+   - POST `/api/containers/warehouse/:id/reset` now requires admin authentication
+   - Records emptying in fillHistory table with negative amount
+   - Creates activity log entry with CONTAINER_STATUS_CHANGED type
+   - Frontend shows German confirmation dialog before emptying
+
 ### Test Credentials
 - Admin: `admin@containerflow.com` / `admin`
 - Driver: `fahrer@containerflow.com` / `123`
