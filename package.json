@@ -10,6 +10,7 @@
     "expo:static:build": "node scripts/build.js",
     "server:build": "npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist",
     "server:start": "NODE_ENV=production node server_dist/index.js",
+    "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
