@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { createHash } from "crypto";
@@ -6,6 +6,55 @@ import { checkDatabaseHealth } from "./db";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
+}
+
+// ============================================================================
+// AUTHORIZATION MIDDLEWARE
+// ============================================================================
+
+/**
+ * Middleware to check if the request has a valid user ID
+ * Note: In production, this should verify a session token
+ * For now, we check x-user-id header or userId in body
+ */
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const userId = req.headers["x-user-id"] as string || req.body?.userId;
+  
+  if (!userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  const user = await storage.getUser(userId);
+  if (!user) {
+    return res.status(401).json({ error: "Invalid user" });
+  }
+
+  if (!user.isActive) {
+    return res.status(403).json({ error: "Account is deactivated" });
+  }
+
+  // Attach user to request for downstream handlers
+  (req as any).authUser = user;
+  next();
+}
+
+/**
+ * Middleware to check if the authenticated user has admin role
+ * Must be used after requireAuth
+ */
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).authUser;
+  
+  if (!user) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  const role = user.role?.toUpperCase();
+  if (role !== "ADMIN") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  next();
 }
 
 // Normalize user role to lowercase for frontend consistency
@@ -166,7 +215,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  // Admin-only: Create new user
+  app.post("/api/users", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { email, password, name, role } = req.body;
       
@@ -230,7 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  // Admin-only: Create new customer
+  app.post("/api/customers", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { name, address, contactName, contactPhone, contactEmail, notes } = req.body;
       
@@ -307,7 +358,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/containers/customer", async (req, res) => {
+  // Admin-only: Create customer container
+  app.post("/api/containers/customer", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id, ...rest } = req.body;
       
@@ -347,7 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin-only: Regenerate QR code for customer container
-  app.post("/api/containers/customer/:id/regenerate-qr", async (req, res) => {
+  app.post("/api/containers/customer/:id/regenerate-qr", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { userId } = req.body;
       
@@ -431,7 +483,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/containers/warehouse", async (req, res) => {
+  // Admin-only: Create warehouse container
+  app.post("/api/containers/warehouse", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id, ...rest } = req.body;
       
@@ -472,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin-only: Regenerate QR code for warehouse container
-  app.post("/api/containers/warehouse/:id/regenerate-qr", async (req, res) => {
+  app.post("/api/containers/warehouse/:id/regenerate-qr", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { userId } = req.body;
       
@@ -595,7 +648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tasks", async (req, res) => {
+  // Admin-only: Create new task
+  app.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
     try {
       const taskData = {
         ...req.body,
