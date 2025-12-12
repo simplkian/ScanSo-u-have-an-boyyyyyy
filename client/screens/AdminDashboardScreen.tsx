@@ -19,11 +19,14 @@ type NavigationProp = NativeStackNavigationProp<ProfileStackParamList, "AdminDas
 interface DashboardStats {
   openTasks: number;
   inProgressTasks: number;
+  completedTasks: number;
   completedToday: number;
+  cancelledTasks: number;
   activeDrivers: number;
   criticalContainers: number;
   totalCapacity: number;
   availableCapacity: number;
+  totalTasks: number;
 }
 
 export default function AdminDashboardScreen() {

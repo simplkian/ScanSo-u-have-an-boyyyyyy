@@ -141,6 +141,13 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
 7. **Role Enforcement**: Admin-only routes protected with middleware
 8. **Error Handling**: Consistent JSON error responses with proper HTTP status codes
 
+### API Endpoints Reference
+- `GET /api/dashboard/stats` - Dashboard statistics with optional `?driverId=` filter
+  - Returns: openTasks, inProgressTasks, completedTasks, completedToday, cancelledTasks, activeDrivers, criticalContainers, totalCapacity, availableCapacity, totalTasks
+- `GET /api/drivers/:id/stats` - Individual driver task statistics
+- `GET /api/drivers/overview` - Admin-only: All drivers with task counts per category
+- `DELETE /api/tasks/:id` - Admin-only: Delete task with audit logging
+
 ### Recent Updates (December 2024)
 1. **Activity UI Consolidation**: Merged duplicate ActivityLog and ActivityHistory screens into single ActivityHistory screen with advanced features (date grouping, driver filtering, task lifecycle visualization)
 2. **Task Creation Fixes**: 
