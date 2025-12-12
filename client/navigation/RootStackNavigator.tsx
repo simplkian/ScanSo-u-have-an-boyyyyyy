@@ -5,7 +5,7 @@ import LoginScreen from "@/screens/LoginScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NetworkStatusBar } from "@/components/NetworkStatusBar";
 
@@ -18,9 +18,11 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function MainWithStatusBar() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  
   return (
-    <View style={styles.mainContainer}>
-      <View style={{ paddingTop: insets.top, backgroundColor: Colors.light.backgroundDefault }}>
+    <View style={[styles.mainContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={{ paddingTop: insets.top, backgroundColor: theme.backgroundDefault }}>
         <NetworkStatusBar />
       </View>
       <View style={styles.content}>
@@ -33,11 +35,12 @@ function MainWithStatusBar() {
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { isAuthenticated, isLoading } = useAuth();
+  const { theme } = useTheme();
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accent} />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
@@ -66,11 +69,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundRoot,
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   content: {
     flex: 1,
