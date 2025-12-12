@@ -144,10 +144,13 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
    - Fixed timestamp bug (scheduledTime, assignedAt, etc.) by converting date strings to Date objects before Drizzle insert
    - Added capacity validation for target warehouse container before task creation
 3. **Warehouse Container Reset**: 
-   - POST `/api/containers/warehouse/:id/reset` now requires admin authentication
+   - POST `/api/containers/warehouse/:id/reset` now allows BOTH admin AND driver roles
    - Records emptying in fillHistory table with negative amount
-   - Creates activity log entry with CONTAINER_STATUS_CHANGED type
+   - Creates activity log entry with CONTAINER_STATUS_CHANGED type and German text
+   - Activity log includes role label ("Admin" or "Fahrer") and role in metadata
    - Frontend shows German confirmation dialog before emptying
+   - "Container leeren" button visible to all authenticated users (not just admins)
+   - Button disabled and shows "Container ist leer" when container is already empty
 
 ### Test Credentials
 - Admin: `admin@containerflow.com` / `admin`
