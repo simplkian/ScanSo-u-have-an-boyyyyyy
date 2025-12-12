@@ -20,6 +20,8 @@ Preferred communication style: Simple, everyday language.
 - **New Entities**: `materials`, `halls`, `stations`, `stands`, `boxes`, `taskEvents`.
 - **Automotive Task Lifecycle**: A specialized 7-state lifecycle for box movement (`OPEN` → `PICKED_UP` → `IN_TRANSIT` → `DROPPED_OFF` → `TAKEN_OVER` → `WEIGHED` → `DISPOSED`).
 - **Key Design**: Material type is defined by the `Stand`, not the `Box`. `dailyFull` flag on `Stand` for auto-generated daily tasks. Transition guards enforce valid status changes. `weightKg` is required when transitioning to `WEIGHED` status.
+- **Admin UI**: `AutomotiveManagementScreen` accessible from Admin Dashboard → "Automotive Fabrik". Tab-based interface for managing Materials, Halls, Stations, Stands, and Boxes with full CRUD operations.
+- **API Endpoints**: CRUD for all automotive entities, daily task generation (`POST /api/automotive/daily-tasks/generate`), automotive task creation and status transitions with guards.
 
 ## External Dependencies
 
