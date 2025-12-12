@@ -128,6 +128,7 @@ export const users = pgTable("users", {
 export const usersRelations = relations(users, ({ many }) => ({
   createdTasks: many(tasks, { relationName: "taskCreator" }),
   assignedTasks: many(tasks, { relationName: "taskAssignee" }),
+  claimedTasks: many(tasks, { relationName: "taskClaimer" }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs),
 }));
@@ -248,13 +249,14 @@ export const fillHistoryRelations = relations(fillHistory, ({ one }) => ({
  * Represents pickup/delivery jobs with full lifecycle tracking
  * 
  * Status Transitions:
- * PLANNED -> ASSIGNED (when driver assigned)
- * ASSIGNED -> ACCEPTED (when driver scans at customer)
+ * OFFEN -> ACCEPTED (driver claims task)
  * ACCEPTED -> PICKED_UP (when container loaded)
  * PICKED_UP -> IN_TRANSIT (when leaving customer)
  * IN_TRANSIT -> DELIVERED (when scanned at warehouse)
  * DELIVERED -> COMPLETED (when weight recorded and finalized)
  * Any -> CANCELLED (except COMPLETED)
+ * 
+ * Pull-based model: Tasks start OFFEN, drivers claim them
  */
 export const tasks = pgTable("tasks", {
   id: varchar("id")
@@ -273,15 +275,20 @@ export const tasks = pgTable("tasks", {
   createdBy: varchar("created_by").references(() => users.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
   
+  // Pull-based task claiming
+  claimedByUserId: varchar("claimed_by_user_id").references(() => users.id), // User who claimed the task
+  claimedAt: timestamp("claimed_at"), // When task was claimed
+  handoverAt: timestamp("handover_at"), // When task was transferred to another user
+  
   // Planning
   scheduledTime: timestamp("scheduled_time"), // Planned execution time
   plannedQuantity: real("planned_quantity"), // Expected amount
   plannedQuantityUnit: text("planned_quantity_unit").default("kg"),
   priority: text("priority").notNull().default("normal"), // normal, high, urgent
-  materialType: text("material_type").notNull(),
+  materialType: text("material_type"), // Optional - material type for the task
   
   // Status and Lifecycle
-  status: text("status").notNull().default("PLANNED"),
+  status: text("status").notNull().default("OFFEN"), // Changed default from PLANNED to OFFEN
   
   // Lifecycle Timestamps - Set when status changes
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -301,6 +308,7 @@ export const tasks = pgTable("tasks", {
   // Actual recorded values
   actualQuantity: real("actual_quantity"), // Actually measured amount
   actualQuantityUnit: text("actual_quantity_unit").default("kg"),
+  measuredWeight: real("measured_weight"), // Actual weight measured at completion
   
   // Additional info
   notes: text("notes"),
@@ -328,6 +336,11 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.assignedTo],
     references: [users.id],
     relationName: "taskAssignee",
+  }),
+  claimedBy: one(users, {
+    fields: [tasks.claimedByUserId],
+    references: [users.id],
+    relationName: "taskClaimer",
   }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs),

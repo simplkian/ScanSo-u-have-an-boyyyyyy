@@ -719,13 +719,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin-only: Create new task
   // IMPORTANT: All new tasks start with status = OFFEN (open)
   // The client status value is ignored to ensure consistency
+  // Pull-based model: assignedTo is null by default (drivers claim tasks)
   app.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
     try {
       // Convert date strings to Date objects for timestamp columns
       // Force status = OFFEN for all new tasks (ignore client value)
+      // Force assignedTo = null for pull-based task claiming
       const taskData: Record<string, any> = {
         ...req.body,
         status: "OFFEN", // Always start with OFFEN - never trust client status
+        assignedTo: null, // Pull-based: no pre-assignment, drivers claim tasks
+        claimedByUserId: null, // Not claimed yet
+        claimedAt: null, // Not claimed yet
       };
 
       // Handle scheduledTime conversion
@@ -1362,6 +1367,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Claim task - Pull-based task claiming
+  // Driver or Admin can claim open tasks (OFFEN or PLANNED status)
+  // Sets claimedByUserId, claimedAt, assignedTo and transitions to ACCEPTED
+  app.post("/api/tasks/:id/claim", requireAuth, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const task = await storage.getTask(req.params.id);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Auftrag nicht gefunden" });
+      }
+
+      // Check if task is open and claimable
+      const CLAIMABLE_STATUSES = ["OFFEN", "PLANNED"];
+      if (!CLAIMABLE_STATUSES.includes(task.status)) {
+        return res.status(400).json({ 
+          error: "Auftrag kann nicht angenommen werden - falscher Status",
+          currentStatus: task.status,
+          allowedStatuses: CLAIMABLE_STATUSES
+        });
+      }
+
+      // Check if already claimed
+      if (task.claimedByUserId) {
+        const claimingUser = await storage.getUser(task.claimedByUserId);
+        return res.status(409).json({ 
+          error: "Auftrag wurde bereits von einem anderen Benutzer angenommen",
+          claimedBy: claimingUser?.name || "Unbekannt",
+          claimedAt: task.claimedAt
+        });
+      }
+
+      const now = new Date();
+      
+      // Update task with claim info and transition to ACCEPTED
+      await storage.updateTask(req.params.id, {
+        claimedByUserId: authUser.id,
+        claimedAt: now,
+        assignedTo: authUser.id,
+        assignedAt: now,
+        acceptedAt: now,
+        status: "ACCEPTED",
+      });
+
+      // Fetch updated task
+      const updatedTask = await storage.getTask(req.params.id);
+
+      // Create activity log
+      await storage.createActivityLog({
+        type: "TASK_ACCEPTED",
+        action: "TASK_ACCEPTED",
+        message: `Auftrag angenommen von ${authUser.name}`,
+        userId: authUser.id,
+        taskId: task.id,
+        containerId: task.containerID,
+        timestamp: now,
+        metadata: { claimedBy: authUser.id, claimedAt: now.toISOString() },
+        details: null,
+        location: null,
+        scanEventId: null,
+      });
+
+      // Get source container info
+      const sourceContainer = await storage.getCustomerContainer(task.containerID);
+      let targetContainer = null;
+      if (task.deliveryContainerID) {
+        targetContainer = await storage.getWarehouseContainer(task.deliveryContainerID);
+      }
+
+      const response: any = {
+        task: updatedTask,
+        sourceContainer: sourceContainer ? {
+          id: sourceContainer.id,
+          label: sourceContainer.id,
+          location: sourceContainer.location,
+          content: sourceContainer.materialType,
+          materialType: sourceContainer.materialType,
+          customerName: sourceContainer.customerName,
+          unit: updatedTask?.plannedQuantityUnit || "kg",
+          plannedPickupQuantity: updatedTask?.plannedQuantity || updatedTask?.estimatedAmount || 0,
+        } : null,
+      };
+
+      if (targetContainer) {
+        response.targetContainer = {
+          id: targetContainer.id,
+          label: targetContainer.id,
+          location: targetContainer.location,
+          content: targetContainer.materialType,
+          materialType: targetContainer.materialType,
+          capacity: targetContainer.maxCapacity,
+          currentFill: targetContainer.currentAmount,
+          remainingCapacity: targetContainer.maxCapacity - targetContainer.currentAmount,
+          unit: targetContainer.quantityUnit,
+        };
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("Failed to claim task:", error);
+      res.status(500).json({ error: "Fehler beim Annehmen des Auftrags" });
+    }
+  });
+
+  // Handover task - Transfer task to another user
+  // Admin or current owner can transfer the task
+  // Updates claimedByUserId, assignedTo and sets handoverAt
+  app.post("/api/tasks/:id/handover", requireAuth, async (req, res) => {
+    try {
+      const { newUserId } = req.body;
+      const authUser = (req as any).authUser;
+      const task = await storage.getTask(req.params.id);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Auftrag nicht gefunden" });
+      }
+
+      if (!newUserId) {
+        return res.status(400).json({ error: "newUserId ist erforderlich" });
+      }
+
+      // Check if new user exists
+      const newUser = await storage.getUser(newUserId);
+      if (!newUser) {
+        return res.status(404).json({ error: "Neuer Benutzer nicht gefunden" });
+      }
+
+      // Authorization: Admin or current owner can transfer
+      const userRole = authUser.role?.toUpperCase() || "DRIVER";
+      const isAdmin = userRole === "ADMIN";
+      const isCurrentOwner = task.claimedByUserId === authUser.id || task.assignedTo === authUser.id;
+
+      if (!isAdmin && !isCurrentOwner) {
+        return res.status(403).json({ 
+          error: "Nur der aktuelle Besitzer oder ein Admin kann diesen Auftrag übergeben"
+        });
+      }
+
+      // Check if task is in a transferable state (not completed or cancelled)
+      const NON_TRANSFERABLE_STATUSES = ["COMPLETED", "CANCELLED"];
+      if (NON_TRANSFERABLE_STATUSES.includes(task.status)) {
+        return res.status(400).json({ 
+          error: "Abgeschlossene oder stornierte Aufträge können nicht übergeben werden",
+          currentStatus: task.status
+        });
+      }
+
+      const oldUser = task.claimedByUserId ? await storage.getUser(task.claimedByUserId) : authUser;
+      const oldUserName = oldUser?.name || "Unbekannt";
+      const now = new Date();
+
+      // Update task with handover info
+      await storage.updateTask(req.params.id, {
+        claimedByUserId: newUserId,
+        assignedTo: newUserId,
+        handoverAt: now,
+      });
+
+      // Fetch updated task
+      const updatedTask = await storage.getTask(req.params.id);
+
+      // Create activity log
+      await storage.createActivityLog({
+        type: "TASK_ASSIGNED",
+        action: "TASK_ASSIGNED",
+        message: `Auftrag übergeben von ${oldUserName} an ${newUser.name}`,
+        userId: authUser.id,
+        taskId: task.id,
+        containerId: task.containerID,
+        timestamp: now,
+        metadata: { 
+          fromUserId: oldUser?.id,
+          toUserId: newUserId,
+          handoverAt: now.toISOString()
+        },
+        details: null,
+        location: null,
+        scanEventId: null,
+      });
+
+      res.json({ 
+        task: updatedTask,
+        handover: {
+          from: { id: oldUser?.id, name: oldUserName },
+          to: { id: newUser.id, name: newUser.name },
+          at: now.toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Failed to handover task:", error);
+      res.status(500).json({ error: "Fehler bei der Auftragsübergabe" });
+    }
+  });
+
   // ============================================================================
   // SCAN EVENTS
   // ============================================================================
@@ -1396,12 +1595,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/scan-events", async (req, res) => {
     try {
-      const { containerId, containerType, userId, scanContext, locationType, locationDetails, geoLocation, taskId } = req.body;
+      const { containerId, containerType, userId, scanContext, locationType, locationDetails, geoLocation, taskId, measuredWeight } = req.body;
       
       if (!containerId || !containerType || !userId || !scanContext || !locationType) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Special handling for TASK_COMPLETE_AT_WAREHOUSE - requires measuredWeight
+      if (scanContext === "TASK_COMPLETE_AT_WAREHOUSE") {
+        if (!taskId) {
+          return res.status(400).json({ error: "taskId ist erforderlich für Lager-Abschluss-Scan" });
+        }
+        
+        if (measuredWeight === undefined || measuredWeight === null) {
+          return res.status(400).json({ error: "measuredWeight ist erforderlich für Lager-Abschluss-Scan" });
+        }
+        
+        const weight = parseFloat(measuredWeight);
+        if (isNaN(weight) || weight <= 0) {
+          return res.status(400).json({ error: "measuredWeight muss größer als 0 sein" });
+        }
+
+        // Get task and validate
+        const task = await storage.getTask(taskId);
+        if (!task) {
+          return res.status(404).json({ error: "Auftrag nicht gefunden" });
+        }
+
+        // Get warehouse container
+        const warehouseContainer = await storage.getWarehouseContainer(containerId);
+        if (!warehouseContainer) {
+          return res.status(404).json({ error: "Lagercontainer nicht gefunden" });
+        }
+
+        // Check capacity
+        const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
+        if (weight > availableSpace) {
+          return res.status(400).json({ 
+            error: "Zielcontainer hat nicht genug übriges Volumen für diese Menge.",
+            remainingCapacity: availableSpace,
+            requestedAmount: weight,
+            unit: warehouseContainer.quantityUnit
+          });
+        }
+
+        // Create scan event
+        const scanEvent = await storage.createScanEvent({
+          containerId,
+          containerType,
+          taskId,
+          scannedByUserId: userId,
+          scannedAt: new Date(),
+          scanContext,
+          locationType,
+          locationDetails: locationDetails || warehouseContainer.warehouseZone || null,
+          geoLocation: geoLocation || null,
+          scanResult: "SUCCESS",
+          resultMessage: null,
+          extraData: { measuredWeight: weight },
+        });
+
+        // Update task with measured weight
+        await storage.updateTask(taskId, {
+          measuredWeight: weight,
+          actualQuantity: weight,
+          deliveryContainerID: containerId,
+        });
+
+        // Add weight to warehouse container
+        const newAmount = warehouseContainer.currentAmount + weight;
+        await storage.updateWarehouseContainer(containerId, {
+          currentAmount: newAmount,
+        });
+
+        // Create fill history entry
+        await storage.createFillHistory({
+          warehouseContainerId: containerId,
+          amountAdded: weight,
+          quantityUnit: warehouseContainer.quantityUnit,
+          taskId,
+          recordedByUserId: userId,
+        });
+
+        // Update customer container
+        if (task.containerID) {
+          await storage.updateCustomerContainer(task.containerID, {
+            lastEmptied: new Date(),
+            status: "AT_CUSTOMER",
+          });
+        }
+
+        // Set task status to COMPLETED
+        await storage.updateTaskStatus(taskId, "COMPLETED");
+
+        const user = await storage.getUser(userId);
+        const userName = user?.name || "Unbekannt";
+
+        // Create activity log for weight recorded
+        await storage.createActivityLog({
+          type: "WEIGHT_RECORDED",
+          action: "WEIGHT_RECORDED",
+          message: `Gewicht erfasst: ${weight} ${warehouseContainer.quantityUnit} von ${userName}`,
+          userId,
+          taskId,
+          containerId,
+          scanEventId: scanEvent.id,
+          location: geoLocation || null,
+          timestamp: new Date(),
+          details: null,
+          metadata: { measuredWeight: weight, unit: warehouseContainer.quantityUnit },
+        });
+
+        // Create activity log for task completed
+        await storage.createActivityLog({
+          type: "TASK_COMPLETED",
+          action: "TASK_COMPLETED",
+          message: `Auftrag ${taskId} abgeschlossen, ${weight} ${warehouseContainer.quantityUnit} erfasst`,
+          userId,
+          taskId,
+          containerId,
+          scanEventId: scanEvent.id,
+          location: geoLocation || null,
+          timestamp: new Date(),
+          details: null,
+          metadata: { measuredWeight: weight, unit: warehouseContainer.quantityUnit },
+        });
+
+        // Fetch updated task
+        const updatedTask = await storage.getTask(taskId);
+
+        return res.status(201).json({
+          scanEvent,
+          task: updatedTask,
+          targetContainer: {
+            id: warehouseContainer.id,
+            label: warehouseContainer.id,
+            location: warehouseContainer.location,
+            materialType: warehouseContainer.materialType,
+            capacity: warehouseContainer.maxCapacity,
+            currentFill: newAmount,
+            remainingCapacity: warehouseContainer.maxCapacity - newAmount,
+            unit: warehouseContainer.quantityUnit,
+            amountAdded: weight,
+          },
+        });
+      }
+
+      // Default scan event handling (non-TASK_COMPLETE_AT_WAREHOUSE)
       const scanEvent = await storage.createScanEvent({
         containerId,
         containerType,
@@ -1434,6 +1774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(scanEvent);
     } catch (error) {
+      console.error("Failed to create scan event:", error);
       res.status(500).json({ error: "Failed to create scan event" });
     }
   });
