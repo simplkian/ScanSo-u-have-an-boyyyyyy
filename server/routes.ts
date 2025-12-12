@@ -72,6 +72,43 @@ function prepareUserResponse<T extends { password?: string; role?: string }>(use
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Request logging middleware
+  app.use("/api", (req, res, next) => {
+    const start = Date.now();
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    // Add requestId to response header for debugging
+    res.setHeader("X-Request-Id", requestId);
+    
+    // Log response when finished
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      const logMessage = `${req.method} ${req.path} ${res.statusCode} in ${duration}ms`;
+      
+      // Truncate response body for logging
+      const responseBody = (res as any)._logBody;
+      const bodySnippet = responseBody 
+        ? JSON.stringify(responseBody).substring(0, 100) + (JSON.stringify(responseBody).length > 100 ? "…" : "")
+        : "";
+      
+      console.log(`${logMessage} :: ${bodySnippet}`);
+    });
+    
+    next();
+  });
+
+  // Quick ping endpoint - no database, instant response for connectivity testing
+  app.get("/api/debug/ping", (req, res) => {
+    res.json({ 
+      pong: true, 
+      timestamp: new Date().toISOString(),
+      env: {
+        nodeEnv: process.env.NODE_ENV,
+        hasDbUrl: !!process.env.DATABASE_URL,
+      }
+    });
+  });
+
   // Health check endpoint - verifies backend is running and database is connected
   // Used for monitoring and validating Supabase/PostgreSQL connectivity
   app.head("/api/health", (req, res) => {
