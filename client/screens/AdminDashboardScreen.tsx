@@ -221,6 +221,30 @@ export default function AdminDashboardScreen() {
               </ThemedText>
             </View>
           </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("Activity")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="activity" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Aktivität
+              </ThemedText>
+            </View>
+          </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("Analytics")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="bar-chart-2" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Statistiken
+              </ThemedText>
+            </View>
+          </Button>
         </View>
 
         <Pressable

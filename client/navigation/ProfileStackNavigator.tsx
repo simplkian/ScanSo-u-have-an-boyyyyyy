@@ -5,6 +5,8 @@ import AdminDashboardScreen from "@/screens/AdminDashboardScreen";
 import ManageDriversScreen from "@/screens/ManageDriversScreen";
 import AutomotiveManagementScreen from "@/screens/AutomotiveManagementScreen";
 import DepartmentManagementScreen from "@/screens/DepartmentManagementScreen";
+import ActivityScreen from "@/screens/ActivityScreen";
+import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -14,6 +16,8 @@ export type ProfileStackParamList = {
   ManageDrivers: undefined;
   AutomotiveManagement: undefined;
   DepartmentManagement: undefined;
+  Activity: undefined;
+  Analytics: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -45,6 +49,16 @@ export default function ProfileStackNavigator() {
             name="DepartmentManagement"
             component={DepartmentManagementScreen}
             options={{ headerTitle: "Abteilungen" }}
+          />
+          <Stack.Screen
+            name="Activity"
+            component={ActivityScreen}
+            options={{ headerTitle: "Aktivität" }}
+          />
+          <Stack.Screen
+            name="Analytics"
+            component={AnalyticsScreen}
+            options={{ headerTitle: "Statistiken" }}
           />
           <Stack.Screen
             name="Profile"
