@@ -299,7 +299,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // CUSTOMERS
+  // CUSTOMERS (LEGACY - Original waste container management)
+  // These routes support the original customer-based container workflow.
+  // The app now primarily uses the Automotive Factory workflow.
+  // Kept for backwards compatibility with existing data.
   // ============================================================================
 
   app.get("/api/customers", async (req, res) => {
@@ -361,7 +364,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // CUSTOMER CONTAINERS
+  // CUSTOMER CONTAINERS (LEGACY - Original waste container management)
+  // These routes support customer-site containers from the original workflow.
+  // The app now primarily uses Boxes/Stands in the Automotive Factory workflow.
+  // Kept for backwards compatibility with existing data.
   // ============================================================================
 
   app.get("/api/containers/customer", async (req, res) => {
@@ -946,6 +952,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to assign task" });
     }
   });
+
+  // ============================================================================
+  // LEGACY TASK WORKFLOW ROUTES (Original waste container management)
+  // These accept/pickup/delivery routes support the original 8-state workflow
+  // for customer container pickup and warehouse delivery.
+  // The app now primarily uses the Automotive Factory workflow with its own
+  // 7-state lifecycle (OPEN -> PICKED_UP -> IN_TRANSIT -> DROPPED_OFF -> 
+  // TAKEN_OVER -> WEIGHED -> DISPOSED).
+  // Kept for backwards compatibility with existing data.
+  // ============================================================================
 
   // Accept task - driver/admin scans customer container and starts the task
   // Transitions: PLANNED/ASSIGNED -> ACCEPTED (auto-assigns if needed)
