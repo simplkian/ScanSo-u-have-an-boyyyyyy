@@ -1645,29 +1645,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard stats with optional driverId filter
+  // GET /api/dashboard/stats?driverId=driver-001
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
+      const { driverId } = req.query;
       const allTasks = await storage.getTasks();
       const warehouseContainers = await storage.getWarehouseContainers();
       const users = await storage.getUsers();
+
+      // Filter tasks by driver if driverId provided
+      const tasksToCount = driverId 
+        ? allTasks.filter(t => t.assignedTo === driverId)
+        : allTasks;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const todayTasks = allTasks.filter(t => {
+      const todayTasks = tasksToCount.filter(t => {
         const created = new Date(t.createdAt);
         return created >= today && created <= todayEnd;
       });
 
-      const openStatuses = ["PLANNED", "open"];
-      const inProgressStatuses = ["ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "in_progress"];
-      const completedStatuses = ["COMPLETED", "completed"];
+      // Updated status categories to include OFFEN
+      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
+      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+      const completedStatuses = ["COMPLETED"];
+      const cancelledStatuses = ["CANCELLED"];
 
-      const openTasks = allTasks.filter(t => openStatuses.includes(t.status)).length;
-      const inProgressTasks = allTasks.filter(t => inProgressStatuses.includes(t.status)).length;
+      const openTasks = tasksToCount.filter(t => openStatuses.includes(t.status)).length;
+      const inProgressTasks = tasksToCount.filter(t => inProgressStatuses.includes(t.status)).length;
+      const completedTasks = tasksToCount.filter(t => completedStatuses.includes(t.status)).length;
       const completedToday = todayTasks.filter(t => completedStatuses.includes(t.status)).length;
+      const cancelledTasks = tasksToCount.filter(t => cancelledStatuses.includes(t.status)).length;
       const activeDrivers = users.filter(u => (u.role === "driver" || u.role === "DRIVER") && u.isActive).length;
 
       const criticalContainers = warehouseContainers.filter(c => {
@@ -1682,14 +1694,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         openTasks,
         inProgressTasks,
+        completedTasks,
         completedToday,
+        cancelledTasks,
         activeDrivers,
         criticalContainers,
         totalCapacity,
         availableCapacity,
+        totalTasks: tasksToCount.length,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Driver-specific stats endpoint
+  // GET /api/drivers/:id/stats
+  app.get("/api/drivers/:id/stats", async (req, res) => {
+    try {
+      const driverId = req.params.id;
+      const driver = await storage.getUser(driverId);
+      
+      if (!driver) {
+        return res.status(404).json({ error: "Fahrer nicht gefunden" });
+      }
+
+      const allTasks = await storage.getTasks({ assignedTo: driverId });
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todayTasks = allTasks.filter(t => {
+        const created = new Date(t.createdAt);
+        return created >= today && created <= todayEnd;
+      });
+
+      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
+      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+      const completedStatuses = ["COMPLETED"];
+      const cancelledStatuses = ["CANCELLED"];
+
+      const openTasks = allTasks.filter(t => openStatuses.includes(t.status)).length;
+      const inProgressTasks = allTasks.filter(t => inProgressStatuses.includes(t.status)).length;
+      const completedTasks = allTasks.filter(t => completedStatuses.includes(t.status)).length;
+      const completedToday = todayTasks.filter(t => completedStatuses.includes(t.status)).length;
+      const cancelledTasks = allTasks.filter(t => cancelledStatuses.includes(t.status)).length;
+
+      // Find last activity
+      const activityLogs = await storage.getActivityLogs({ userId: driverId });
+      const lastActivity = activityLogs.length > 0 ? activityLogs[0].timestamp : null;
+
+      res.json({
+        driverId,
+        driverName: driver.name,
+        driverEmail: driver.email,
+        openTasks,
+        inProgressTasks,
+        completedTasks,
+        completedToday,
+        cancelledTasks,
+        totalTasks: allTasks.length,
+        lastActivity,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch driver stats" });
+    }
+  });
+
+  // Driver overview with task counts per driver
+  // GET /api/drivers/overview
+  app.get("/api/drivers/overview", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      const allTasks = await storage.getTasks();
+      
+      const drivers = users.filter(u => u.role === "DRIVER" || u.role === "driver");
+      
+      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
+      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+      const completedStatuses = ["COMPLETED"];
+      const cancelledStatuses = ["CANCELLED"];
+      
+      const driverOverview = await Promise.all(drivers.map(async (driver) => {
+        const driverTasks = allTasks.filter(t => t.assignedTo === driver.id);
+        
+        // Get last activity
+        const activityLogs = await storage.getActivityLogs({ userId: driver.id });
+        const lastActivity = activityLogs.length > 0 ? activityLogs[0].timestamp : null;
+        
+        return {
+          id: driver.id,
+          name: driver.name,
+          email: driver.email,
+          phone: driver.phone,
+          isActive: driver.isActive,
+          openTasks: driverTasks.filter(t => openStatuses.includes(t.status)).length,
+          inProgressTasks: driverTasks.filter(t => inProgressStatuses.includes(t.status)).length,
+          completedTasks: driverTasks.filter(t => completedStatuses.includes(t.status)).length,
+          cancelledTasks: driverTasks.filter(t => cancelledStatuses.includes(t.status)).length,
+          totalTasks: driverTasks.length,
+          lastActivity,
+        };
+      }));
+
+      res.json(driverOverview);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch driver overview" });
     }
   });
 
