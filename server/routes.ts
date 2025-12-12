@@ -800,7 +800,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tasks/:id/pickup", async (req, res) => {
+  // Accept task - driver scans customer container and accepts the task
+  // Transitions: PLANNED/ASSIGNED -> ACCEPTED (auto-assigns driver if needed)
+  app.post("/api/tasks/:id/accept", async (req, res) => {
     try {
       const { userId, location, geoLocation } = req.body;
       const task = await storage.getTask(req.params.id);
@@ -809,9 +811,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Task not found" });
       }
 
-      const updatedTask = await storage.updateTaskStatus(req.params.id, "ACCEPTED");
+      // Get source container (customer container)
+      const sourceContainer = await storage.getCustomerContainer(task.containerID);
+      if (!sourceContainer) {
+        return res.status(404).json({ error: "Kundencontainer nicht gefunden" });
+      }
+
+      // Get target container (warehouse container) if specified
+      let targetContainer = null;
+      if (task.deliveryContainerID) {
+        targetContainer = await storage.getWarehouseContainer(task.deliveryContainerID);
+        
+        if (targetContainer) {
+          // Material match validation
+          if (sourceContainer.materialType !== targetContainer.materialType) {
+            return res.status(400).json({ 
+              error: "Der Zielcontainer enthält ein anderes Material. Bitte wähle einen passenden Lagercontainer.",
+              sourceMaterial: sourceContainer.materialType,
+              targetMaterial: targetContainer.materialType
+            });
+          }
+
+          // Capacity validation
+          const remainingCapacity = targetContainer.maxCapacity - targetContainer.currentAmount;
+          if (task.plannedQuantity && task.plannedQuantity > remainingCapacity) {
+            return res.status(400).json({ 
+              error: "Zielcontainer hat nicht genug übriges Volumen für diese Menge.",
+              remainingCapacity,
+              requestedAmount: task.plannedQuantity,
+              unit: targetContainer.quantityUnit
+            });
+          }
+        }
+      }
+
+      const updatedTask = await storage.updateTaskStatus(req.params.id, "ACCEPTED", userId);
       if (!updatedTask) {
-        return res.status(400).json({ error: "Invalid status transition" });
+        return res.status(400).json({ error: "Ungültiger Status-Übergang. Aktueller Status: " + task.status });
       }
 
       await storage.updateTask(req.params.id, {
@@ -847,12 +883,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
         location: geoLocation || null,
         timestamp: new Date(),
         details: null,
+        metadata: { autoAssigned: task.status === "PLANNED" },
+      });
+
+      // Build response with target container details
+      const response: any = {
+        task: updatedTask,
+        sourceContainer: {
+          id: sourceContainer.id,
+          label: sourceContainer.id,
+          location: sourceContainer.location,
+          materialType: sourceContainer.materialType,
+          customerName: sourceContainer.customerName,
+        },
+      };
+
+      if (targetContainer) {
+        response.targetContainer = {
+          id: targetContainer.id,
+          label: targetContainer.id,
+          location: targetContainer.location,
+          content: targetContainer.materialType, // content field maps to materialType
+          materialType: targetContainer.materialType,
+          capacity: targetContainer.maxCapacity,
+          currentFill: targetContainer.currentAmount,
+          remainingCapacity: targetContainer.maxCapacity - targetContainer.currentAmount,
+          unit: targetContainer.quantityUnit,
+        };
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("Failed to accept task:", error);
+      res.status(500).json({ error: "Fehler beim Annehmen des Auftrags" });
+    }
+  });
+
+  // Pickup task - driver confirms physical pickup of container
+  // Transitions: ACCEPTED -> PICKED_UP
+  app.post("/api/tasks/:id/pickup", async (req, res) => {
+    try {
+      const { userId, location, geoLocation } = req.body;
+      const task = await storage.getTask(req.params.id);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (task.status !== "ACCEPTED") {
+        return res.status(400).json({ 
+          error: "Auftrag muss zuerst angenommen werden bevor er abgeholt werden kann",
+          currentStatus: task.status
+        });
+      }
+
+      const updatedTask = await storage.updateTaskStatus(req.params.id, "PICKED_UP", userId);
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Ungültiger Status-Übergang" });
+      }
+
+      const scanEvent = await storage.createScanEvent({
+        containerId: task.containerID,
+        containerType: "customer",
+        taskId: task.id,
+        scannedByUserId: userId,
+        scannedAt: new Date(),
+        scanContext: "TASK_PICKUP",
+        locationType: "CUSTOMER",
+        locationDetails: location,
+        geoLocation: geoLocation || null,
+        scanResult: "SUCCESS",
+        resultMessage: null,
+        extraData: null,
+      });
+
+      const driver = await storage.getUser(userId);
+      const driverName = driver?.name || "Unbekannt";
+
+      await storage.createActivityLog({
+        type: "TASK_PICKED_UP",
+        action: "TASK_PICKED_UP",
+        message: `Fahrer ${driverName} hat Container ${task.containerID} abgeholt`,
+        userId,
+        taskId: task.id,
+        containerId: task.containerID,
+        scanEventId: scanEvent.id,
+        location: geoLocation || null,
+        timestamp: new Date(),
+        details: null,
         metadata: null,
       });
 
       res.json(updatedTask);
     } catch (error) {
-      res.status(500).json({ error: "Failed to record pickup" });
+      console.error("Failed to pickup task:", error);
+      res.status(500).json({ error: "Fehler beim Abholen des Containers" });
     }
   });
 

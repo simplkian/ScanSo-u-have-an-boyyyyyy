@@ -477,7 +477,7 @@ export type FillHistory = typeof fillHistory.$inferSelect;
  * Maps current status to array of valid next statuses
  */
 export const VALID_TASK_TRANSITIONS: Record<string, string[]> = {
-  PLANNED: ["ASSIGNED", "CANCELLED"],
+  PLANNED: ["ASSIGNED", "ACCEPTED", "CANCELLED"], // Allow direct ACCEPTED (auto-assigns driver)
   ASSIGNED: ["ACCEPTED", "PLANNED", "CANCELLED"],
   ACCEPTED: ["PICKED_UP", "CANCELLED"],
   PICKED_UP: ["IN_TRANSIT", "CANCELLED"],

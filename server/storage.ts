@@ -244,6 +244,18 @@ export class DatabaseStorage implements IStorage {
       updateData.assignedTo = userId;
     }
 
+    // Auto-assign driver when accepting from PLANNED state
+    if (newStatus === 'ACCEPTED' && currentTask.status === 'PLANNED' && userId) {
+      updateData.assignedTo = userId;
+      updateData.assignedAt = new Date();
+    }
+
+    // If accepting from ASSIGNED and driver info provided, ensure assignedTo is set
+    if (newStatus === 'ACCEPTED' && userId && !currentTask.assignedTo) {
+      updateData.assignedTo = userId;
+      updateData.assignedAt = new Date();
+    }
+
     const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return task || undefined;
   }
