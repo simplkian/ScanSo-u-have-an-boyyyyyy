@@ -4,11 +4,11 @@ import { storage } from "./storage";
 import { createHash } from "crypto";
 import { checkDatabaseHealth, db } from "./db";
 import { 
-  materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers,
+  materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers, users, departments,
   assertAutomotiveTransition, getAutomotiveTimestampFieldForStatus,
   type Material, type Hall, type Station, type Stand, type Box, type TaskEvent
 } from "@shared/schema";
-import { eq, and, desc, notInArray, isNull } from "drizzle-orm";
+import { eq, and, desc, notInArray, isNull, gte, lte, sql, inArray, count, sum, avg } from "drizzle-orm";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -93,6 +93,114 @@ function formatDateBerlin(date: Date): string {
 }
 
 // ============================================================================
+// AUDIT EVENT HELPER
+// ============================================================================
+
+interface AuditEventParams {
+  taskId: string;
+  actorUserId?: string;
+  actorRole?: string;
+  actorDepartmentId?: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  beforeData?: any;
+  afterData?: any;
+  metaJson?: {
+    stationId?: string;
+    hallId?: string;
+    standId?: string;
+    boxId?: string;
+    materialId?: string;
+    containerId?: string;
+    qrType?: string;
+    source?: string;
+    [key: string]: any;
+  };
+}
+
+/**
+ * Creates a comprehensive audit event in the taskEvents table
+ * Automatically fetches actor's role and departmentId if actorUserId is provided
+ */
+async function createAuditEvent({
+  taskId,
+  actorUserId,
+  actorRole,
+  actorDepartmentId,
+  action,
+  entityType,
+  entityId,
+  beforeData,
+  afterData,
+  metaJson
+}: AuditEventParams): Promise<void> {
+  try {
+    let finalActorRole = actorRole;
+    let finalActorDepartmentId = actorDepartmentId;
+
+    // If actorUserId is provided but role/department are not, fetch from user
+    if (actorUserId && (!actorRole || !actorDepartmentId)) {
+      const user = await storage.getUser(actorUserId);
+      if (user) {
+        if (!finalActorRole) {
+          finalActorRole = user.role || undefined;
+        }
+        if (!finalActorDepartmentId) {
+          finalActorDepartmentId = user.departmentId || undefined;
+        }
+      }
+    }
+
+    await db.insert(taskEvents).values({
+      taskId,
+      actorUserId: actorUserId || null,
+      actorRole: finalActorRole || null,
+      actorDepartmentId: finalActorDepartmentId || null,
+      action,
+      entityType: entityType || null,
+      entityId: entityId || null,
+      beforeData: beforeData || null,
+      afterData: afterData || null,
+      metaJson: metaJson || null,
+    });
+  } catch (error) {
+    console.error("[AuditEvent] Failed to create audit event:", error);
+    // Don't throw - audit logging should not break the main flow
+  }
+}
+
+/**
+ * Helper to build metaJson context from stand/station/hall hierarchy
+ */
+async function buildStandContextMeta(standId: string): Promise<{
+  standId: string;
+  stationId?: string;
+  hallId?: string;
+  materialId?: string;
+}> {
+  const meta: any = { standId };
+  
+  try {
+    const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+    if (stand) {
+      if (stand.materialId) meta.materialId = stand.materialId;
+      if (stand.stationId) {
+        meta.stationId = stand.stationId;
+        const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+        if (station?.hallId) {
+          meta.hallId = station.hallId;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[AuditEvent] Failed to build stand context:", error);
+  }
+  
+  return meta;
+}
+
+// ============================================================================
 // DAILY TASK SCHEDULER
 // ============================================================================
 
@@ -109,12 +217,30 @@ async function generateDailyTasksScheduled() {
     let cancelledCount = 0;
     for (const task of openDailyTasks) {
       if (task.dedupKey && !task.dedupKey.endsWith(`:${todayStr}`)) {
+        const beforeStatus = task.status;
         await db.update(tasks).set({
           status: "CANCELLED",
           cancelledAt: new Date(),
           cancellationReason: "Auto-cancelled: New daily task generated",
           updatedAt: new Date()
         }).where(eq(tasks.id, task.id));
+        
+        // Audit log for auto-cancellation
+        const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+        await createAuditEvent({
+          taskId: task.id,
+          action: "STATUS_CHANGED",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { status: beforeStatus },
+          afterData: { status: "CANCELLED", reason: "Auto-cancelled: New daily task generated" },
+          metaJson: {
+            ...standMeta,
+            boxId: task.boxId || undefined,
+            source: "DAILY_SCHEDULER",
+          },
+        });
+        
         cancelledCount++;
       }
     }
@@ -132,7 +258,7 @@ async function generateDailyTasksScheduled() {
     for (const stand of dailyFullStands) {
       const dedupKey = `DAILY:${stand.id}:${todayStr}`;
       try {
-        await db.insert(tasks).values({
+        const [newTask] = await db.insert(tasks).values({
           title: `Tägliche Abholung - Stand ${stand.identifier}`,
           description: `Automatisch generierte tägliche Abholung`,
           containerID: stand.id,
@@ -144,11 +270,28 @@ async function generateDailyTasksScheduled() {
           priority: "normal",
           scheduledFor: today,
           dedupKey,
-        });
+        }).returning();
+        
         await db.update(stands).set({
           lastDailyTaskGeneratedAt: new Date(),
           updatedAt: new Date()
         }).where(eq(stands.id, stand.id));
+        
+        // Audit log for daily task creation
+        const standMeta = await buildStandContextMeta(stand.id);
+        await createAuditEvent({
+          taskId: newTask.id,
+          action: "TASK_CREATED",
+          entityType: "task",
+          entityId: newTask.id,
+          beforeData: null,
+          afterData: { status: "OPEN", taskType: "DAILY_FULL", standId: stand.id },
+          metaJson: {
+            ...standMeta,
+            source: "DAILY",
+          },
+        });
+        
         createdCount++;
       } catch (e: any) {
         if (e?.code === '23505') {
@@ -2884,6 +3027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const beforeData = { standId: box.standId, status: box.status };
+      const placementChanged = box.standId !== standId;
       
       const [updatedBox] = await db.update(boxes)
         .set({
@@ -2895,14 +3039,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(boxes.id, req.params.id))
         .returning();
 
-      await db.insert(taskEvents).values({
+      // Build metaJson context for the new stand
+      const standMeta = await buildStandContextMeta(standId);
+      const eventMetaJson = {
+        ...standMeta,
+        boxId: box.id,
+        containerId: box.id,
+        previousStandId: box.standId || undefined,
+      };
+
+      // Log PLACEMENT_CHANGED if stand actually changed, otherwise BOX_POSITIONED
+      await createAuditEvent({
         taskId: box.currentTaskId || req.params.id,
         actorUserId: authUser.id,
-        action: "BOX_POSITIONED",
+        action: placementChanged ? "PLACEMENT_CHANGED" : "BOX_POSITIONED",
         entityType: "box",
         entityId: box.id,
         beforeData,
         afterData: { standId, status: "AT_STAND" },
+        metaJson: eventMetaJson,
       });
 
       res.json({
@@ -2981,7 +3136,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ currentTaskId: task.id, updatedAt: new Date() })
         .where(eq(boxes.id, boxId));
 
-      await db.insert(taskEvents).values({
+      // Comprehensive audit logging with metaJson context
+      const standMeta = await buildStandContextMeta(standId);
+      await createAuditEvent({
         taskId: task.id,
         actorUserId: authUser.id,
         action: "TASK_CREATED",
@@ -2989,6 +3146,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: task.id,
         beforeData: null,
         afterData: { status: "OPEN", boxId, standId, taskType: taskType || "MANUAL" },
+        metaJson: {
+          ...standMeta,
+          boxId,
+          containerId: boxId,
+          source: "MANUAL",
+        },
       });
 
       res.status(201).json(task);
@@ -3075,10 +3238,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      await db.insert(taskEvents).values({
+      // Build metaJson context from task's stand/box
+      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+      const eventMetaJson = {
+        ...standMeta,
+        boxId: task.boxId || undefined,
+        containerId: task.boxId || undefined,
+        targetWarehouseContainerId: updateData.targetWarehouseContainerId || undefined,
+      };
+
+      // Log STATUS_CHANGED event
+      await createAuditEvent({
         taskId: task.id,
         actorUserId: authUser.id,
-        action: `STATUS_${status}`,
+        action: status === "CANCELLED" ? "STATUS_CHANGED" : `STATUS_${status}`,
         entityType: "task",
         entityId: task.id,
         beforeData,
@@ -3088,7 +3261,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           targetWarehouseContainerId: updateData.targetWarehouseContainerId,
           reason
         },
+        metaJson: eventMetaJson,
       });
+
+      // Log WEIGHT_RECORDED when weight is set during WEIGHED transition
+      if (status === "WEIGHED" && weightKg !== undefined) {
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "WEIGHT_RECORDED",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { weightKg: task.weightKg },
+          afterData: { weightKg },
+          metaJson: eventMetaJson,
+        });
+      }
 
       res.json(updatedTask);
     } catch (error) {
@@ -3415,6 +3603,507 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to fetch task events:", error);
       res.status(500).json({ error: "Failed to fetch task events" });
+    }
+  });
+
+  // GET /api/activity - Activity feed with filters and pagination
+  app.get("/api/activity", async (req, res) => {
+    try {
+      const {
+        from,
+        to,
+        materialId,
+        stationId,
+        hallId,
+        userId,
+        departmentId,
+        action,
+        page: pageParam,
+        limit: limitParam,
+      } = req.query;
+
+      // Parse pagination params
+      const page = Math.max(1, parseInt(pageParam as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(limitParam as string) || 50));
+      const offset = (page - 1) * limit;
+
+      // Build filter conditions
+      const conditions: any[] = [];
+
+      // Date range filters
+      if (from && typeof from === 'string') {
+        const fromDate = new Date(from);
+        if (!isNaN(fromDate.getTime())) {
+          conditions.push(gte(taskEvents.timestamp, fromDate));
+        }
+      }
+      if (to && typeof to === 'string') {
+        const toDate = new Date(to);
+        if (!isNaN(toDate.getTime())) {
+          conditions.push(lte(taskEvents.timestamp, toDate));
+        }
+      }
+
+      // Actor filters
+      if (userId && typeof userId === 'string') {
+        conditions.push(eq(taskEvents.actorUserId, userId));
+      }
+      if (departmentId && typeof departmentId === 'string') {
+        conditions.push(eq(taskEvents.actorDepartmentId, departmentId));
+      }
+
+      // Action filter (comma-separated for multiple)
+      if (action && typeof action === 'string') {
+        const actions = action.split(',').map(a => a.trim()).filter(a => a);
+        if (actions.length === 1) {
+          conditions.push(eq(taskEvents.action, actions[0]));
+        } else if (actions.length > 1) {
+          conditions.push(inArray(taskEvents.action, actions));
+        }
+      }
+
+      // metaJson field filters using JSONB operators
+      if (materialId && typeof materialId === 'string') {
+        conditions.push(sql`${taskEvents.metaJson}->>'materialId' = ${materialId}`);
+      }
+      if (stationId && typeof stationId === 'string') {
+        conditions.push(sql`${taskEvents.metaJson}->>'stationId' = ${stationId}`);
+      }
+      if (hallId && typeof hallId === 'string') {
+        conditions.push(sql`${taskEvents.metaJson}->>'hallId' = ${hallId}`);
+      }
+
+      // Build where clause
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      // Get total count for pagination
+      const [countResult] = await db
+        .select({ total: count() })
+        .from(taskEvents)
+        .where(whereClause);
+      const total = Number(countResult?.total || 0);
+
+      // Get events with actor name from users table
+      const events = await db
+        .select({
+          id: taskEvents.id,
+          timestamp: taskEvents.timestamp,
+          action: taskEvents.action,
+          actorUserId: taskEvents.actorUserId,
+          actorName: users.name,
+          actorRole: taskEvents.actorRole,
+          actorDepartmentId: taskEvents.actorDepartmentId,
+          entityType: taskEvents.entityType,
+          entityId: taskEvents.entityId,
+          beforeData: taskEvents.beforeData,
+          afterData: taskEvents.afterData,
+          metaJson: taskEvents.metaJson,
+          taskId: taskEvents.taskId,
+        })
+        .from(taskEvents)
+        .leftJoin(users, eq(taskEvents.actorUserId, users.id))
+        .where(whereClause)
+        .orderBy(desc(taskEvents.timestamp))
+        .limit(limit)
+        .offset(offset);
+
+      const totalPages = Math.ceil(total / limit);
+
+      res.json({
+        events,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to fetch activity feed:", error);
+      res.status(500).json({ error: "Failed to fetch activity feed" });
+    }
+  });
+
+  // ============================================================================
+  // ANALYTICS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/analytics/materials
+   * Material amounts by period
+   * Query params: from, to, groupBy (material|day|week|month)
+   */
+  app.get("/api/analytics/materials", requireAuth, async (req, res) => {
+    try {
+      const { from, to, groupBy = "material" } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      if (groupBy === "material") {
+        const result = await db
+          .select({
+            materialId: tasks.materialType,
+            materialName: materials.name,
+            totalWeightKg: sum(tasks.weightKg),
+            taskCount: count(),
+          })
+          .from(tasks)
+          .leftJoin(materials, eq(tasks.materialType, materials.id))
+          .where(and(...conditions))
+          .groupBy(tasks.materialType, materials.name);
+
+        res.json({ data: result, groupBy });
+      } else {
+        let dateExpr: any;
+        if (groupBy === "day") {
+          dateExpr = sql`DATE(${tasks.disposedAt})`;
+        } else if (groupBy === "week") {
+          dateExpr = sql`DATE_TRUNC('week', ${tasks.disposedAt})`;
+        } else if (groupBy === "month") {
+          dateExpr = sql`DATE_TRUNC('month', ${tasks.disposedAt})`;
+        } else {
+          return res.status(400).json({ error: "Invalid groupBy parameter. Use: material, day, week, or month" });
+        }
+
+        const result = await db
+          .select({
+            period: dateExpr,
+            totalWeightKg: sum(tasks.weightKg),
+            taskCount: count(),
+          })
+          .from(tasks)
+          .where(and(...conditions))
+          .groupBy(dateExpr)
+          .orderBy(dateExpr);
+
+        res.json({ data: result, groupBy });
+      }
+    } catch (error) {
+      console.error("[Analytics] Materials error:", error);
+      res.status(500).json({ error: "Failed to fetch materials analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/stations
+   * Material amounts per station
+   * Query params: from, to
+   */
+  app.get("/api/analytics/stations", requireAuth, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      const result = await db
+        .select({
+          stationId: stands.stationId,
+          stationName: stations.name,
+          stationCode: stations.code,
+          materialId: tasks.materialType,
+          materialName: materials.name,
+          totalWeightKg: sum(tasks.weightKg),
+          taskCount: count(),
+        })
+        .from(tasks)
+        .innerJoin(stands, eq(tasks.standId, stands.id))
+        .innerJoin(stations, eq(stands.stationId, stations.id))
+        .leftJoin(materials, eq(tasks.materialType, materials.id))
+        .where(and(...conditions))
+        .groupBy(stands.stationId, stations.name, stations.code, tasks.materialType, materials.name);
+
+      res.json({ data: result });
+    } catch (error) {
+      console.error("[Analytics] Stations error:", error);
+      res.status(500).json({ error: "Failed to fetch stations analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/halls
+   * Material amounts per hall
+   * Query params: from, to
+   */
+  app.get("/api/analytics/halls", requireAuth, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      const result = await db
+        .select({
+          hallId: stations.hallId,
+          hallName: halls.name,
+          hallCode: halls.code,
+          materialId: tasks.materialType,
+          materialName: materials.name,
+          totalWeightKg: sum(tasks.weightKg),
+          taskCount: count(),
+        })
+        .from(tasks)
+        .innerJoin(stands, eq(tasks.standId, stands.id))
+        .innerJoin(stations, eq(stands.stationId, stations.id))
+        .innerJoin(halls, eq(stations.hallId, halls.id))
+        .leftJoin(materials, eq(tasks.materialType, materials.id))
+        .where(and(...conditions))
+        .groupBy(stations.hallId, halls.name, halls.code, tasks.materialType, materials.name);
+
+      res.json({ data: result });
+    } catch (error) {
+      console.error("[Analytics] Halls error:", error);
+      res.status(500).json({ error: "Failed to fetch halls analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/users
+   * User/driver performance
+   * Query params: from, to
+   */
+  app.get("/api/analytics/users", requireAuth, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      const weighedByResult = await db
+        .select({
+          userId: tasks.weighedByUserId,
+          userName: users.name,
+          userEmail: users.email,
+          role: sql`'weigher'`.as("role"),
+          totalWeightKg: sum(tasks.weightKg),
+          taskCount: count(),
+        })
+        .from(tasks)
+        .innerJoin(users, eq(tasks.weighedByUserId, users.id))
+        .where(and(...conditions))
+        .groupBy(tasks.weighedByUserId, users.name, users.email);
+
+      const claimedByResult = await db
+        .select({
+          userId: tasks.claimedByUserId,
+          userName: users.name,
+          userEmail: users.email,
+          role: sql`'driver'`.as("role"),
+          totalWeightKg: sum(tasks.weightKg),
+          taskCount: count(),
+        })
+        .from(tasks)
+        .innerJoin(users, eq(tasks.claimedByUserId, users.id))
+        .where(and(...conditions))
+        .groupBy(tasks.claimedByUserId, users.name, users.email);
+
+      res.json({
+        data: {
+          byWeigher: weighedByResult,
+          byDriver: claimedByResult,
+        },
+      });
+    } catch (error) {
+      console.error("[Analytics] Users error:", error);
+      res.status(500).json({ error: "Failed to fetch users analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/departments
+   * Department performance
+   * Query params: from, to
+   */
+  app.get("/api/analytics/departments", requireAuth, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      const result = await db
+        .select({
+          departmentId: users.departmentId,
+          departmentName: departments.name,
+          departmentCode: departments.code,
+          totalWeightKg: sum(tasks.weightKg),
+          taskCount: count(),
+        })
+        .from(tasks)
+        .innerJoin(users, eq(tasks.claimedByUserId, users.id))
+        .innerJoin(departments, eq(users.departmentId, departments.id))
+        .where(and(...conditions))
+        .groupBy(users.departmentId, departments.name, departments.code);
+
+      res.json({ data: result });
+    } catch (error) {
+      console.error("[Analytics] Departments error:", error);
+      res.status(500).json({ error: "Failed to fetch departments analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/lead-times
+   * Average duration between statuses
+   * Query params: from, to, by (material|station)
+   */
+  app.get("/api/analytics/lead-times", requireAuth, async (req, res) => {
+    try {
+      const { from, to, by } = req.query;
+      
+      const conditions: any[] = [eq(tasks.status, "DISPOSED")];
+      
+      if (from) {
+        conditions.push(gte(tasks.disposedAt, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.disposedAt, new Date(to as string)));
+      }
+
+      if (by === "material") {
+        const result = await db
+          .select({
+            materialId: tasks.materialType,
+            materialName: materials.name,
+            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
+            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
+            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            taskCount: count(),
+          })
+          .from(tasks)
+          .leftJoin(materials, eq(tasks.materialType, materials.id))
+          .where(and(...conditions))
+          .groupBy(tasks.materialType, materials.name);
+
+        res.json({ data: result, by: "material" });
+      } else if (by === "station") {
+        const result = await db
+          .select({
+            stationId: stands.stationId,
+            stationName: stations.name,
+            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
+            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
+            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            taskCount: count(),
+          })
+          .from(tasks)
+          .innerJoin(stands, eq(tasks.standId, stands.id))
+          .innerJoin(stations, eq(stands.stationId, stations.id))
+          .where(and(...conditions))
+          .groupBy(stands.stationId, stations.name);
+
+        res.json({ data: result, by: "station" });
+      } else {
+        const result = await db
+          .select({
+            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
+            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
+            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            taskCount: count(),
+          })
+          .from(tasks)
+          .where(and(...conditions));
+
+        res.json({ data: result[0] || null, by: "overall" });
+      }
+    } catch (error) {
+      console.error("[Analytics] Lead times error:", error);
+      res.status(500).json({ error: "Failed to fetch lead times analytics" });
+    }
+  });
+
+  /**
+   * GET /api/analytics/backlog
+   * Overdue/stuck tasks
+   * Query params: olderThanHours (default: 24)
+   */
+  app.get("/api/analytics/backlog", requireAuth, async (req, res) => {
+    try {
+      const olderThanHours = parseInt(req.query.olderThanHours as string) || 24;
+      const cutoffTime = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+      const activeStatuses = ["OPEN", "PICKED_UP", "IN_TRANSIT", "DROPPED_OFF", "TAKEN_OVER", "WEIGHED"];
+      
+      const result = await db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          status: tasks.status,
+          createdAt: tasks.createdAt,
+          pickedUpAt: tasks.pickedUpAt,
+          droppedOffAt: tasks.droppedOffAt,
+          standId: tasks.standId,
+          standIdentifier: stands.identifier,
+          stationName: stations.name,
+          materialName: materials.name,
+          claimedByUserName: users.name,
+        })
+        .from(tasks)
+        .leftJoin(stands, eq(tasks.standId, stands.id))
+        .leftJoin(stations, eq(stands.stationId, stations.id))
+        .leftJoin(materials, eq(tasks.materialType, materials.id))
+        .leftJoin(users, eq(tasks.claimedByUserId, users.id))
+        .where(
+          and(
+            inArray(tasks.status, activeStatuses),
+            lte(tasks.updatedAt, cutoffTime)
+          )
+        )
+        .orderBy(tasks.updatedAt);
+
+      const groupedByStatus: Record<string, typeof result> = {};
+      for (const task of result) {
+        if (!groupedByStatus[task.status]) {
+          groupedByStatus[task.status] = [];
+        }
+        groupedByStatus[task.status].push(task);
+      }
+
+      const summary = Object.entries(groupedByStatus).map(([status, taskList]) => ({
+        status,
+        count: taskList.length,
+      }));
+
+      res.json({
+        olderThanHours,
+        cutoffTime: cutoffTime.toISOString(),
+        summary,
+        data: groupedByStatus,
+      });
+    } catch (error) {
+      console.error("[Analytics] Backlog error:", error);
+      res.status(500).json({ error: "Failed to fetch backlog analytics" });
     }
   });
 
