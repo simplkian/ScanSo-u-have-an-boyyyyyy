@@ -886,15 +886,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: { autoAssigned: task.status === "PLANNED" },
       });
 
-      // Build response with target container details
+      // Build response with source and target container details
       const response: any = {
         task: updatedTask,
         sourceContainer: {
           id: sourceContainer.id,
           label: sourceContainer.id,
           location: sourceContainer.location,
+          content: sourceContainer.materialType, // content field maps to materialType
           materialType: sourceContainer.materialType,
           customerName: sourceContainer.customerName,
+          unit: updatedTask.plannedQuantityUnit || "kg",
+          currentQuantity: updatedTask.estimatedAmount || 0,
+          plannedPickupQuantity: updatedTask.plannedQuantity || updatedTask.estimatedAmount || 0,
         },
       };
 

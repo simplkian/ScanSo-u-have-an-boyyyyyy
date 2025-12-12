@@ -25,6 +25,30 @@ interface ScanResult {
   container: CustomerContainer | WarehouseContainer;
 }
 
+interface TargetContainerInfo {
+  id: string;
+  label: string;
+  location: string;
+  content: string;
+  materialType: string;
+  capacity: number;
+  currentFill: number;
+  remainingCapacity: number;
+  unit: string;
+}
+
+interface SourceContainerInfo {
+  id: string;
+  label: string;
+  location: string;
+  content: string;
+  materialType: string;
+  customerName: string;
+  unit: string;
+  currentQuantity: number;
+  plannedPickupQuantity: number;
+}
+
 const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
 const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
 
@@ -41,6 +65,9 @@ export default function ScannerScreen() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [targetContainerInfo, setTargetContainerInfo] = useState<TargetContainerInfo | null>(null);
+  const [sourceContainerInfo, setSourceContainerInfo] = useState<SourceContainerInfo | null>(null);
+  const [taskAccepted, setTaskAccepted] = useState(false);
   const scanLock = useRef(false);
 
   const { data: tasks = [] } = useQuery<Task[]>({
@@ -146,6 +173,55 @@ export default function ScannerScreen() {
     }
   };
 
+  // Accept task - first step when scanning customer container
+  const acceptTask = async () => {
+    if (!activeTask || !user) return;
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const location = await getLocation();
+      const response = await apiRequest("POST", `/api/tasks/${activeTask.id}/accept`, {
+        userId: user.id,
+        location: location ? `${location.lat},${location.lng}` : undefined,
+        geoLocation: location,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || "Auftragsannahme fehlgeschlagen.");
+        scanLock.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      const data = await response.json();
+      
+      // Update task state from response
+      setActiveTask(data.task);
+      setTaskAccepted(true);
+      
+      // Store source and target container info from response
+      if (data.sourceContainer) {
+        setSourceContainerInfo(data.sourceContainer);
+      }
+      if (data.targetContainer) {
+        setTargetContainerInfo(data.targetContainer);
+      }
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess("Auftrag angenommen! Sie können nun die Abholung bestätigen.");
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      
+    } catch (err) {
+      setError("Auftragsannahme fehlgeschlagen. Bitte erneut versuchen.");
+      scanLock.current = false;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Confirm pickup - second step after accepting
   const confirmPickup = async () => {
     if (!activeTask || !user) return;
     setIsProcessing(true);
@@ -153,11 +229,19 @@ export default function ScannerScreen() {
 
     try {
       const location = await getLocation();
-      await apiRequest("POST", `/api/tasks/${activeTask.id}/pickup`, {
+      const response = await apiRequest("POST", `/api/tasks/${activeTask.id}/pickup`, {
         userId: user.id,
-        location,
-        scanContext: "TASK_ACCEPT_AT_CUSTOMER",
+        location: location ? `${location.lat},${location.lng}` : undefined,
+        geoLocation: location,
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || "Abholungsbestätigung fehlgeschlagen.");
+        scanLock.current = false;
+        setIsProcessing(false);
+        return;
+      }
 
       setSuccess("Abholung bestätigt! Container ist jetzt unterwegs.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -166,6 +250,9 @@ export default function ScannerScreen() {
         setScanResult(null);
         setActiveTask(null);
         setSuccess(null);
+        setTaskAccepted(false);
+        setTargetContainerInfo(null);
+        setSourceContainerInfo(null);
         scanLock.current = false;
       }, 2000);
     } catch (err) {
@@ -240,6 +327,9 @@ export default function ScannerScreen() {
     setActiveTask(null);
     setError(null);
     setSuccess(null);
+    setTaskAccepted(false);
+    setTargetContainerInfo(null);
+    setSourceContainerInfo(null);
     scanLock.current = false;
   };
 
@@ -482,29 +572,86 @@ export default function ScannerScreen() {
           </Card>
         ) : null}
 
-        {scanResult.type === "customer" && activeTask?.deliveryContainerID && targetWarehouseContainer ? (
+        {scanResult.type === "customer" && (targetContainerInfo || (activeTask?.deliveryContainerID && targetWarehouseContainer)) ? (
           <Card style={{ ...styles.targetWarehouseCard, backgroundColor: theme.infoLight }}>
             <View style={styles.targetWarehouseHeader}>
               <View style={[styles.targetWarehouseIconContainer, { backgroundColor: theme.info }]}>
                 <Feather name="truck" size={20} color="#FFFFFF" />
               </View>
               <ThemedText type="bodyBold" style={{ color: theme.info }}>
-                Ziel im Lager
+                Zielcontainer im Lager
               </ThemedText>
             </View>
             
             <View style={styles.targetWarehouseContent}>
-              <ThemedText type="body" style={{ color: theme.text }}>
-                Bring diesen Container zu:
-              </ThemedText>
               <View style={styles.targetContainerInfo}>
-                <Feather name="map-pin" size={16} color={theme.primary} />
+                <Feather name="package" size={16} color={theme.primary} />
                 <ThemedText type="bodyBold" style={{ color: theme.primary }}>
-                  {targetWarehouseContainer.id} - {targetWarehouseContainer.location}
+                  {targetContainerInfo?.id || targetWarehouseContainer?.id}
                 </ThemedText>
               </View>
+              
+              <View style={styles.targetContainerInfo}>
+                <Feather name="map-pin" size={16} color={theme.textSecondary} />
+                <ThemedText type="body" style={{ color: theme.text }}>
+                  {targetContainerInfo?.location || targetWarehouseContainer?.location}
+                </ThemedText>
+              </View>
+
+              {targetContainerInfo ? (
+                <>
+                  <View style={[styles.divider, { backgroundColor: theme.divider, marginVertical: Spacing.sm }]} />
+                  
+                  <View style={styles.targetContainerStats}>
+                    <View style={styles.targetStatItem}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        Material
+                      </ThemedText>
+                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
+                        {targetContainerInfo.content || targetContainerInfo.materialType}
+                      </ThemedText>
+                    </View>
+                    
+                    <View style={styles.targetStatItem}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        Kapazität
+                      </ThemedText>
+                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
+                        {targetContainerInfo.capacity} {targetContainerInfo.unit}
+                      </ThemedText>
+                    </View>
+                    
+                    <View style={styles.targetStatItem}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        Aktueller Füllstand
+                      </ThemedText>
+                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
+                        {targetContainerInfo.currentFill.toFixed(0)} {targetContainerInfo.unit}
+                      </ThemedText>
+                    </View>
+                    
+                    <View style={styles.targetStatItem}>
+                      <ThemedText type="small" style={{ color: theme.success }}>
+                        Restkapazität
+                      </ThemedText>
+                      <ThemedText type="bodyBold" style={{ color: theme.success }}>
+                        {targetContainerInfo.remainingCapacity.toFixed(0)} {targetContainerInfo.unit}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </>
+              ) : null}
             </View>
           </Card>
+        ) : null}
+
+        {success ? (
+          <View style={[styles.successBanner, { backgroundColor: theme.successLight }]}>
+            <Feather name="check-circle" size={20} color={theme.success} />
+            <ThemedText type="small" style={[styles.successText, { color: theme.success }]}>
+              {success}
+            </ThemedText>
+          </View>
         ) : null}
 
         {error ? (
@@ -520,19 +667,33 @@ export default function ScannerScreen() {
           <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
             Abbrechen
           </Button>
-          {canConfirmPickup ? (
-            <Button
-              onPress={confirmPickup}
-              disabled={isProcessing}
-              style={[styles.confirmButton, { backgroundColor: theme.accent }]}
-            >
-              {isProcessing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                "Abholung bestätigen"
-              )}
-            </Button>
-          ) : canConfirmDelivery ? (
+          {scanResult.type === "customer" && activeTask && !hasValidationError ? (
+            OPEN_STATUSES.includes(activeTask.status) && !taskAccepted ? (
+              <Button
+                onPress={acceptTask}
+                disabled={isProcessing}
+                style={[styles.confirmButton, { backgroundColor: theme.primary }]}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  "Auftrag annehmen"
+                )}
+              </Button>
+            ) : (activeTask.status === "ACCEPTED" || taskAccepted) ? (
+              <Button
+                onPress={confirmPickup}
+                disabled={isProcessing}
+                style={[styles.confirmButton, { backgroundColor: theme.accent }]}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  "Abholung bestätigen"
+                )}
+              </Button>
+            ) : null
+          ) : scanResult.type === "warehouse" && activeTask && !hasValidationError ? (
             <Button
               onPress={confirmDelivery}
               disabled={isProcessing}
@@ -926,6 +1087,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.xs,
+  },
+  targetContainerStats: {
+    gap: Spacing.sm,
+  },
+  targetStatItem: {
+    gap: 2,
+  },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  successText: {
+    flex: 1,
   },
   errorBanner: {
     flexDirection: "row",
