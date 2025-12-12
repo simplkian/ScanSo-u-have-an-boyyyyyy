@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 
 export type UserRole = "driver" | "admin";
 
@@ -35,7 +33,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithReplit: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -95,41 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
   };
 
-  const loginWithReplit = async () => {
-    if (Platform.OS === "web") {
-      const response = await apiRequest("POST", "/api/auth/replit/login", {});
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Replit login failed. Make sure you're logged into Replit.");
-      }
-
-      const authUser = normalizeUser(data.user);
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
-      setUser(authUser);
-    } else {
-      const baseUrl = getApiUrl();
-      const authUrl = `${baseUrl}/__replauthLoginPage`;
-      
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, "containerflow://auth");
-      
-      if (result.type === "success") {
-        const response = await apiRequest("POST", "/api/auth/replit/login", {});
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || "Replit login failed");
-        }
-
-        const authUser = normalizeUser(data.user);
-        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
-        setUser(authUser);
-      } else if (result.type === "cancel") {
-        throw new Error("Login cancelled");
-      }
-    }
-  };
-
   const logout = async () => {
     await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
     setUser(null);
@@ -141,7 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isAdmin: user?.role === "admin",
     login,
-    loginWithReplit,
     logout,
   };
 

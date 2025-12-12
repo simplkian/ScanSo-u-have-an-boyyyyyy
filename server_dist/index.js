@@ -442,8 +442,7 @@ var VALID_TASK_TRANSITIONS = {
 };
 function isValidTaskTransition(currentStatus, newStatus) {
   const validTransitions = VALID_TASK_TRANSITIONS[currentStatus];
-  if (!validTransitions)
-    return false;
+  if (!validTransitions) return false;
   return validTransitions.includes(newStatus);
 }
 function getTimestampFieldForStatus(status) {
@@ -699,8 +698,7 @@ var DatabaseStorage = class {
    */
   async updateTaskStatus(id, newStatus, userId) {
     const currentTask = await this.getTask(id);
-    if (!currentTask)
-      return void 0;
+    if (!currentTask) return void 0;
     if (!isValidTaskTransition(currentTask.status, newStatus)) {
       console.warn(`Invalid task transition: ${currentTask.status} -> ${newStatus}`);
       return void 0;
@@ -733,8 +731,7 @@ var DatabaseStorage = class {
    */
   async deleteTask(id) {
     const existingTask = await this.getTask(id);
-    if (!existingTask)
-      return false;
+    if (!existingTask) return false;
     await db.update(scanEvents).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(scanEvents.taskId, id));
     await db.update(activityLogs).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(activityLogs.taskId, id));
     await db.update(fillHistory).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(fillHistory.taskId, id));
@@ -907,54 +904,6 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/pool-stats", (req, res) => {
     res.json(getPoolStats());
-  });
-  app2.get("/api/auth/replit", (req, res) => {
-    const userId = req.headers["x-replit-user-id"];
-    const userName = req.headers["x-replit-user-name"];
-    const userRoles = req.headers["x-replit-user-roles"];
-    if (!userId || !userName) {
-      return res.status(401).json({
-        error: "Not authenticated with Replit",
-        authenticated: false
-      });
-    }
-    res.json({
-      authenticated: true,
-      replitUser: {
-        id: userId,
-        name: userName,
-        roles: userRoles ? userRoles.split(",") : []
-      }
-    });
-  });
-  app2.post("/api/auth/replit/login", async (req, res) => {
-    try {
-      const userId = req.headers["x-replit-user-id"];
-      const userName = req.headers["x-replit-user-name"];
-      if (!userId || !userName) {
-        return res.status(401).json({ error: "Not authenticated with Replit" });
-      }
-      const replitId = `replit-${userId}`;
-      const replitEmail = `${userName}@replit.user`;
-      let user = await storage.getUserByEmail(replitEmail);
-      if (!user) {
-        const existingUsers = await storage.getUsers();
-        const isFirstUser = existingUsers.length === 0;
-        user = await storage.createUser({
-          email: replitEmail,
-          password: hashPassword(`replit-${userId}-${Date.now()}`),
-          name: userName,
-          role: isFirstUser ? "admin" : "driver"
-        });
-      }
-      if (!user.isActive) {
-        return res.status(403).json({ error: "Account is deactivated" });
-      }
-      res.json({ user: prepareUserResponse(user) });
-    } catch (error) {
-      console.error("Replit auth error:", error);
-      res.status(500).json({ error: "Replit login failed" });
-    }
   });
   app2.post("/api/auth/login", async (req, res) => {
     try {
@@ -1355,8 +1304,7 @@ async function registerRoutes(app2) {
       }
       const filters = {};
       if (userRole === "ADMIN") {
-        if (assignedTo)
-          filters.assignedTo = assignedTo;
+        if (assignedTo) filters.assignedTo = assignedTo;
         if (status) {
           filters.status = status;
         }
@@ -1366,11 +1314,9 @@ async function registerRoutes(app2) {
         } else if (assignedTo) {
           filters.assignedTo = assignedTo;
         }
-        if (status)
-          filters.status = status;
+        if (status) filters.status = status;
       }
-      if (date)
-        filters.date = new Date(date);
+      if (date) filters.date = new Date(date);
       let taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : void 0);
       if (userRole === "ADMIN" && !status && showAll !== "true") {
         const FINAL_STATUSES = ["COMPLETED", "CANCELLED"];
@@ -1931,12 +1877,9 @@ async function registerRoutes(app2) {
     try {
       const { containerId, taskId, userId } = req.query;
       const filters = {};
-      if (containerId)
-        filters.containerId = containerId;
-      if (taskId)
-        filters.taskId = taskId;
-      if (userId)
-        filters.userId = userId;
+      if (containerId) filters.containerId = containerId;
+      if (taskId) filters.taskId = taskId;
+      if (userId) filters.userId = userId;
       const events = await storage.getScanEvents(Object.keys(filters).length > 0 ? filters : void 0);
       res.json(events);
     } catch (error) {
@@ -1997,14 +1940,10 @@ async function registerRoutes(app2) {
     try {
       const { userId, containerId, type, taskId, startDate, endDate } = req.query;
       const filters = {};
-      if (userId)
-        filters.userId = userId;
-      if (containerId)
-        filters.containerId = containerId;
-      if (type)
-        filters.type = type;
-      if (taskId)
-        filters.taskId = taskId;
+      if (userId) filters.userId = userId;
+      if (containerId) filters.containerId = containerId;
+      if (type) filters.type = type;
+      if (taskId) filters.taskId = taskId;
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
       res.json(logs);
     } catch (error) {
@@ -2015,19 +1954,14 @@ async function registerRoutes(app2) {
     try {
       const { userId, containerId, type, taskId, startDate, endDate } = req.query;
       const filters = {};
-      if (userId)
-        filters.userId = userId;
-      if (containerId)
-        filters.containerId = containerId;
-      if (type)
-        filters.type = type;
-      if (taskId)
-        filters.taskId = taskId;
+      if (userId) filters.userId = userId;
+      if (containerId) filters.containerId = containerId;
+      if (type) filters.type = type;
+      if (taskId) filters.taskId = taskId;
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
       const users2 = await storage.getUsers();
       const getUserName = (id) => {
-        if (!id)
-          return "System";
+        if (!id) return "System";
         const user = users2.find((u) => u.id === id);
         return user?.name || "Unknown";
       };
@@ -2064,13 +1998,11 @@ async function registerRoutes(app2) {
         const driverTasks = allTasks.filter((t) => t.assignedTo === driver.id);
         const completedTasks = driverTasks.filter((t) => t.status === "COMPLETED" || t.status === "completed");
         const completedToday = completedTasks.filter((t) => {
-          if (!t.completedAt)
-            return false;
+          if (!t.completedAt) return false;
           return new Date(t.completedAt).toDateString() === today;
         });
         const completedThisWeek = completedTasks.filter((t) => {
-          if (!t.completedAt)
-            return false;
+          if (!t.completedAt) return false;
           const completedDate = new Date(t.completedAt);
           return completedDate >= startOfWeek;
         });
@@ -2125,8 +2057,7 @@ async function registerRoutes(app2) {
         const date = daysAgo(i);
         const dateStr = date.toLocaleDateString("de-DE", { month: "short", day: "numeric" });
         const dayTasks = allTasks.filter((t) => {
-          if (!t.completedAt)
-            return false;
+          if (!t.completedAt) return false;
           const taskDate = new Date(t.completedAt);
           return taskDate.toDateString() === date.toDateString();
         });
@@ -2309,20 +2240,17 @@ function setupCors(app2) {
     if (origin) {
       const allowedPatterns = [
         /^https?:\/\/localhost(:\d+)?$/,
-        /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-        /\.replit\.dev$/,
-        /\.replit\.app$/,
-        /\.riker\.replit\.dev$/,
-        /\.repl\.co$/
+        /^https?:\/\/127\.0\.0\.1(:\d+)?$/
       ];
-      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) || process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN);
+      const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) || allowedOrigins.some((allowed) => origin === allowed.trim());
       if (isAllowed) {
         res.header("Access-Control-Allow-Origin", origin);
         res.header(
           "Access-Control-Allow-Methods",
           "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
+        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id");
         res.header("Access-Control-Allow-Credentials", "true");
       }
     } else {
@@ -2331,7 +2259,7 @@ function setupCors(app2) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS, PATCH"
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id");
     }
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -2360,8 +2288,7 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path2.startsWith("/api"))
-        return;
+      if (!path2.startsWith("/api")) return;
       const duration = Date.now() - start;
       let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
@@ -2466,9 +2393,9 @@ function setupErrorHandler(app2) {
 (async () => {
   try {
     const dbUrl = new URL(process.env.DATABASE_URL || "");
-    log(`Using Supabase PostgreSQL via DATABASE_URL (host: ${dbUrl.hostname})`);
+    log(`Using PostgreSQL via DATABASE_URL (host: ${dbUrl.hostname})`);
   } catch {
-    log(`Using Supabase PostgreSQL via DATABASE_URL`);
+    log(`Using PostgreSQL via DATABASE_URL`);
   }
   setupCors(app);
   setupBodyParsing(app);
