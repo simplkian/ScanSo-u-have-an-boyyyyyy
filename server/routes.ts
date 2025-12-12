@@ -2906,6 +2906,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/automotive/daily-tasks/generate - Generate daily tasks for dailyFull stands
+  // Can be called by cron job or manually triggered by admin
+  // Uses serializable transaction to prevent race conditions
+  app.post("/api/automotive/daily-tasks/generate", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const result = await db.transaction(async (tx) => {
+        // Find all stands with dailyFull=true
+        const dailyFullStands = await tx.select().from(stands).where(
+          and(
+            eq(stands.dailyFull, true),
+            eq(stands.isActive, true)
+          )
+        );
+        
+        const createdTasks: any[] = [];
+        const skipped: { standId: string; reason: string }[] = [];
+        
+        for (const stand of dailyFullStands) {
+          // Check if task was already generated today
+          if (stand.lastDailyTaskGeneratedAt && stand.lastDailyTaskGeneratedAt >= todayStart) {
+            skipped.push({ standId: stand.id, reason: "Task already generated today" });
+            continue;
+          }
+          
+          // Find a box at this stand that doesn't have an active task
+          const boxesAtStand = await tx.select().from(boxes).where(
+            and(
+              eq(boxes.standId, stand.id),
+              eq(boxes.status, "AT_STAND"),
+              eq(boxes.isActive, true)
+            )
+          );
+          
+          // Find a box without active task
+          let eligibleBox = null;
+          for (const box of boxesAtStand) {
+            if (!box.currentTaskId) {
+              eligibleBox = box;
+              break;
+            }
+            // Check if the current task is completed/cancelled
+            if (box.currentTaskId) {
+              const [existingTask] = await tx.select().from(tasks).where(eq(tasks.id, box.currentTaskId));
+              if (!existingTask || existingTask.status === "DISPOSED" || existingTask.status === "CANCELLED") {
+                eligibleBox = box;
+                break;
+              }
+            }
+          }
+          
+          if (!eligibleBox) {
+            skipped.push({ standId: stand.id, reason: "No available box at stand" });
+            continue;
+          }
+          
+          // Create the daily task
+          const [task] = await tx.insert(tasks).values({
+            title: `Tägliche Abholung - Stand ${stand.identifier}`,
+            description: `Automatisch generierte tägliche Abholung für Stand ${stand.identifier}`,
+            containerID: eligibleBox.id,
+            boxId: eligibleBox.id,
+            standId: stand.id,
+            materialType: stand.materialId || null,
+            taskType: "DAILY_FULL",
+            status: "OPEN",
+            createdBy: authUser.id,
+            priority: "normal",
+          }).returning();
+          
+          // Update box with current task
+          await tx.update(boxes)
+            .set({ currentTaskId: task.id, updatedAt: new Date() })
+            .where(eq(boxes.id, eligibleBox.id));
+          
+          // Update stand's lastDailyTaskGeneratedAt
+          await tx.update(stands)
+            .set({ lastDailyTaskGeneratedAt: now, updatedAt: new Date() })
+            .where(eq(stands.id, stand.id));
+          
+          // Create task event
+          await tx.insert(taskEvents).values({
+            taskId: task.id,
+            actorUserId: authUser.id,
+            action: "TASK_CREATED",
+            entityType: "task",
+            entityId: task.id,
+            beforeData: null,
+            afterData: { status: "OPEN", boxId: eligibleBox.id, standId: stand.id, taskType: "DAILY_FULL" },
+          });
+          
+          createdTasks.push({
+            task,
+            stand: { id: stand.id, identifier: stand.identifier },
+            box: { id: eligibleBox.id, serial: eligibleBox.serial },
+          });
+        }
+        
+        return { createdTasks, skipped };
+      }, { isolationLevel: 'serializable' });
+      
+      res.json({
+        success: true,
+        createdCount: result.createdTasks.length,
+        skippedCount: result.skipped.length,
+        created: result.createdTasks,
+        skipped: result.skipped,
+        generatedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to generate daily tasks:", error);
+      res.status(500).json({ error: "Failed to generate daily tasks" });
+    }
+  });
+
+  // GET /api/automotive/daily-tasks/status - Check status of daily task generation
+  app.get("/api/automotive/daily-tasks/status", async (req, res) => {
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Get all dailyFull stands
+      const dailyFullStands = await db.select().from(stands).where(
+        and(
+          eq(stands.dailyFull, true),
+          eq(stands.isActive, true)
+        )
+      );
+      
+      const status = dailyFullStands.map(stand => ({
+        standId: stand.id,
+        identifier: stand.identifier,
+        lastGeneratedAt: stand.lastDailyTaskGeneratedAt?.toISOString() || null,
+        generatedToday: stand.lastDailyTaskGeneratedAt ? stand.lastDailyTaskGeneratedAt >= todayStart : false,
+      }));
+      
+      const totalStands = status.length;
+      const generatedToday = status.filter(s => s.generatedToday).length;
+      const pendingToday = totalStands - generatedToday;
+      
+      res.json({
+        totalDailyFullStands: totalStands,
+        generatedToday,
+        pendingToday,
+        stands: status,
+        checkedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to get daily tasks status:", error);
+      res.status(500).json({ error: "Failed to get daily tasks status" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // TASK EVENTS ENDPOINTS
   // ----------------------------------------------------------------------------

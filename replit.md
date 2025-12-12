@@ -1,183 +1,28 @@
 # ContainerFlow
 
 ## Overview
-
-ContainerFlow is a professional mobile waste container management application built for iOS, Android, and web platforms. The app enables waste management companies to track customer containers, manage warehouse inventory, assign pickup/delivery tasks to drivers, and monitor operations through QR code scanning. It features role-based access control with driver and admin roles, real-time task management, and comprehensive container tracking with fill-level monitoring.
+ContainerFlow is a professional mobile waste container management application for iOS, Android, and web. It helps waste management companies track customer containers, manage warehouse inventory, assign pickup/delivery tasks, and monitor operations using QR code scanning. Key features include role-based access control (driver/admin), real-time task management, and comprehensive container tracking with fill-level monitoring. An extension supports specialized automotive factory waste management workflows for box-based material handling.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React Native with Expo SDK 54 (new architecture enabled)
-- **Navigation**: React Navigation with bottom tabs and native stack navigators
-- **State Management**: TanStack React Query for server state, React Context for auth state
-- **UI Components**: Custom themed components following a design system defined in `client/constants/theme.ts`
-- **Animations**: React Native Reanimated for smooth transitions and interactions
-- **Path Aliases**: `@/` maps to `client/`, `@shared/` maps to `shared/`
+### Core System
+- **Frontend**: React Native with Expo SDK 54, React Navigation, TanStack React Query for server state, React Context for auth. Custom UI components and React Native Reanimated for animations.
+- **Backend**: Node.js with Express.js, RESTful JSON API, Drizzle ORM with PostgreSQL.
+- **Data Layer**: PostgreSQL database with schema defined by Drizzle ORM (`shared/schema.ts`). Core entities include `users`, `customers`, `customerContainers`, `warehouseContainers`, `tasks` (with an 8-state lifecycle), `scanEvents`, `activityLogs`, and `fillHistory`.
+- **Authentication**: Custom email/password authentication (SHA-256 hashing) and Replit Auth integration. Session management via AsyncStorage. Role-based access control with `ADMIN` and `DRIVER` roles enforced via server-side middleware.
+- **Mobile Features**: QR/barcode scanning (`expo-camera`), GPS location (`expo-location`), map deep linking, haptic feedback.
+- **QR Code System**: Stable, server-generated QR codes (`{type}-{containerId}`) for permanent container identification. No frontend generation. Admin-only regeneration available.
 
-### Backend Architecture
-- **Runtime**: Node.js with Express.js
-- **API Design**: RESTful JSON API under `/api` prefix
-- **Database ORM**: Drizzle ORM with PostgreSQL dialect
-- **Authentication**: Custom email/password auth with SHA-256 password hashing (no external auth provider)
-- **Entry Point**: `server/index.ts` with routes in `server/routes.ts`
-
-### Data Layer
-- **Database Schema**: Defined in `shared/schema.ts` using Drizzle's PostgreSQL table definitions
-- **Core Entities**:
-  - `users` - Drivers and admins with role-based access (UserRole enum: ADMIN, DRIVER)
-  - `customers` - Customer records with contact information
-  - `customerContainers` - Containers at customer locations (linked to customers)
-  - `warehouseContainers` - Inventory containers with capacity tracking
-  - `tasks` - Pickup/delivery assignments with 8-state lifecycle
-  - `scanEvents` - Comprehensive QR scan tracking with context and location
-  - `activityLogs` - Audit trail with type enum and message field
-  - `fillHistory` - Historical fill-level data for warehouse containers
-- **Task Status Lifecycle**: OFFEN → ASSIGNED → ACCEPTED → PICKED_UP → IN_TRANSIT → DELIVERED → COMPLETED (or CANCELLED)
-  - OFFEN ("Open") is the initial state for all newly created tasks - backend forces this status on creation
-  - PLANNED is kept for backward compatibility, treated as equivalent to OFFEN
-  - OFFEN can transition directly to ASSIGNED (explicit assignment) or ACCEPTED (driver auto-assigns)
-  - Individual timestamps for each lifecycle state (assignedAt, acceptedAt, pickedUpAt, inTransitAt, deliveredAt, completedAt, cancelledAt)
-  - Status transition validation in service layer via `isValidTaskTransition()`
-- **Enums**:
-  - `TaskStatus`: OFFEN, PLANNED, ASSIGNED, ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERED, COMPLETED, CANCELLED
-  - `ScanContext`: INFO, TASK_ACCEPT_AT_CUSTOMER, TASK_DELIVERY, WAREHOUSE_INVENTORY, MANUAL_SCAN
-  - `ActivityLogType`: TASK_CREATED, TASK_ASSIGNED, TASK_ACCEPTED, TASK_PICKED_UP, TASK_IN_TRANSIT, TASK_DELIVERED, TASK_COMPLETED, TASK_CANCELLED, TASK_DELETED, CONTAINER_SCAN, USER_LOGIN, USER_LOGOUT, SYSTEM_EVENT
-  - `UserRole`: ADMIN, DRIVER
-- **German Labels**: All enums export German label maps (TASK_STATUS_LABELS, SCAN_CONTEXT_LABELS, ACTIVITY_LOG_TYPE_LABELS) for UI consistency
-- **Validation**: Zod schemas generated from Drizzle schemas via `drizzle-zod`
-
-### Authentication & Authorization
-- **Dual Authentication**: Email/password login AND Replit Auth integration
-- **Replit Auth Flow**: 
-  - Web: Direct API call to `/api/auth/replit/login` using Replit's `x-replit-user-id` and `x-replit-user-name` headers
-  - Native: Opens `/__replauthLoginPage` via `expo-web-browser` with `containerflow://auth` callback scheme
-  - First Replit user becomes admin, subsequent users default to driver role
-  - Auto-creates user account on first login with email format `{username}@replit.user`
-- **Session Management**: Stored in AsyncStorage, validated against server on app load
-- **Roles**: `driver` (field operations) and `admin` (full access + management)
-- **User Registration**: Admin-only (drivers cannot self-register)
-- Auth context at `client/contexts/AuthContext.tsx` manages login state
-- **Role Enforcement (Server-side)**:
-  - Admin-only routes are protected by `requireAuth` and `requireAdmin` middleware
-  - Protected routes: POST /api/users, POST /api/customers, POST /api/containers/*, POST /api/tasks, POST /api/containers/*/regenerate-qr, DELETE /api/tasks/:id
-  - Authentication via `x-user-id` header or `userId` in request body
-  - Returns 401 for missing auth, 403 for insufficient permissions
-
-### Mobile-Specific Features
-- QR/barcode scanning via `expo-camera` for container identification
-- GPS location access via `expo-location` for tracking pickups/deliveries
-- Maps navigation integration (Google Maps, Apple Maps) via deep linking
-- Haptic feedback and blur effects for native feel
-- Keyboard-aware scroll views for form inputs
-
-### QR Code System (IMPORTANT)
-- **Stable QR codes**: QR codes are generated ONLY server-side and remain permanent
-- **Format**: `{type}-{containerId}` (e.g., `warehouse-WH-001`, `customer-C-001`)
-- **Generation**: Backend generates stable QR code when container is created
-- **NO frontend generation**: Frontend never generates QR codes - they come from the database
-- **Lookup endpoints**: `/api/containers/warehouse/qr/:qrCode` and `/api/containers/customer/qr/:qrCode`
-- **Admin regeneration**: POST `/api/containers/{type}/{id}/regenerate-qr` for explicit regeneration (creates new unique code with timestamp)
-- **Activity logging**: QR regeneration is logged in activity_logs for audit trail
-- **Physical labels**: Once a QR code is printed and attached to a container, it remains valid until explicitly regenerated by an admin
+### Automotive Factory Extension
+- **New Entities**: `materials`, `halls`, `stations`, `stands`, `boxes`, `taskEvents`.
+- **Automotive Task Lifecycle**: A specialized 7-state lifecycle for box movement (`OPEN` → `PICKED_UP` → `IN_TRANSIT` → `DROPPED_OFF` → `TAKEN_OVER` → `WEIGHED` → `DISPOSED`).
+- **Key Design**: Material type is defined by the `Stand`, not the `Box`. `dailyFull` flag on `Stand` for auto-generated daily tasks. Transition guards enforce valid status changes. `weightKg` is required when transitioning to `WEIGHED` status.
 
 ## External Dependencies
 
-### Database
-- **PostgreSQL**: Supabase PostgreSQL is the ONLY active database for this application
-- **Drizzle ORM**: Type-safe database access with schema in `shared/schema.ts`
-- **Drizzle Kit**: Database migrations stored in `migrations/` directory
-- **Connection**: Backend connects via `DATABASE_URL` environment variable with SSL enabled
-- **Architecture**: Expo app NEVER connects directly to database - all access goes through Express API
-
-### Supabase Configuration
-The backend uses Supabase as its PostgreSQL database provider:
-
-1. **Create a Supabase project** at https://supabase.com
-2. **Get your connection string** from Supabase Dashboard → Settings → Database → Connection String (use "URI" format)
-3. **Set the DATABASE_URL secret** to your Supabase connection string
-4. **Run the bootstrap script** in Supabase SQL Editor: `supabase-bootstrap.sql` (creates required extensions and enums)
-5. **Push the schema**: `npm run db:push` to create tables in Supabase
-
-**Connection String Format** (from Supabase Dashboard):
-```
-postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
-```
-
-**Important Notes**:
-- The Expo app NEVER connects directly to Supabase - all database access goes through the Express API
-- QR codes remain stable in the database and are never regenerated automatically
-- The backend uses Drizzle ORM with standard pg driver - no Supabase JS client
-
-### Mobile Platform Services
-- **Expo**: Build and development toolchain for React Native
-- **expo-camera**: QR code scanning for container identification
-- **expo-location**: GPS coordinates for delivery tracking
-- **expo-file-system** + **expo-sharing**: Activity log CSV export functionality
-
-### Runtime Environment
-- **Environment Variables Required**:
-  - `DATABASE_URL` - Supabase PostgreSQL connection string (required, no fallback)
-  - `EXPO_PUBLIC_DOMAIN` - Public API domain for mobile app to connect to backend
-  - `REPLIT_DEV_DOMAIN` / `REPLIT_INTERNAL_APP_DOMAIN` - Replit-specific domain configuration
-
-### Development Tools
-- TypeScript with strict mode
-- ESLint with Expo config + Prettier integration
-- esbuild for server production builds
-
-## Technical Audit (December 2024)
-
-### Verified Components
-1. **Database Configuration**: Uses only `DATABASE_URL` with SSL enabled for Supabase
-2. **Schema**: All 8 tables present (users, customers, customerContainers, warehouseContainers, tasks, scanEvents, activityLogs, fillHistory)
-3. **Health Check**: `/api/health` performs real DB query and returns proper status
-4. **QR Codes**: Stable server-side generation, lookup endpoints work, admin-only regeneration
-5. **Task Lifecycle**: Valid transitions enforced via `isValidTaskTransition()`, timestamps set correctly
-6. **Frontend**: Uses `EXPO_PUBLIC_DOMAIN`, no hardcoded URLs
-7. **Role Enforcement**: Admin-only routes protected with middleware
-8. **Error Handling**: Consistent JSON error responses with proper HTTP status codes
-
-### API Endpoints Reference
-- `GET /api/dashboard/stats` - Dashboard statistics with optional `?driverId=` filter
-  - Returns: openTasks, inProgressTasks, completedTasks, completedToday, cancelledTasks, activeDrivers, criticalContainers, totalCapacity, availableCapacity, totalTasks
-- `GET /api/drivers/:id/stats` - Individual driver task statistics
-- `GET /api/drivers/overview` - Admin-only: All drivers with task counts per category
-- `DELETE /api/tasks/:id` - Admin-only: Delete task with audit logging
-
-### Recent Updates (December 2024)
-1. **Pull-Based Task System (Claim/Handover)**:
-   - Tasks are now created without driver assignment (status = OFFEN)
-   - Drivers see open tasks and can "claim" them via POST /api/tasks/:id/claim
-   - Claiming sets claimedByUserId, claimedAt, and status = ACCEPTED
-   - Task handover supported via POST /api/tasks/:id/handover for reassignment
-   - Activity logs track all claim and handover events
-   - Frontend TasksScreen shows "Verfügbar" (available) tab for unclaimed tasks
-
-2. **Weight Capture at Completion**:
-   - Weight is now captured at delivery (not upfront)
-   - ScannerScreen requires measuredWeight input before completing task at warehouse
-   - Weight is recorded in task.measuredWeight and warehouseContainer.currentAmount
-   - fillHistory entry created for tracking
-
-3. **Activity UI Consolidation**: Merged duplicate ActivityLog and ActivityHistory screens into single ActivityHistory screen with advanced features (date grouping, driver filtering, task lifecycle visualization)
-
-4. **Task Creation Fixes**: 
-   - Fixed timestamp bug (scheduledTime, assignedAt, etc.) by converting date strings to Date objects before Drizzle insert
-   - Added capacity validation for target warehouse container before task creation
-
-5. **Warehouse Container Reset**: 
-   - POST `/api/containers/warehouse/:id/reset` now allows BOTH admin AND driver roles
-   - Records emptying in fillHistory table with negative amount
-   - Creates activity log entry with CONTAINER_STATUS_CHANGED type and German text
-   - Activity log includes role label ("Admin" or "Fahrer") and role in metadata
-   - Frontend shows German confirmation dialog before emptying
-   - "Container leeren" button visible to all authenticated users (not just admins)
-   - Button disabled and shows "Container ist leer" when container is already empty
-
-### Test Credentials
-- Admin: `admin@containerflow.com` / `admin`
-- Driver: `fahrer@containerflow.com` / `123`
+- **Database**: PostgreSQL (specifically Supabase PostgreSQL). Drizzle ORM for type-safe database access.
+- **Mobile Platform Services**: Expo for React Native build and development, `expo-camera` for QR scanning, `expo-location` for GPS, `expo-file-system` and `expo-sharing` for CSV export.
+- **Runtime Environment**: Requires `DATABASE_URL` (Supabase connection string), `EXPO_PUBLIC_DOMAIN` for API connectivity, and Replit-specific domain variables.
