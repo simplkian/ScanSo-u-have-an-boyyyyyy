@@ -36,7 +36,7 @@ function setupCors(app: express.Application) {
           "Access-Control-Allow-Methods",
           "GET, POST, PUT, DELETE, OPTIONS, PATCH",
         );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
+        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
         res.header("Access-Control-Allow-Credentials", "true");
       }
     } else {
