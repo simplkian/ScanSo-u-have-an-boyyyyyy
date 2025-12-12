@@ -42,6 +42,7 @@ export interface IStorage {
   createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task>;
   updateTask(id: string, data: Partial<Task>): Promise<Task | undefined>;
   updateTaskStatus(id: string, newStatus: string, userId?: string): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<boolean>;
 
   // Scan Events
   getScanEvents(filters?: { containerId?: string; taskId?: string; userId?: string }): Promise<ScanEvent[]>;
@@ -244,8 +245,8 @@ export class DatabaseStorage implements IStorage {
       updateData.assignedTo = userId;
     }
 
-    // Auto-assign driver when accepting from PLANNED state
-    if (newStatus === 'ACCEPTED' && currentTask.status === 'PLANNED' && userId) {
+    // Auto-assign driver when accepting from OFFEN or PLANNED state
+    if (newStatus === 'ACCEPTED' && (currentTask.status === 'OFFEN' || currentTask.status === 'PLANNED') && userId) {
       updateData.assignedTo = userId;
       updateData.assignedAt = new Date();
     }
@@ -258,6 +259,28 @@ export class DatabaseStorage implements IStorage {
 
     const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return task || undefined;
+  }
+
+  /**
+   * Delete a task and handle related data (scan events, activity logs, fill history)
+   * Returns true if the task was deleted, false if not found
+   */
+  async deleteTask(id: string): Promise<boolean> {
+    const existingTask = await this.getTask(id);
+    if (!existingTask) return false;
+
+    // Set taskId to null for related scan events (don't delete them - preserve history)
+    await db.update(scanEvents).set({ taskId: null }).where(eq(scanEvents.taskId, id));
+    
+    // Set taskId to null for related activity logs (keep logs but unlink from deleted task)
+    await db.update(activityLogs).set({ taskId: null }).where(eq(activityLogs.taskId, id));
+    
+    // Set taskId to null for related fill history entries
+    await db.update(fillHistory).set({ taskId: null }).where(eq(fillHistory.taskId, id));
+    
+    // Now delete the task
+    const result = await db.delete(tasks).where(eq(tasks.id, id)).returning();
+    return result.length > 0;
   }
 
   // ============================================================================

@@ -717,12 +717,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin-only: Create new task
+  // IMPORTANT: All new tasks start with status = OFFEN (open)
+  // The client status value is ignored to ensure consistency
   app.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
     try {
       // Convert date strings to Date objects for timestamp columns
+      // Force status = OFFEN for all new tasks (ignore client value)
       const taskData: Record<string, any> = {
         ...req.body,
-        status: req.body.status || "PLANNED",
+        status: "OFFEN", // Always start with OFFEN - never trust client status
       };
 
       // Handle scheduledTime conversion
@@ -797,6 +800,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(task);
     } catch (error) {
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // Admin-only: Delete a task
+  // Removes the task and unlinks related scan events, activity logs, and fill history
+  app.delete("/api/tasks/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const taskId = req.params.id;
+      
+      // Get task info before deletion for logging
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Auftrag nicht gefunden" });
+      }
+
+      // Delete the task (storage layer handles related data)
+      const deleted = await storage.deleteTask(taskId);
+      
+      if (!deleted) {
+        return res.status(500).json({ error: "Fehler beim Löschen des Auftrags" });
+      }
+
+      // Create activity log for the deletion (with null taskId since task is deleted)
+      await storage.createActivityLog({
+        type: "TASK_DELETED",
+        action: "TASK_DELETED",
+        message: `Auftrag ${taskId} wurde von Admin ${authUser?.name || 'Unbekannt'} gelöscht`,
+        userId: authUser?.id || null,
+        taskId: null, // Task no longer exists
+        containerId: task.containerID,
+        scanEventId: null,
+        location: null,
+        timestamp: new Date(),
+        details: `Status vor Löschung: ${task.status}`,
+        metadata: { 
+          deletedTaskId: taskId,
+          taskStatus: task.status,
+          containerId: task.containerID,
+          assignedTo: task.assignedTo
+        },
+      });
+
+      res.json({ message: "Auftrag erfolgreich gelöscht" });
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      res.status(500).json({ error: "Fehler beim Löschen des Auftrags" });
     }
   });
 

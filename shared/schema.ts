@@ -30,11 +30,14 @@ export const containerStatusEnum = pgEnum("container_status", [
  * Defines the complete lifecycle of a task/job
  * 
  * Valid transitions:
- * PLANNED -> ASSIGNED -> ACCEPTED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> COMPLETED
+ * OFFEN -> ASSIGNED -> ACCEPTED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> COMPLETED
  * Any state except COMPLETED can transition to CANCELLED
+ * 
+ * OFFEN = "Open" - Initial state for all newly created tasks
  */
 export const taskStatusEnum = pgEnum("task_status", [
-  "PLANNED",      // Task created by admin, not yet assigned
+  "OFFEN",        // Task created, open and not yet assigned (initial state)
+  "PLANNED",      // Legacy: same as OFFEN (kept for backward compatibility)
   "ASSIGNED",     // Task assigned to a driver
   "ACCEPTED",     // Driver has accepted the task (scanned at customer)
   "PICKED_UP",    // Container picked up from customer
@@ -81,6 +84,7 @@ export const activityLogTypeEnum = pgEnum("activity_log_type", [
   "TASK_DELIVERED",
   "TASK_COMPLETED",
   "TASK_CANCELLED",
+  "TASK_DELETED",
   "CONTAINER_SCANNED_AT_CUSTOMER",
   "CONTAINER_SCANNED_AT_WAREHOUSE",
   "CONTAINER_STATUS_CHANGED",
@@ -477,8 +481,9 @@ export type FillHistory = typeof fillHistory.$inferSelect;
  * Maps current status to array of valid next statuses
  */
 export const VALID_TASK_TRANSITIONS: Record<string, string[]> = {
-  PLANNED: ["ASSIGNED", "ACCEPTED", "CANCELLED"], // Allow direct ACCEPTED (auto-assigns driver)
-  ASSIGNED: ["ACCEPTED", "PLANNED", "CANCELLED"],
+  OFFEN: ["ASSIGNED", "ACCEPTED", "CANCELLED"], // New task - can be assigned or directly accepted
+  PLANNED: ["ASSIGNED", "ACCEPTED", "CANCELLED"], // Legacy: same as OFFEN
+  ASSIGNED: ["ACCEPTED", "OFFEN", "PLANNED", "CANCELLED"],
   ACCEPTED: ["PICKED_UP", "CANCELLED"],
   PICKED_UP: ["IN_TRANSIT", "DELIVERED", "CANCELLED"], // Allow skipping IN_TRANSIT for simpler flow
   IN_TRANSIT: ["DELIVERED", "CANCELLED"],
@@ -517,7 +522,8 @@ export function getTimestampFieldForStatus(status: string): string | null {
 // ============================================================================
 
 export const TASK_STATUS_LABELS: Record<string, string> = {
-  PLANNED: "Geplant",
+  OFFEN: "Offen",
+  PLANNED: "Geplant", // Legacy, same as OFFEN
   ASSIGNED: "Zugewiesen",
   ACCEPTED: "Angenommen",
   PICKED_UP: "Abgeholt",
@@ -546,6 +552,7 @@ export const ACTIVITY_LOG_TYPE_LABELS: Record<string, string> = {
   TASK_DELIVERED: "Container geliefert",
   TASK_COMPLETED: "Auftrag abgeschlossen",
   TASK_CANCELLED: "Auftrag storniert",
+  TASK_DELETED: "Auftrag gelöscht",
   CONTAINER_SCANNED_AT_CUSTOMER: "Container beim Kunden gescannt",
   CONTAINER_SCANNED_AT_WAREHOUSE: "Container im Lager gescannt",
   CONTAINER_STATUS_CHANGED: "Container-Status geändert",
