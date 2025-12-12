@@ -104,6 +104,58 @@ export const priorityEnum = pgEnum("priority", ["normal", "high", "urgent"]);
 export const quantityUnitEnum = pgEnum("quantity_unit", ["kg", "t", "m3", "pcs"]);
 
 // ============================================================================
+// AUTOMOTIVE FACTORY ENUMS
+// ============================================================================
+
+/**
+ * Automotive User Role Enum
+ * Roles specific to automotive factory operations
+ */
+export const automotiveUserRoleEnum = pgEnum("automotive_user_role", [
+  "ADMIN",          // Full administrative access
+  "PICKUP_DRIVER",  // Picks up boxes from stands
+  "WAREHOUSE",      // Manages warehouse operations
+  "DISPOSAL",       // Handles disposal/weighing
+]);
+
+/**
+ * Automotive Task Status Enum
+ * Lifecycle states for automotive factory tasks
+ */
+export const automotiveTaskStatusEnum = pgEnum("automotive_task_status", [
+  "OPEN",        // Task created, awaiting pickup
+  "PICKED_UP",   // Box picked up from stand
+  "IN_TRANSIT",  // Box being transported
+  "DROPPED_OFF", // Box dropped at warehouse
+  "TAKEN_OVER",  // Warehouse has taken over the box
+  "WEIGHED",     // Box has been weighed
+  "DISPOSED",    // Material disposed/processed
+  "CANCELLED",   // Task cancelled
+]);
+
+/**
+ * Box Status Enum
+ * Tracks the current location/state of a box
+ */
+export const boxStatusEnum = pgEnum("box_status", [
+  "AT_STAND",      // Box is at production stand
+  "IN_TRANSIT",    // Box is being transported
+  "AT_WAREHOUSE",  // Box is at warehouse
+  "AT_DISPOSAL",   // Box is at disposal area
+  "RETIRED",       // Box is no longer in use
+]);
+
+/**
+ * Task Type Enum
+ * Categorizes how tasks are created
+ */
+export const taskTypeEnum = pgEnum("task_type", [
+  "DAILY_FULL",  // Auto-generated daily task for full stands
+  "MANUAL",      // Manually created task
+  "LEGACY",      // Legacy task (backward compatibility)
+]);
+
+// ============================================================================
 // TABLES
 // ============================================================================
 
@@ -129,8 +181,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   createdTasks: many(tasks, { relationName: "taskCreator" }),
   assignedTasks: many(tasks, { relationName: "taskAssignee" }),
   claimedTasks: many(tasks, { relationName: "taskClaimer" }),
+  weighedTasks: many(tasks, { relationName: "taskWeigher" }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs),
+  taskEvents: many(taskEvents),
 }));
 
 /**
@@ -186,6 +240,150 @@ export const customerContainersRelations = relations(customerContainers, ({ one,
   scanEvents: many(scanEvents),
 }));
 
+// ============================================================================
+// AUTOMOTIVE FACTORY TABLES
+// ============================================================================
+
+/**
+ * Materials Table
+ * Master data for materials handled in the factory
+ */
+export const materials = pgTable("materials", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  hazardClass: text("hazard_class"),
+  disposalStream: text("disposal_stream"),
+  densityHint: real("density_hint"),
+  defaultUnit: text("default_unit").notNull().default("kg"),
+  qrCode: text("qr_code").unique(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const materialsRelations = relations(materials, ({ many }) => ({
+  stands: many(stands),
+  warehouseContainers: many(warehouseContainers),
+}));
+
+/**
+ * Halls Table
+ * Production halls in the factory
+ */
+export const halls = pgTable("halls", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  locationMeta: jsonb("location_meta"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const hallsRelations = relations(halls, ({ many }) => ({
+  stations: many(stations),
+}));
+
+/**
+ * Stations Table
+ * Production stations within halls
+ */
+export const stations = pgTable("stations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  hallId: varchar("hall_id").notNull().references(() => halls.id),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  sequence: integer("sequence"),
+  locationMeta: jsonb("location_meta"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const stationsRelations = relations(stations, ({ one, many }) => ({
+  hall: one(halls, {
+    fields: [stations.hallId],
+    references: [halls.id],
+  }),
+  stands: many(stands),
+}));
+
+/**
+ * Stands Table
+ * Individual stands at stations where boxes are placed
+ */
+export const stands = pgTable("stands", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull().references(() => stations.id),
+  identifier: text("identifier").notNull(),
+  materialId: varchar("material_id").references(() => materials.id),
+  qrCode: text("qr_code").notNull().unique(),
+  sequence: integer("sequence"),
+  positionMeta: jsonb("position_meta"),
+  dailyFull: boolean("daily_full").notNull().default(false),
+  lastDailyTaskGeneratedAt: timestamp("last_daily_task_generated_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const standsRelations = relations(stands, ({ one, many }) => ({
+  station: one(stations, {
+    fields: [stands.stationId],
+    references: [stations.id],
+  }),
+  material: one(materials, {
+    fields: [stands.materialId],
+    references: [materials.id],
+  }),
+  boxes: many(boxes),
+  tasks: many(tasks),
+}));
+
+/**
+ * Boxes Table
+ * Transportable boxes that move between stands and warehouse
+ */
+export const boxes = pgTable("boxes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  standId: varchar("stand_id").references(() => stands.id),
+  qrCode: text("qr_code").notNull().unique(),
+  serial: text("serial").notNull().unique(),
+  status: text("status").notNull().default("AT_STAND"),
+  currentTaskId: varchar("current_task_id"),
+  lastSeenAt: timestamp("last_seen_at"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const boxesRelations = relations(boxes, ({ one, many }) => ({
+  stand: one(stands, {
+    fields: [boxes.standId],
+    references: [stands.id],
+  }),
+  currentTask: one(tasks, {
+    fields: [boxes.currentTaskId],
+    references: [tasks.id],
+    relationName: "boxCurrentTask",
+  }),
+  tasks: many(tasks, { relationName: "boxTasks" }),
+}));
+
 /**
  * Warehouse Containers Table
  * Containers in the warehouse for collecting materials
@@ -202,13 +400,21 @@ export const warehouseContainers = pgTable("warehouse_containers", {
   quantityUnit: text("quantity_unit").notNull().default("kg"), // kg, t, m3
   status: text("status").notNull().default("AT_WAREHOUSE"), // AT_WAREHOUSE, OUT_OF_SERVICE
   lastEmptied: timestamp("last_emptied"),
+  materialId: varchar("material_id").references(() => materials.id),
+  isFull: boolean("is_full").notNull().default(false),
+  isBlocked: boolean("is_blocked").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const warehouseContainersRelations = relations(warehouseContainers, ({ many }) => ({
+export const warehouseContainersRelations = relations(warehouseContainers, ({ one, many }) => ({
+  material: one(materials, {
+    fields: [warehouseContainers.materialId],
+    references: [materials.id],
+  }),
   tasks: many(tasks),
+  targetTasks: many(tasks, { relationName: "targetWarehouseContainer" }),
   fillHistory: many(fillHistory),
   scanEvents: many(scanEvents),
 }));
@@ -315,6 +521,28 @@ export const tasks = pgTable("tasks", {
   cancellationReason: text("cancellation_reason"),
   estimatedAmount: real("estimated_amount"), // Legacy, use plannedQuantity
   
+  // ============================================================================
+  // AUTOMOTIVE FACTORY TASK FIELDS
+  // ============================================================================
+  
+  // Automotive references
+  boxId: varchar("box_id").references(() => boxes.id),
+  standId: varchar("stand_id").references(() => stands.id),
+  targetWarehouseContainerId: varchar("target_warehouse_container_id").references(() => warehouseContainers.id),
+  
+  // Automotive lifecycle timestamps
+  droppedOffAt: timestamp("dropped_off_at"),
+  takenOverAt: timestamp("taken_over_at"),
+  weighedAt: timestamp("weighed_at"),
+  disposedAt: timestamp("disposed_at"),
+  
+  // Automotive measurements
+  weightKg: real("weight_kg"),
+  weighedByUserId: varchar("weighed_by_user_id").references(() => users.id),
+  
+  // Task categorization
+  taskType: text("task_type").notNull().default("LEGACY"), // DAILY_FULL, MANUAL, LEGACY
+  
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -326,6 +554,11 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   deliveryContainer: one(warehouseContainers, {
     fields: [tasks.deliveryContainerID],
     references: [warehouseContainers.id],
+  }),
+  targetWarehouseContainer: one(warehouseContainers, {
+    fields: [tasks.targetWarehouseContainerId],
+    references: [warehouseContainers.id],
+    relationName: "targetWarehouseContainer",
   }),
   creator: one(users, {
     fields: [tasks.createdBy],
@@ -342,9 +575,53 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     references: [users.id],
     relationName: "taskClaimer",
   }),
+  weighedBy: one(users, {
+    fields: [tasks.weighedByUserId],
+    references: [users.id],
+    relationName: "taskWeigher",
+  }),
+  box: one(boxes, {
+    fields: [tasks.boxId],
+    references: [boxes.id],
+    relationName: "boxTasks",
+  }),
+  stand: one(stands, {
+    fields: [tasks.standId],
+    references: [stands.id],
+  }),
   scanEvents: many(scanEvents),
   activityLogs: many(activityLogs),
   fillHistory: many(fillHistory),
+  taskEvents: many(taskEvents),
+}));
+
+/**
+ * Task Events Table
+ * Audit trail for task state changes and actions
+ */
+export const taskEvents = pgTable("task_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull().references(() => tasks.id),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  action: text("action").notNull(),
+  entityType: text("entity_type"),
+  entityId: varchar("entity_id"),
+  beforeData: jsonb("before_data"),
+  afterData: jsonb("after_data"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+export const taskEventsRelations = relations(taskEvents, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskEvents.taskId],
+    references: [tasks.id],
+  }),
+  actorUser: one(users, {
+    fields: [taskEvents.actorUserId],
+    references: [users.id],
+  }),
 }));
 
 /**
@@ -475,6 +752,14 @@ export const insertScanEventSchema = createInsertSchema(scanEvents);
 export const insertActivityLogSchema = createInsertSchema(activityLogs);
 export const insertFillHistorySchema = createInsertSchema(fillHistory);
 
+// Automotive factory insert schemas
+export const insertMaterialSchema = createInsertSchema(materials);
+export const insertHallSchema = createInsertSchema(halls);
+export const insertStationSchema = createInsertSchema(stations);
+export const insertStandSchema = createInsertSchema(stands);
+export const insertBoxSchema = createInsertSchema(boxes);
+export const insertTaskEventSchema = createInsertSchema(taskEvents);
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
@@ -484,6 +769,21 @@ export type Task = typeof tasks.$inferSelect;
 export type ScanEvent = typeof scanEvents.$inferSelect;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type FillHistory = typeof fillHistory.$inferSelect;
+
+// Automotive factory types
+export type InsertMaterial = z.infer<typeof insertMaterialSchema>;
+export type InsertHall = z.infer<typeof insertHallSchema>;
+export type InsertStation = z.infer<typeof insertStationSchema>;
+export type InsertStand = z.infer<typeof insertStandSchema>;
+export type InsertBox = z.infer<typeof insertBoxSchema>;
+export type InsertTaskEvent = z.infer<typeof insertTaskEventSchema>;
+
+export type Material = typeof materials.$inferSelect;
+export type Hall = typeof halls.$inferSelect;
+export type Station = typeof stations.$inferSelect;
+export type Stand = typeof stands.$inferSelect;
+export type Box = typeof boxes.$inferSelect;
+export type TaskEvent = typeof taskEvents.$inferSelect;
 
 // ============================================================================
 // STATUS TRANSITION VALIDATION
@@ -531,6 +831,64 @@ export function getTimestampFieldForStatus(status: string): string | null {
 }
 
 // ============================================================================
+// AUTOMOTIVE TASK TRANSITION VALIDATION
+// ============================================================================
+
+/**
+ * Valid automotive task status transitions
+ * Maps current status to array of valid next statuses
+ * CANCELLED is allowed from any state except DISPOSED
+ */
+export const AUTOMOTIVE_TASK_TRANSITIONS: Record<string, string[]> = {
+  OPEN: ["PICKED_UP", "CANCELLED"],
+  PICKED_UP: ["IN_TRANSIT", "CANCELLED"],
+  IN_TRANSIT: ["DROPPED_OFF", "CANCELLED"],
+  DROPPED_OFF: ["TAKEN_OVER", "CANCELLED"],
+  TAKEN_OVER: ["WEIGHED", "CANCELLED"],
+  WEIGHED: ["DISPOSED", "CANCELLED"],
+  DISPOSED: [], // Terminal state - no transitions allowed
+  CANCELLED: [], // Terminal state - no transitions allowed
+};
+
+/**
+ * Check if an automotive task status transition is valid
+ */
+export function isValidAutomotiveTransition(currentStatus: string, newStatus: string): boolean {
+  const validTransitions = AUTOMOTIVE_TASK_TRANSITIONS[currentStatus];
+  if (!validTransitions) return false;
+  return validTransitions.includes(newStatus);
+}
+
+/**
+ * Assert that an automotive task transition is valid
+ * Throws an Error if the transition is invalid
+ */
+export function assertAutomotiveTransition(from: string, to: string): void {
+  if (!isValidAutomotiveTransition(from, to)) {
+    throw new Error(
+      `Ungültiger Statusübergang: ${from} → ${to}. ` +
+      `Erlaubte Übergänge von ${from}: ${AUTOMOTIVE_TASK_TRANSITIONS[from]?.join(", ") || "keine"}`
+    );
+  }
+}
+
+/**
+ * Get the timestamp field name for an automotive task status
+ */
+export function getAutomotiveTimestampFieldForStatus(status: string): string | null {
+  const mapping: Record<string, string> = {
+    PICKED_UP: "pickedUpAt",
+    IN_TRANSIT: "inTransitAt",
+    DROPPED_OFF: "droppedOffAt",
+    TAKEN_OVER: "takenOverAt",
+    WEIGHED: "weighedAt",
+    DISPOSED: "disposedAt",
+    CANCELLED: "cancelledAt",
+  };
+  return mapping[status] || null;
+}
+
+// ============================================================================
 // GERMAN TRANSLATIONS FOR UI
 // ============================================================================
 
@@ -572,4 +930,40 @@ export const ACTIVITY_LOG_TYPE_LABELS: Record<string, string> = {
   WEIGHT_RECORDED: "Gewicht erfasst",
   MANUAL_EDIT: "Manuelle Bearbeitung",
   SYSTEM_EVENT: "Systemereignis",
+};
+
+// ============================================================================
+// AUTOMOTIVE GERMAN TRANSLATIONS
+// ============================================================================
+
+export const AUTOMOTIVE_USER_ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Administrator",
+  PICKUP_DRIVER: "Abholfahrer",
+  WAREHOUSE: "Lager",
+  DISPOSAL: "Entsorgung",
+};
+
+export const AUTOMOTIVE_TASK_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Offen",
+  PICKED_UP: "Abgeholt",
+  IN_TRANSIT: "Unterwegs",
+  DROPPED_OFF: "Abgestellt",
+  TAKEN_OVER: "Übernommen",
+  WEIGHED: "Gewogen",
+  DISPOSED: "Entsorgt",
+  CANCELLED: "Storniert",
+};
+
+export const BOX_STATUS_LABELS: Record<string, string> = {
+  AT_STAND: "Am Stellplatz",
+  IN_TRANSIT: "Unterwegs",
+  AT_WAREHOUSE: "Im Lager",
+  AT_DISPOSAL: "Bei Entsorgung",
+  RETIRED: "Ausgemustert",
+};
+
+export const TASK_TYPE_LABELS: Record<string, string> = {
+  DAILY_FULL: "Tägliche Abholung",
+  MANUAL: "Manueller Auftrag",
+  LEGACY: "Legacy-Auftrag",
 };
