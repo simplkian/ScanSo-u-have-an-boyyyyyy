@@ -136,11 +136,11 @@ export default function ProfileScreen() {
             </Pressable>
             <Pressable
               style={[styles.menuItem, { borderBottomColor: theme.border }]}
-              onPress={() => navigation.navigate("ActivityLog")}
+              onPress={() => navigation.navigate("ActivityHistory")}
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="activity" size={20} color={theme.primary} />
-                <ThemedText type="body" style={{ color: theme.text }}>Aktivitätsprotokoll</ThemedText>
+                <ThemedText type="body" style={{ color: theme.text }}>Aktivitätsverlauf</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>

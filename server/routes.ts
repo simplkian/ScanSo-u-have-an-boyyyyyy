@@ -568,39 +568,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset warehouse container - sets current amount to 0
-  app.post("/api/containers/warehouse/:id/reset", async (req, res) => {
+  // Reset/Empty warehouse container - sets current amount to 0 (Admin only)
+  app.post("/api/containers/warehouse/:id/reset", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { userId, reason } = req.body;
+      const { reason } = req.body;
+      const authUser = (req as any).authUser;
       const existingContainer = await storage.getWarehouseContainer(req.params.id);
+      
       if (!existingContainer) {
         return res.status(404).json({ error: "Container not found" });
+      }
+
+      // Check if container is already empty
+      if (existingContainer.currentAmount === 0) {
+        return res.json({ 
+          message: "Container is already empty",
+          container: existingContainer
+        });
       }
 
       const previousAmount = existingContainer.currentAmount;
       const container = await storage.updateWarehouseContainer(req.params.id, {
         currentAmount: 0,
+        lastEmptied: new Date(),
       });
 
       if (!container) {
         return res.status(500).json({ error: "Failed to reset container" });
       }
 
+      // Record in fill history that container was emptied
+      await storage.createFillHistory({
+        warehouseContainerId: req.params.id,
+        amountAdded: -previousAmount,
+        quantityUnit: existingContainer.quantityUnit,
+        taskId: null,
+        recordedByUserId: authUser?.id || null,
+      });
+
       await storage.createActivityLog({
         type: "CONTAINER_STATUS_CHANGED",
         action: "CONTAINER_STATUS_CHANGED",
-        message: `Container ${req.params.id} wurde geleert (${previousAmount} ${existingContainer.quantityUnit} entfernt)`,
-        userId: userId || null,
+        message: `Warehouse container ${req.params.id} was emptied by admin ${authUser?.name || 'Unknown'} (${previousAmount} ${existingContainer.quantityUnit} removed)`,
+        userId: authUser?.id || null,
         taskId: null,
         containerId: req.params.id,
         scanEventId: null,
         location: null,
         timestamp: new Date(),
         details: reason || null,
-        metadata: { previousAmount, reason },
+        metadata: { previousAmount, reason, action: "CONTAINER_EMPTIED" },
       });
 
-      res.json(container);
+      res.json({ 
+        message: "Container successfully emptied",
+        container 
+      });
     } catch (error) {
       console.error("Error resetting warehouse container:", error);
       res.status(500).json({ error: "Failed to reset container" });
@@ -651,11 +674,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin-only: Create new task
   app.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const taskData = {
+      // Convert date strings to Date objects for timestamp columns
+      const taskData: Record<string, any> = {
         ...req.body,
         status: req.body.status || "PLANNED",
       };
-      const task = await storage.createTask(taskData);
+
+      // Handle scheduledTime conversion
+      if (taskData.scheduledTime) {
+        const parsedDate = new Date(taskData.scheduledTime);
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ error: "Invalid scheduledTime format" });
+        }
+        taskData.scheduledTime = parsedDate;
+      }
+
+      // Handle other timestamp fields that might be passed as strings
+      const timestampFields = ['assignedAt', 'acceptedAt', 'pickedUpAt', 'inTransitAt', 
+                               'deliveredAt', 'completedAt', 'cancelledAt', 'pickupTimestamp', 'deliveryTimestamp'];
+      for (const field of timestampFields) {
+        if (taskData[field]) {
+          const parsedDate = new Date(taskData[field]);
+          if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ error: `Invalid ${field} format` });
+          }
+          taskData[field] = parsedDate;
+        }
+      }
+
+      // Capacity validation: if deliveryContainerID is specified, check remaining capacity
+      if (taskData.deliveryContainerID && taskData.plannedQuantity) {
+        const targetContainer = await storage.getWarehouseContainer(taskData.deliveryContainerID);
+        if (!targetContainer) {
+          return res.status(400).json({ error: "Zielcontainer nicht gefunden" });
+        }
+
+        const remainingCapacity = targetContainer.maxCapacity - targetContainer.currentAmount;
+        if (taskData.plannedQuantity > remainingCapacity) {
+          return res.status(400).json({ 
+            error: "Zielcontainer hat nicht genug übriges Volumen für diese Menge.",
+            remainingCapacity,
+            requestedAmount: taskData.plannedQuantity,
+            unit: targetContainer.quantityUnit
+          });
+        }
+      }
+
+      const task = await storage.createTask(taskData as any);
       
       await storage.createActivityLog({
         type: "TASK_CREATED",

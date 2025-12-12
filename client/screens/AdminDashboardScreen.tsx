@@ -222,22 +222,10 @@ export default function AdminDashboardScreen() {
 
           <Button
             style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("ActivityLog")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="activity" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Aktivitätsprotokoll
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("ActivityHistory")}
           >
             <View style={styles.actionContent}>
-              <Feather name="clock" size={20} color={theme.primary} />
+              <Feather name="activity" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Aktivitätsverlauf
               </ThemedText>

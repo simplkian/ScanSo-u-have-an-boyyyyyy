@@ -313,20 +313,28 @@ export default function ManageContainersScreen() {
     if (!selectedWarehouseContainer) return;
     
     Alert.alert(
-      "Füllstand zurücksetzen",
-      `Möchtest du den Container ${selectedWarehouseContainer.id} wirklich auf Null zurücksetzen?`,
+      "Container leeren",
+      `Möchtest du diesen Container wirklich leeren?\n\nContainer: ${selectedWarehouseContainer.id}\nAktueller Füllstand: ${selectedWarehouseContainer.currentAmount} ${selectedWarehouseContainer.quantityUnit}`,
       [
         { text: "Abbrechen", style: "cancel" },
         {
-          text: "Ja, zurücksetzen",
+          text: "Ja, leeren",
+          style: "destructive",
           onPress: async () => {
             setIsSubmitting(true);
             const containerId = selectedWarehouseContainer.id;
             try {
-              await apiRequest("PATCH", `/api/containers/warehouse/${containerId}`, {
-                currentAmount: 0,
-                lastEmptied: new Date().toISOString(),
+              const response = await apiRequest("POST", `/api/containers/warehouse/${containerId}/reset`, {
+                reason: "Manual container emptying via admin UI",
               });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to empty container");
+              }
+              
+              const result = await response.json();
+              
               queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
               setSelectedWarehouseContainer({
                 ...selectedWarehouseContainer,
@@ -339,10 +347,11 @@ export default function ManageContainersScreen() {
                 withTiming(1, { duration: 300 })
               );
               setTimeout(() => setRecentlyResetId(null), 1000);
-              showToast(`Container ${containerId} wurde erfolgreich geleert`, "success");
+              showToast(result.message || "Container wurde erfolgreich geleert", "success");
             } catch (err) {
               console.error("Failed to reset fill level:", err);
-              showToast("Fehler beim Zurücksetzen des Füllstands", "error");
+              const errorMessage = err instanceof Error ? err.message : "Fehler beim Leeren des Containers";
+              showToast(errorMessage, "error");
             } finally {
               setIsSubmitting(false);
             }

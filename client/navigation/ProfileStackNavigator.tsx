@@ -6,7 +6,6 @@ import ManageDriversScreen from "@/screens/ManageDriversScreen";
 import ManageContainersScreen from "@/screens/ManageContainersScreen";
 import ManageTasksScreen from "@/screens/ManageTasksScreen";
 import CreateTaskScreen from "@/screens/CreateTaskScreen";
-import ActivityLogScreen from "@/screens/ActivityLogScreen";
 import ActivityHistoryScreen from "@/screens/ActivityHistoryScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
@@ -21,7 +20,6 @@ export type ProfileStackParamList = {
   ManageContainers: undefined;
   ManageTasks: undefined;
   CreateTask: undefined;
-  ActivityLog: undefined;
   ActivityHistory: undefined;
   Analytics: undefined;
   DriverPerformance: undefined;
@@ -62,11 +60,6 @@ export default function ProfileStackNavigator() {
             name="CreateTask"
             component={CreateTaskScreen}
             options={{ headerTitle: "Create Task" }}
-          />
-          <Stack.Screen
-            name="ActivityLog"
-            component={ActivityLogScreen}
-            options={{ headerTitle: "Activity Log" }}
           />
           <Stack.Screen
             name="ActivityHistory"
