@@ -36,13 +36,16 @@ Preferred communication style: Simple, everyday language.
   - `scanEvents` - Comprehensive QR scan tracking with context and location
   - `activityLogs` - Audit trail with type enum and message field
   - `fillHistory` - Historical fill-level data for warehouse containers
-- **Task Status Lifecycle**: PLANNED → ASSIGNED → ACCEPTED → PICKED_UP → IN_TRANSIT → DELIVERED → COMPLETED (or CANCELLED)
+- **Task Status Lifecycle**: OFFEN → ASSIGNED → ACCEPTED → PICKED_UP → IN_TRANSIT → DELIVERED → COMPLETED (or CANCELLED)
+  - OFFEN ("Open") is the initial state for all newly created tasks - backend forces this status on creation
+  - PLANNED is kept for backward compatibility, treated as equivalent to OFFEN
+  - OFFEN can transition directly to ASSIGNED (explicit assignment) or ACCEPTED (driver auto-assigns)
   - Individual timestamps for each lifecycle state (assignedAt, acceptedAt, pickedUpAt, inTransitAt, deliveredAt, completedAt, cancelledAt)
-  - Status transition validation in service layer
+  - Status transition validation in service layer via `isValidTaskTransition()`
 - **Enums**:
-  - `TaskStatus`: PLANNED, ASSIGNED, ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERED, COMPLETED, CANCELLED
+  - `TaskStatus`: OFFEN, PLANNED, ASSIGNED, ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERED, COMPLETED, CANCELLED
   - `ScanContext`: INFO, TASK_ACCEPT_AT_CUSTOMER, TASK_DELIVERY, WAREHOUSE_INVENTORY, MANUAL_SCAN
-  - `ActivityLogType`: TASK_CREATED, TASK_ASSIGNED, TASK_ACCEPTED, TASK_PICKED_UP, TASK_IN_TRANSIT, TASK_DELIVERED, TASK_COMPLETED, TASK_CANCELLED, CONTAINER_SCAN, USER_LOGIN, USER_LOGOUT, SYSTEM_EVENT
+  - `ActivityLogType`: TASK_CREATED, TASK_ASSIGNED, TASK_ACCEPTED, TASK_PICKED_UP, TASK_IN_TRANSIT, TASK_DELIVERED, TASK_COMPLETED, TASK_CANCELLED, TASK_DELETED, CONTAINER_SCAN, USER_LOGIN, USER_LOGOUT, SYSTEM_EVENT
   - `UserRole`: ADMIN, DRIVER
 - **German Labels**: All enums export German label maps (TASK_STATUS_LABELS, SCAN_CONTEXT_LABELS, ACTIVITY_LOG_TYPE_LABELS) for UI consistency
 - **Validation**: Zod schemas generated from Drizzle schemas via `drizzle-zod`
@@ -60,7 +63,7 @@ Preferred communication style: Simple, everyday language.
 - Auth context at `client/contexts/AuthContext.tsx` manages login state
 - **Role Enforcement (Server-side)**:
   - Admin-only routes are protected by `requireAuth` and `requireAdmin` middleware
-  - Protected routes: POST /api/users, POST /api/customers, POST /api/containers/*, POST /api/tasks, POST /api/containers/*/regenerate-qr
+  - Protected routes: POST /api/users, POST /api/customers, POST /api/containers/*, POST /api/tasks, POST /api/containers/*/regenerate-qr, DELETE /api/tasks/:id
   - Authentication via `x-user-id` header or `userId` in request body
   - Returns 401 for missing auth, 403 for insufficient permissions
 
