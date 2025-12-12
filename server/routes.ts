@@ -651,16 +651,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // TASKS
   // ============================================================================
 
+  // Get tasks with role-based filtering:
+  // - ADMIN: sees all tasks (default: open tasks, can filter by status)
+  // - DRIVER: sees only their own tasks
   app.get("/api/tasks", async (req, res) => {
     try {
-      const { assignedTo, status, date } = req.query;
+      const { assignedTo, status, date, showAll } = req.query;
+      const userId = req.headers["x-user-id"] as string || req.query.userId as string;
+      
+      // Get user to determine role
+      let userRole = "DRIVER"; // Default to driver if no user
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          userRole = user.role?.toUpperCase() || "DRIVER";
+        }
+      }
+
       const filters: { assignedTo?: string; status?: string; date?: Date } = {};
       
-      if (assignedTo) filters.assignedTo = assignedTo as string;
-      if (status) filters.status = status as string;
+      // Role-based filtering
+      if (userRole === "ADMIN") {
+        // Admin sees all tasks, can optionally filter
+        if (assignedTo) filters.assignedTo = assignedTo as string;
+        // By default, show open tasks (non-completed, non-cancelled) unless showAll is true
+        if (status) {
+          filters.status = status as string;
+        }
+      } else {
+        // Driver only sees their own tasks
+        if (userId) {
+          filters.assignedTo = userId;
+        } else if (assignedTo) {
+          filters.assignedTo = assignedTo as string;
+        }
+        if (status) filters.status = status as string;
+      }
+      
       if (date) filters.date = new Date(date as string);
 
-      const taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : undefined);
+      let taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : undefined);
+      
+      // For admin without specific status filter and not showAll, filter out completed/cancelled
+      if (userRole === "ADMIN" && !status && showAll !== "true") {
+        const FINAL_STATUSES = ["COMPLETED", "CANCELLED"];
+        taskList = taskList.filter(t => !FINAL_STATUSES.includes(t.status));
+      }
+      
       res.json(taskList);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -800,8 +837,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept task - driver scans customer container and accepts the task
-  // Transitions: PLANNED/ASSIGNED -> ACCEPTED (auto-assigns driver if needed)
+  // Accept task - driver/admin scans customer container and starts the task
+  // Transitions: PLANNED/ASSIGNED -> ACCEPTED (auto-assigns if needed)
+  // Role logic: ADMIN can accept any task, DRIVER can only accept their own
+  // Idempotent: If already in ACCEPTED or later state, return current state
   app.post("/api/tasks/:id/accept", async (req, res) => {
     try {
       const { userId, location, geoLocation } = req.body;
@@ -809,6 +848,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Role-based authorization
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "Benutzer nicht gefunden" });
+      }
+      
+      const userRole = user.role?.toUpperCase() || "DRIVER";
+      const isAdmin = userRole === "ADMIN";
+      const isAssignedDriver = task.assignedTo === userId;
+      
+      // ADMIN can accept any task, DRIVER can only accept their own
+      if (!isAdmin && !isAssignedDriver && task.assignedTo) {
+        return res.status(403).json({ 
+          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag annehmen.",
+          assignedTo: task.assignedTo
+        });
+      }
+
+      // Idempotent: If already accepted or in later state, return current state
+      const LATER_STATES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "COMPLETED"];
+      if (LATER_STATES.includes(task.status)) {
+        // Already in progress, return current task state with container info
+        const sourceContainer = await storage.getCustomerContainer(task.containerID);
+        let targetContainer = null;
+        if (task.deliveryContainerID) {
+          targetContainer = await storage.getWarehouseContainer(task.deliveryContainerID);
+        }
+        
+        const response: any = {
+          task: task,
+          alreadyAccepted: true,
+          sourceContainer: sourceContainer ? {
+            id: sourceContainer.id,
+            label: sourceContainer.id,
+            location: sourceContainer.location,
+            content: sourceContainer.materialType,
+            materialType: sourceContainer.materialType,
+            customerName: sourceContainer.customerName,
+            unit: task.plannedQuantityUnit || "kg",
+            currentQuantity: task.estimatedAmount || 0,
+            plannedPickupQuantity: task.plannedQuantity || task.estimatedAmount || 0,
+          } : null,
+        };
+        
+        if (targetContainer) {
+          response.targetContainer = {
+            id: targetContainer.id,
+            label: targetContainer.id,
+            location: targetContainer.location,
+            content: targetContainer.materialType,
+            materialType: targetContainer.materialType,
+            capacity: targetContainer.maxCapacity,
+            currentFill: targetContainer.currentAmount,
+            remainingCapacity: targetContainer.maxCapacity - targetContainer.currentAmount,
+            unit: targetContainer.quantityUnit,
+          };
+        }
+        
+        return res.json(response);
       }
 
       // Get source container (customer container)
@@ -923,8 +1023,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Pickup task - driver confirms physical pickup of container
+  // Pickup task - driver/admin confirms physical pickup of container
   // Transitions: ACCEPTED -> PICKED_UP
+  // Role logic: ADMIN can pickup any task, DRIVER can only pickup their own
+  // Idempotent: If already picked up or in later state, return current state
   app.post("/api/tasks/:id/pickup", async (req, res) => {
     try {
       const { userId, location, geoLocation } = req.body;
@@ -932,6 +1034,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Role-based authorization
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "Benutzer nicht gefunden" });
+      }
+      
+      const userRole = user.role?.toUpperCase() || "DRIVER";
+      const isAdmin = userRole === "ADMIN";
+      const isAssignedDriver = task.assignedTo === userId;
+      
+      // ADMIN can pickup any task, DRIVER can only pickup their own
+      if (!isAdmin && !isAssignedDriver) {
+        return res.status(403).json({ 
+          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag abholen.",
+          assignedTo: task.assignedTo
+        });
+      }
+
+      // Idempotent: If already picked up or in later state, return current state
+      const LATER_STATES = ["PICKED_UP", "IN_TRANSIT", "DELIVERED", "COMPLETED"];
+      if (LATER_STATES.includes(task.status)) {
+        return res.json({ ...task, alreadyPickedUp: true });
       }
 
       if (task.status !== "ACCEPTED") {
@@ -985,6 +1111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delivery endpoint - driver/admin scans warehouse container to complete delivery
+  // Adds quantity to warehouse container and completes the task
+  // Role logic: ADMIN can deliver any task, DRIVER can only deliver their own
   app.post("/api/tasks/:id/delivery", async (req, res) => {
     try {
       const { userId, warehouseContainerId, amount, location, geoLocation } = req.body;
@@ -994,23 +1123,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Task not found" });
       }
 
+      // Role-based authorization
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "Benutzer nicht gefunden" });
+      }
+      
+      const userRole = user.role?.toUpperCase() || "DRIVER";
+      const isAdmin = userRole === "ADMIN";
+      const isAssignedDriver = task.assignedTo === userId;
+      
+      // ADMIN can deliver any task, DRIVER can only deliver their own
+      if (!isAdmin && !isAssignedDriver) {
+        return res.status(403).json({ 
+          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag abliefern.",
+          assignedTo: task.assignedTo
+        });
+      }
+
+      // Idempotent: If already completed, return current state
+      if (task.status === "COMPLETED") {
+        return res.json({ ...task, alreadyCompleted: true });
+      }
+
       const warehouseContainer = await storage.getWarehouseContainer(warehouseContainerId);
       if (!warehouseContainer) {
-        return res.status(404).json({ error: "Warehouse container not found" });
+        return res.status(404).json({ error: "Lagercontainer nicht gefunden" });
       }
 
       if (warehouseContainer.materialType !== task.materialType) {
-        return res.status(400).json({ error: "Material type mismatch" });
+        return res.status(400).json({ 
+          error: "Der Zielcontainer enthält ein anderes Material. Bitte wähle einen passenden Lagercontainer.",
+          sourceMaterial: task.materialType,
+          targetMaterial: warehouseContainer.materialType
+        });
       }
 
+      // Determine quantity to add: prefer actual/measured, then planned, then estimated
+      const deliveredAmount = amount || task.plannedQuantity || task.estimatedAmount || 0;
+
       const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
-      if (amount > availableSpace) {
-        return res.status(400).json({ error: "Insufficient capacity", availableSpace });
+      if (deliveredAmount > availableSpace) {
+        return res.status(400).json({ 
+          error: "Zielcontainer hat nicht genug übriges Volumen für diese Menge.",
+          remainingCapacity: availableSpace,
+          requestedAmount: deliveredAmount,
+          unit: warehouseContainer.quantityUnit
+        });
       }
 
       let updatedTask = await storage.updateTaskStatus(req.params.id, "DELIVERED");
       if (!updatedTask) {
-        return res.status(400).json({ error: "Invalid status transition" });
+        return res.status(400).json({ error: "Ungültiger Status-Übergang" });
       }
 
       await storage.updateTask(req.params.id, {
@@ -1046,13 +1210,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: null,
       });
 
+      // Update warehouse container with additive quantity
+      const newAmount = warehouseContainer.currentAmount + deliveredAmount;
       await storage.updateWarehouseContainer(warehouseContainerId, {
-        currentAmount: warehouseContainer.currentAmount + amount,
+        currentAmount: newAmount,
       });
 
       await storage.createFillHistory({
         warehouseContainerId,
-        amountAdded: amount,
+        amountAdded: deliveredAmount,
         quantityUnit: warehouseContainer.quantityUnit,
         taskId: task.id,
         recordedByUserId: userId,
@@ -1063,26 +1229,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "AT_CUSTOMER",
       });
 
+      // Update task with actual quantity
+      await storage.updateTask(req.params.id, {
+        actualQuantity: deliveredAmount,
+      });
+
       updatedTask = await storage.updateTaskStatus(req.params.id, "COMPLETED");
       if (!updatedTask) {
-        return res.status(400).json({ error: "Failed to complete task" });
+        return res.status(400).json({ error: "Fehler beim Abschließen des Auftrags" });
       }
 
       await storage.createActivityLog({
         type: "TASK_COMPLETED",
         action: "TASK_COMPLETED",
-        message: `Auftrag ${task.id} abgeschlossen, ${amount} kg erfasst`,
+        message: `Auftrag ${task.id} abgeschlossen, ${deliveredAmount} ${warehouseContainer.quantityUnit} erfasst`,
         userId,
         taskId: task.id,
         containerId: warehouseContainerId,
         timestamp: new Date(),
-        metadata: { amountAdded: amount, unit: warehouseContainer.quantityUnit },
+        metadata: { amountAdded: deliveredAmount, unit: warehouseContainer.quantityUnit },
         details: null,
         location: null,
         scanEventId: null,
       });
 
-      res.json(updatedTask);
+      // Return both task and updated container info
+      res.json({
+        task: updatedTask,
+        targetContainer: {
+          id: warehouseContainerId,
+          label: warehouseContainerId,
+          location: warehouseContainer.location,
+          content: warehouseContainer.materialType,
+          materialType: warehouseContainer.materialType,
+          capacity: warehouseContainer.maxCapacity,
+          currentFill: newAmount,
+          remainingCapacity: warehouseContainer.maxCapacity - newAmount,
+          unit: warehouseContainer.quantityUnit,
+          amountAdded: deliveredAmount,
+        },
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to record delivery" });
     }

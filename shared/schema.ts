@@ -480,7 +480,7 @@ export const VALID_TASK_TRANSITIONS: Record<string, string[]> = {
   PLANNED: ["ASSIGNED", "ACCEPTED", "CANCELLED"], // Allow direct ACCEPTED (auto-assigns driver)
   ASSIGNED: ["ACCEPTED", "PLANNED", "CANCELLED"],
   ACCEPTED: ["PICKED_UP", "CANCELLED"],
-  PICKED_UP: ["IN_TRANSIT", "CANCELLED"],
+  PICKED_UP: ["IN_TRANSIT", "DELIVERED", "CANCELLED"], // Allow skipping IN_TRANSIT for simpler flow
   IN_TRANSIT: ["DELIVERED", "CANCELLED"],
   DELIVERED: ["COMPLETED", "CANCELLED"],
   COMPLETED: [], // Terminal state
