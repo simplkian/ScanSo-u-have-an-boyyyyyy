@@ -1048,6 +1048,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // SCHEDULE PREVIEW ENDPOINT
+  // Returns upcoming task dates based on schedule rules
+  // ============================================================================
+
+  app.get("/api/admin/schedules/:id/preview", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const days = Math.min(parseInt(req.query.days as string) || 14, 90); // Max 90 days
+
+      const [schedule] = await db.select().from(taskSchedules).where(eq(taskSchedules.id, id));
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      const timezone = schedule.timezone || 'Europe/Berlin';
+      const now = new Date();
+      const previewDates: { date: string; scheduledTime: string; dayOfWeek: number }[] = [];
+
+      for (let dayOffset = 0; dayOffset < days; dayOffset++) {
+        const targetDate = new Date(now);
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+
+        // For INTERVAL rules with future startDate, skip dates before start
+        if (schedule.ruleType === 'INTERVAL' && schedule.startDate) {
+          const startDateLocal = getDateInTimezone(schedule.startDate, timezone);
+          const targetDateLocal = getDateInTimezone(targetDate, timezone);
+          if (targetDateLocal < startDateLocal) {
+            continue;
+          }
+        }
+
+        if (shouldGenerateForDate(schedule, targetDate, timezone)) {
+          const dateStr = formatDateInTimezone(targetDate, timezone);
+          const [hours, minutes] = (schedule.timeLocal || '06:00').split(':').map(Number);
+          const scheduledTime = `${String(hours || 6).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}`;
+          const dayOfWeek = getDayOfWeekInTimezone(targetDate, timezone);
+
+          previewDates.push({
+            date: dateStr,
+            scheduledTime,
+            dayOfWeek,
+          });
+        }
+      }
+
+      res.json({
+        scheduleId: schedule.id,
+        scheduleName: schedule.name,
+        ruleType: schedule.ruleType,
+        previewDays: days,
+        dates: previewDates,
+      });
+    } catch (error) {
+      console.error("[Schedules] Failed to generate preview:", error);
+      res.status(500).json({ error: "Failed to generate preview" });
+    }
+  });
+
+  // ============================================================================
+  // MANUAL TASK CREATION
+  // Create ad-hoc tasks not tied to schedules
+  // ============================================================================
+
+  app.post("/api/admin/tasks", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { title, standId, description, priority, scheduledFor } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!title || !standId) {
+        return res.status(400).json({ error: "Title and standId are required" });
+      }
+
+      // Verify stand exists
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      // Validate and parse scheduledFor (accepts any valid date string including ISO with timezone)
+      let scheduledDate = new Date();
+      if (scheduledFor) {
+        const parsedDate = new Date(scheduledFor);
+        if (!parsedDate || isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ error: "Invalid scheduledFor date format" });
+        }
+        scheduledDate = parsedDate;
+      }
+
+      // Build stable dedup key using crypto hash for true idempotency
+      const dateStr = formatDateBerlin(scheduledDate);
+      const dedupSource = `${title}|${standId}|${dateStr}`;
+      const dedupHash = createHash('sha256').update(dedupSource).digest('hex').substring(0, 16);
+      const dedupKey = `MANUAL:${dedupHash}`;
+
+      const [newTask] = await db.insert(tasks).values({
+        title,
+        description: description || null,
+        containerID: standId,
+        standId,
+        materialType: stand.materialId || null,
+        taskType: "MANUAL",
+        source: "MANUAL",
+        status: "OPEN",
+        priority: priority || "normal",
+        scheduledFor: scheduledDate,
+        dedupKey,
+        createdBy: authUser.id,
+      }).returning();
+
+      // Audit log
+      const standMeta = await buildStandContextMeta(standId);
+      await createAuditEvent({
+        taskId: newTask.id,
+        actorUserId: authUser.id,
+        action: "TASK_CREATED",
+        entityType: "task",
+        entityId: newTask.id,
+        beforeData: null,
+        afterData: { status: "OPEN", taskType: "MANUAL", source: "MANUAL", standId },
+        metaJson: {
+          ...standMeta,
+          source: "MANUAL_CREATION",
+        },
+      });
+
+      res.status(201).json(newTask);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: "A task with this title already exists for this stand and date" });
+      }
+      console.error("[Tasks] Failed to create manual task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  // ============================================================================
+  // WAREHOUSE CONTAINER EMPTY ENDPOINT
+  // Mark a warehouse container as emptied
+  // ============================================================================
+
+  app.post("/api/warehouse-containers/:id/empty", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authUser = (req as any).authUser;
+
+      const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+      if (!container) {
+        return res.status(404).json({ error: "Warehouse container not found" });
+      }
+
+      const beforeData = {
+        currentAmount: container.currentAmount,
+        isFull: container.isFull,
+        lastEmptied: container.lastEmptied,
+      };
+
+      const [updated] = await db.update(warehouseContainers)
+        .set({
+          currentAmount: 0,
+          isFull: false,
+          lastEmptied: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(warehouseContainers.id, id))
+        .returning();
+
+      // Create activity log
+      await storage.createActivityLog({
+        type: "CONTAINER_STATUS_CHANGED",
+        action: "CONTAINER_EMPTIED",
+        description: `Warehouse container ${container.location} emptied`,
+        userId: authUser.id,
+        warehouseContainerId: container.id,
+        metaData: {
+          containerId: container.id,
+          previousAmount: beforeData.currentAmount,
+          location: container.location,
+          materialType: container.materialType,
+        },
+      });
+
+      res.json({
+        success: true,
+        container: updated,
+        previousAmount: beforeData.currentAmount,
+      });
+    } catch (error) {
+      console.error("[WarehouseContainers] Failed to empty container:", error);
+      res.status(500).json({ error: "Failed to empty container" });
+    }
+  });
+
+  // ============================================================================
   // CUSTOMERS (LEGACY - Original waste container management)
   // These routes support the original customer-based container workflow.
   // The app now primarily uses the Automotive Factory workflow.
