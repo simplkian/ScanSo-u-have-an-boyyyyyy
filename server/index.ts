@@ -25,10 +25,12 @@ function setupCors(app: express.Application) {
         /\.replit\.app$/,
         /\.riker\.replit\.dev$/,
         /\.repl\.co$/,
+        /\.onrender\.com$/,
       ];
 
       const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) ||
-        (process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN));
+        (process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN)) ||
+        (process.env.RENDER_EXTERNAL_URL && origin.includes(process.env.RENDER_EXTERNAL_URL));
 
       if (isAllowed) {
         res.header("Access-Control-Allow-Origin", origin);
