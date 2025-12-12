@@ -1,9 +1,8 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import TasksScreen from "@/screens/TasksScreen";
+import AutomotiveTasksScreen from "@/screens/AutomotiveTasksScreen";
 import TaskDetailScreen from "@/screens/TaskDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { Task } from "@shared/schema";
 
 export type TasksStackParamList = {
   Tasks: undefined;
@@ -19,13 +18,13 @@ export default function TasksStackNavigator() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
         name="Tasks"
-        component={TasksScreen}
-        options={{ headerTitle: "Tasks" }}
+        component={AutomotiveTasksScreen}
+        options={{ headerTitle: "Aufgaben" }}
       />
       <Stack.Screen
         name="TaskDetail"
         component={TaskDetailScreen}
-        options={{ headerTitle: "Task Details" }}
+        options={{ headerTitle: "Aufgabendetails" }}
       />
     </Stack.Navigator>
   );

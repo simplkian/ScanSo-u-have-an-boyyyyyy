@@ -26,7 +26,7 @@ export default function MainTabNavigator() {
 
   return (
     <Tab.Navigator
-      initialRouteName="TasksTab"
+      initialRouteName="ScannerTab"
       screenOptions={{
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.tabIconDefault,
@@ -59,6 +59,16 @@ export default function MainTabNavigator() {
       }}
     >
       <Tab.Screen
+        name="ScannerTab"
+        component={ScannerScreen}
+        options={{
+          title: "Scannen",
+          tabBarIcon: ({ color }) => (
+            <Feather name="maximize" size={IndustrialDesign.iconSize} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="TasksTab"
         component={TasksStackNavigator}
         options={{
@@ -69,20 +79,10 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="ScannerTab"
-        component={ScannerScreen}
-        options={{
-          title: "Scanner",
-          tabBarIcon: ({ color }) => (
-            <Feather name="maximize" size={IndustrialDesign.iconSize} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
         name="ContainersTab"
         component={ContainersStackNavigator}
         options={{
-          title: "Container",
+          title: "Lager",
           tabBarIcon: ({ color }) => (
             <Feather name="package" size={IndustrialDesign.iconSize} color={color} />
           ),

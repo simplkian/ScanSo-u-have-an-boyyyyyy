@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Platform, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
-import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
@@ -13,79 +12,73 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Task, CustomerContainer, WarehouseContainer, SCAN_CONTEXT_LABELS } from "@shared/schema";
+import { apiRequest } from "@/lib/query-client";
+import { useQueryClient } from "@tanstack/react-query";
+import { 
+  Box, Stand, Station, Hall, Material, WarehouseContainer, Task,
+  AUTOMOTIVE_TASK_STATUS_LABELS, BOX_STATUS_LABELS
+} from "@shared/schema";
 
-type TaskScanMode = "pickup" | "delivery";
-type AppMode = "info" | "task";
+type ScanType = "box" | "stand" | "warehouse" | null;
 
-interface ScanResult {
-  type: "customer" | "warehouse";
-  container: CustomerContainer | WarehouseContainer;
+interface BoxScanResult {
+  type: "box";
+  box: Box;
+  stand?: Stand | null;
+  task?: Task | null;
 }
 
-interface TargetContainerInfo {
-  id: string;
-  label: string;
-  location: string;
-  content: string;
-  materialType: string;
-  capacity: number;
-  currentFill: number;
-  remainingCapacity: number;
-  unit: string;
+interface StandScanResult {
+  type: "stand";
+  stand: Stand;
+  station?: Station | null;
+  hall?: Hall | null;
+  material?: Material | null;
+  boxes: Box[];
 }
 
-interface SourceContainerInfo {
-  id: string;
-  label: string;
-  location: string;
-  content: string;
-  materialType: string;
-  customerName: string;
-  unit: string;
-  currentQuantity: number;
-  plannedPickupQuantity: number;
+interface WarehouseScanResult {
+  type: "warehouse";
+  container: WarehouseContainer;
 }
 
-const OPEN_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED"];
-const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+type ScanResult = BoxScanResult | StandScanResult | WarehouseScanResult;
+
+const AUTOMOTIVE_STATUS_FLOW = ["OPEN", "PICKED_UP", "IN_TRANSIT", "DROPPED_OFF", "TAKEN_OVER", "WEIGHED", "DISPOSED"];
+
+const getNextAction = (status: string): { nextStatus: string; label: string; icon: string } | null => {
+  switch (status) {
+    case "OPEN":
+      return { nextStatus: "PICKED_UP", label: "Abholen", icon: "package" };
+    case "PICKED_UP":
+      return { nextStatus: "IN_TRANSIT", label: "Transport starten", icon: "truck" };
+    case "IN_TRANSIT":
+      return { nextStatus: "DROPPED_OFF", label: "Absetzen", icon: "log-out" };
+    case "DROPPED_OFF":
+      return { nextStatus: "TAKEN_OVER", label: "Übernehmen", icon: "check-square" };
+    case "TAKEN_OVER":
+      return { nextStatus: "WEIGHED", label: "Wiegen", icon: "activity" };
+    case "WEIGHED":
+      return { nextStatus: "DISPOSED", label: "Entsorgen", icon: "trash-2" };
+    default:
+      return null;
+  }
+};
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [permission, requestPermission] = useCameraPermissions();
   const [flashOn, setFlashOn] = useState(false);
-  const [appMode, setAppMode] = useState<AppMode>("task");
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [targetContainerInfo, setTargetContainerInfo] = useState<TargetContainerInfo | null>(null);
-  const [sourceContainerInfo, setSourceContainerInfo] = useState<SourceContainerInfo | null>(null);
-  const [taskAccepted, setTaskAccepted] = useState(false);
-  const [measuredWeight, setMeasuredWeight] = useState("");
+  const [weightInput, setWeightInput] = useState("");
   const [weightError, setWeightError] = useState<string | null>(null);
   const scanLock = useRef(false);
-
-  const { data: tasks = [] } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
-  });
-
-  const inProgressTask = tasks.find(
-    (t) => IN_PROGRESS_STATUSES.includes(t.status) && t.assignedTo === user?.id
-  );
-
-  const taskScanMode: TaskScanMode = inProgressTask ? "delivery" : "pickup";
-
-  const { data: targetWarehouseContainer } = useQuery<WarehouseContainer>({
-    queryKey: ["/api/containers/warehouse", activeTask?.deliveryContainerID],
-    enabled: !!activeTask?.deliveryContainerID,
-  });
 
   const parseQRCode = (rawData: string): string => {
     try {
@@ -99,6 +92,32 @@ export default function ScannerScreen() {
     }
   };
 
+  const fetchTaskForBox = async (box: Box): Promise<Task | null> => {
+    if (!box.currentTaskId) return null;
+    try {
+      const response = await apiRequest("GET", `/api/automotive/tasks/${box.currentTaskId}`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      console.log("No task found for box");
+    }
+    return null;
+  };
+
+  const fetchStandForBox = async (box: Box): Promise<Stand | null> => {
+    if (!box.standId) return null;
+    try {
+      const response = await apiRequest("GET", `/api/automotive/stands/${box.standId}`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      console.log("No stand found for box");
+    }
+    return null;
+  };
+
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     if (scanLock.current || isProcessing) return;
     scanLock.current = true;
@@ -108,240 +127,133 @@ export default function ScannerScreen() {
     setError(null);
 
     try {
-      let response = await apiRequest("GET", `/api/containers/customer/qr/${encodeURIComponent(qrCode)}`);
-
+      let response = await apiRequest("GET", `/api/boxes/qr/${encodeURIComponent(qrCode)}`);
       if (response.ok) {
-        const container = await response.json();
-        
+        const box: Box = await response.json();
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
-        setScanResult({ type: "customer", container });
-        
-        if (appMode === "task") {
-          // Find tasks assigned to user or claimed by user in OPEN or ACCEPTED status
-          // ACCEPTED status is included because after claiming, task is in ACCEPTED state
-          const isUserTask = (t: Task) => t.assignedTo === user?.id || t.claimedByUserId === user?.id;
-          const PICKUP_STATUSES = [...OPEN_STATUSES, "ACCEPTED"]; // Can pick up from open or accepted status
-          
-          const relatedTask = tasks.find(
-            (t) => t.containerID === container.id && PICKUP_STATUSES.includes(t.status) && isUserTask(t)
-          );
-          if (relatedTask) {
-            setActiveTask(relatedTask);
-            // If already in ACCEPTED status, mark as accepted for UI flow
-            if (relatedTask.status === "ACCEPTED") {
-              setTaskAccepted(true);
-            }
-          } else {
-            const hasAnyTaskForContainer = tasks.some(
-              (t) => t.containerID === container.id && isUserTask(t) && (OPEN_STATUSES.includes(t.status) || IN_PROGRESS_STATUSES.includes(t.status))
-            );
-            if (!hasAnyTaskForContainer) {
-              setError("Dieser Container gehört nicht zu Ihren Aufgaben.");
-            }
-          }
-        }
-      } else {
-        response = await apiRequest("GET", `/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`);
-
-        if (response.ok) {
-          const container = await response.json();
-          
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          
-          setScanResult({ type: "warehouse", container });
-          if (appMode === "task" && inProgressTask) {
-            setActiveTask(inProgressTask);
-            if (inProgressTask.deliveryContainerID && inProgressTask.deliveryContainerID !== container.id) {
-              setError(`Dies ist nicht der Zielcontainer. Bitte scannen Sie Container ${inProgressTask.deliveryContainerID}.`);
-            }
-          }
-        } else {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          setError("Container nicht gefunden. Bitte scannen Sie einen gültigen QR-Code.");
-          scanLock.current = false;
-        }
+        const [task, stand] = await Promise.all([
+          fetchTaskForBox(box),
+          fetchStandForBox(box)
+        ]);
+        setScanResult({ type: "box", box, task, stand });
+        return;
       }
+
+      response = await apiRequest("GET", `/api/stands/qr/${encodeURIComponent(qrCode)}`);
+      if (response.ok) {
+        const data = await response.json();
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setScanResult({ 
+          type: "stand", 
+          stand: data.stand, 
+          station: data.station, 
+          hall: data.hall, 
+          material: data.material, 
+          boxes: data.boxes || [] 
+        });
+        return;
+      }
+
+      response = await apiRequest("GET", `/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`);
+      if (response.ok) {
+        const container: WarehouseContainer = await response.json();
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setScanResult({ type: "warehouse", container });
+        return;
+      }
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError("QR-Code nicht erkannt. Bitte scannen Sie eine Box, einen Stellplatz oder einen Lagercontainer.");
+      scanLock.current = false;
     } catch (err) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError("Container-Scan fehlgeschlagen. Bitte erneut versuchen.");
+      setError("Scan fehlgeschlagen. Bitte erneut versuchen.");
       scanLock.current = false;
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const getLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        return null;
-      }
-      const location = await Location.getCurrentPositionAsync({});
-      return { lat: location.coords.latitude, lng: location.coords.longitude };
-    } catch {
-      return null;
-    }
-  };
-
-  // Accept task - first step when scanning customer container
-  const acceptTask = async () => {
-    if (!activeTask || !user) return;
+  const updateTaskStatus = async (taskId: string, newStatus: string, weightKg?: number) => {
     setIsProcessing(true);
     setError(null);
 
     try {
-      const location = await getLocation();
-      const response = await apiRequest("POST", `/api/tasks/${activeTask.id}/accept`, {
-        userId: user.id,
-        location: location ? `${location.lat},${location.lng}` : undefined,
-        geoLocation: location,
-      });
+      const body: any = { status: newStatus };
+      if (weightKg !== undefined) {
+        body.weightKg = weightKg;
+      }
+
+      const response = await apiRequest("PUT", `/api/automotive/tasks/${taskId}/status`, body);
 
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.error || "Auftragsannahme fehlgeschlagen.");
-        scanLock.current = false;
+        setError(errorData.error || "Statusänderung fehlgeschlagen.");
         setIsProcessing(false);
         return;
-      }
-
-      const data = await response.json();
-      
-      // Update task state from response
-      setActiveTask(data.task);
-      setTaskAccepted(true);
-      
-      // Store source and target container info from response
-      if (data.sourceContainer) {
-        setSourceContainerInfo(data.sourceContainer);
-      }
-      if (data.targetContainer) {
-        setTargetContainerInfo(data.targetContainer);
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSuccess("Auftrag angenommen! Sie können nun die Abholung bestätigen.");
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      setSuccess(`Status geändert: ${AUTOMOTIVE_TASK_STATUS_LABELS[newStatus] || newStatus}`);
       
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
     } catch (err) {
-      setError("Auftragsannahme fehlgeschlagen. Bitte erneut versuchen.");
-      scanLock.current = false;
+      setError("Statusänderung fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Confirm pickup - second step after accepting
-  const confirmPickup = async () => {
-    if (!activeTask || !user) return;
+  const handleActionPress = (taskId: string, nextStatus: string) => {
+    if (nextStatus === "WEIGHED") {
+      const weight = parseFloat(weightInput);
+      if (isNaN(weight) || weight <= 0) {
+        setWeightError("Bitte geben Sie ein gültiges Gewicht ein (> 0 kg)");
+        return;
+      }
+      setWeightError(null);
+      updateTaskStatus(taskId, nextStatus, weight);
+    } else {
+      updateTaskStatus(taskId, nextStatus);
+    }
+  };
+
+  const createTaskForBox = async (boxId: string, standId: string) => {
     setIsProcessing(true);
     setError(null);
 
     try {
-      const location = await getLocation();
-      const response = await apiRequest("POST", `/api/tasks/${activeTask.id}/pickup`, {
-        userId: user.id,
-        location: location ? `${location.lat},${location.lng}` : undefined,
-        geoLocation: location,
+      const response = await apiRequest("POST", "/api/automotive/tasks", {
+        boxId,
+        standId,
+        taskType: "MANUAL",
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.error || "Abholungsbestätigung fehlgeschlagen.");
-        scanLock.current = false;
+        setError(errorData.error || "Aufgabe konnte nicht erstellt werden.");
         setIsProcessing(false);
         return;
       }
 
-      setSuccess("Abholung bestätigt! Container ist jetzt unterwegs.");
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess("Aufgabe erfolgreich erstellt!");
       
-      setTimeout(() => {
-        setScanResult(null);
-        setActiveTask(null);
-        setSuccess(null);
-        setTaskAccepted(false);
-        setTargetContainerInfo(null);
-        setSourceContainerInfo(null);
-        scanLock.current = false;
-      }, 2000);
-    } catch (err) {
-      setError("Abholungsbestätigung fehlgeschlagen. Bitte erneut versuchen.");
-      scanLock.current = false;
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const confirmDelivery = async () => {
-    if (!activeTask || !user || !scanResult || scanResult.type !== "warehouse") return;
-    
-    const weight = parseFloat(measuredWeight);
-    if (isNaN(weight) || weight <= 0) {
-      setWeightError("Bitte geben Sie ein gültiges Gewicht ein (> 0 kg)");
-      return;
-    }
-    setWeightError(null);
-    setIsProcessing(true);
-    setError(null);
-
-    const warehouseContainer = scanResult.container as WarehouseContainer;
-
-    if (activeTask.deliveryContainerID && activeTask.deliveryContainerID !== warehouseContainer.id) {
-      setError(`Dies ist nicht der Zielcontainer. Bitte scannen Sie Container ${activeTask.deliveryContainerID}.`);
-      setIsProcessing(false);
-      scanLock.current = false;
-      return;
-    }
-
-    if (warehouseContainer.materialType !== activeTask.materialType) {
-      setError(`Materialkonflikt! Container akzeptiert ${warehouseContainer.materialType}, aber Aufgabenmaterial ist ${activeTask.materialType}.`);
-      setIsProcessing(false);
-      scanLock.current = false;
-      return;
-    }
-
-    const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
-
-    if (weight > availableSpace) {
-      setError(`Kapazität unzureichend! Nur ${availableSpace.toFixed(0)}kg verfügbar, aber ${weight}kg eingegeben.`);
-      setIsProcessing(false);
-      scanLock.current = false;
-      return;
-    }
-
-    try {
-      const location = await getLocation();
-      await apiRequest("POST", `/api/tasks/${activeTask.id}/delivery`, {
-        userId: user.id,
-        warehouseContainerId: warehouseContainer.id,
-        amount: weight,
-        measuredWeight: weight,
-        location,
-        scanContext: "TASK_COMPLETE_AT_WAREHOUSE",
-      });
-
-      setSuccess(`Lieferung bestätigt! ${weight} kg erfasst. Aufgabe abgeschlossen.`);
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
+
       setTimeout(() => {
-        setScanResult(null);
-        setActiveTask(null);
-        setSuccess(null);
-        setMeasuredWeight("");
-        scanLock.current = false;
-      }, 2000);
+        closeModal();
+      }, 1500);
     } catch (err) {
-      setError("Lieferungsbestätigung fehlgeschlagen. Bitte erneut versuchen.");
-      scanLock.current = false;
+      setError("Aufgabenerstellung fehlgeschlagen.");
     } finally {
       setIsProcessing(false);
     }
@@ -349,362 +261,110 @@ export default function ScannerScreen() {
 
   const closeModal = () => {
     setScanResult(null);
-    setActiveTask(null);
     setError(null);
     setSuccess(null);
-    setTaskAccepted(false);
-    setTargetContainerInfo(null);
-    setSourceContainerInfo(null);
-    setMeasuredWeight("");
+    setWeightInput("");
     setWeightError(null);
     scanLock.current = false;
   };
 
-  const toggleAppMode = () => {
-    setAppMode(appMode === "info" ? "task" : "info");
-  };
-
-  const getModeDisplayText = () => {
-    if (appMode === "info") {
-      return "Info-Modus";
-    }
-    return taskScanMode === "pickup" ? "Scannen für Abholung" : "Scannen für Lieferung";
-  };
-
-  const getModeIcon = () => {
-    if (appMode === "info") {
-      return "info";
-    }
-    return taskScanMode === "pickup" ? "log-in" : "log-out";
-  };
-
-  const renderInfoModeContent = () => {
-    if (!scanResult) return null;
-
-    const isWarehouse = scanResult.type === "warehouse";
-    const container = scanResult.container;
-    const warehouseContainer = isWarehouse ? container as WarehouseContainer : null;
-    const customerContainer = !isWarehouse ? container as CustomerContainer : null;
+  const renderBoxContent = (result: BoxScanResult) => {
+    const { box, task, stand } = result;
+    const nextAction = task ? getNextAction(task.status) : null;
+    const requiresWeight = nextAction?.nextStatus === "WEIGHED";
 
     return (
       <>
         <View style={styles.modalHeader}>
-          <ThemedText type="h3">
-            Container-Information
-          </ThemedText>
+          <ThemedText type="h3">Box gescannt</ThemedText>
           <Pressable onPress={closeModal} style={styles.closeButton}>
             <Feather name="x" size={24} color={theme.text} />
           </Pressable>
         </View>
 
-        <Card style={{ ...styles.containerCard, backgroundColor: theme.backgroundSecondary }}>
-          <View style={styles.containerHeader}>
-            <Feather name="package" size={32} color={theme.primary} />
+        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+          <View style={styles.cardHeader}>
+            <Feather name="box" size={28} color={theme.primary} />
             <View style={{ flex: 1 }}>
-              <ThemedText type="h4">{container.id}</ThemedText>
+              <ThemedText type="h4">{box.serial}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {isWarehouse ? "Lagercontainer" : "Kundencontainer"}
+                {BOX_STATUS_LABELS[box.status] || box.status}
               </ThemedText>
             </View>
             <StatusBadge 
-              status={container.isActive ? "active" : "inactive"} 
+              status={box.status === "AT_STAND" ? "success" : box.status === "IN_TRANSIT" ? "warning" : "info"} 
               size="small"
+              label={BOX_STATUS_LABELS[box.status] || box.status}
             />
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+          {stand ? (
+            <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+          ) : null}
 
-          <View style={styles.infoGrid}>
+          {stand ? (
             <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoLabelRow}>
-                  <Feather name="box" size={16} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Was ist drin?
-                  </ThemedText>
-                </View>
-                <ThemedText type="bodyBold">{container.materialType}</ThemedText>
-              </View>
+              <Feather name="map-pin" size={16} color={theme.textSecondary} />
+              <ThemedText type="body">Stellplatz: {stand.identifier}</ThemedText>
             </View>
-
-            {warehouseContainer ? (
-              <View style={styles.infoRow}>
-                <View style={styles.infoItem}>
-                  <View style={styles.infoLabelRow}>
-                    <Feather name="database" size={16} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                      Menge
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="bodyBold">
-                    {warehouseContainer.currentAmount.toFixed(0)} / {warehouseContainer.maxCapacity} kg
-                  </ThemedText>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoLabelRow}>
-                  <Feather name="map-pin" size={16} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Standort
-                  </ThemedText>
-                </View>
-                <ThemedText type="bodyBold">{container.location}</ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoLabelRow}>
-                  <Feather name="activity" size={16} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Status
-                  </ThemedText>
-                </View>
-                <ThemedText type="bodyBold" style={{ color: container.isActive ? theme.success : theme.error }}>
-                  {container.isActive ? "Aktiv" : "Inaktiv"}
-                </ThemedText>
-              </View>
-            </View>
-
-            {customerContainer?.customerName ? (
-              <View style={styles.infoRow}>
-                <View style={styles.infoItem}>
-                  <View style={styles.infoLabelRow}>
-                    <Feather name="user" size={16} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                      Kunde
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="bodyBold">{customerContainer.customerName}</ThemedText>
-                </View>
-              </View>
-            ) : null}
-          </View>
+          ) : null}
         </Card>
 
-        <Button onPress={closeModal} style={[styles.closeButtonFull, { backgroundColor: theme.accent }]}>
-          Schließen
-        </Button>
-      </>
-    );
-  };
-
-  const formatScheduledTime = (date: Date | string | null | undefined) => {
-    if (!date) return null;
-    const d = new Date(date);
-    return d.toLocaleString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const renderTaskModeContent = () => {
-    if (!scanResult) return null;
-
-    const hasValidationError = !!error;
-    const canConfirmPickup = scanResult.type === "customer" && activeTask && !hasValidationError;
-    const canConfirmDelivery = scanResult.type === "warehouse" && activeTask && !hasValidationError;
-
-    return (
-      <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.modalHeader}>
-          <ThemedText type="h3">
-            {scanResult.type === "customer" ? "Kundencontainer" : "Lagercontainer"}
-          </ThemedText>
-          <Pressable onPress={closeModal} style={styles.closeButton}>
-            <Feather name="x" size={24} color={theme.text} />
-          </Pressable>
-        </View>
-
-        <Card style={{ ...styles.containerCard, backgroundColor: theme.backgroundSecondary }}>
-          <View style={styles.containerHeader}>
-            <Feather name="package" size={32} color={theme.primary} />
-            <View style={{ flex: 1 }}>
-              <ThemedText type="h4">{scanResult.container.id}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {scanResult.container.location}
-              </ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.containerDetails}>
-            <View style={styles.detailItem}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>Material</ThemedText>
-              <ThemedText type="body">{scanResult.container.materialType}</ThemedText>
-            </View>
-
-            {scanResult.type === "warehouse" ? (
-              <View style={styles.detailItem}>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>Kapazität</ThemedText>
-                <ThemedText type="body">
-                  {(scanResult.container as WarehouseContainer).currentAmount.toFixed(0)} / {(scanResult.container as WarehouseContainer).maxCapacity} kg
+        {task ? (
+          <Card style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}>
+            <View style={styles.cardHeader}>
+              <Feather name="clipboard" size={24} color={theme.info} />
+              <View style={{ flex: 1 }}>
+                <ThemedText type="bodyBold" style={{ color: theme.info }}>
+                  Aktive Aufgabe
                 </ThemedText>
-              </View>
-            ) : null}
-          </View>
-        </Card>
-
-        {scanResult.type === "customer" && activeTask ? (
-          <Card style={{ ...styles.taskInfoCard, backgroundColor: theme.backgroundSecondary }}>
-            <View style={styles.taskInfoHeader}>
-              <Feather name="clipboard" size={20} color={theme.primary} />
-              <ThemedText type="bodyBold">Aufgabendetails</ThemedText>
-            </View>
-            
-            <View style={styles.taskInfoGrid}>
-              {activeTask.scheduledTime ? (
-                <View style={styles.taskInfoItem}>
-                  <View style={styles.taskInfoLabelRow}>
-                    <Feather name="clock" size={14} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                      Geplante Zeit
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="body">{formatScheduledTime(activeTask.scheduledTime)}</ThemedText>
-                </View>
-              ) : null}
-
-              {activeTask.plannedQuantity || activeTask.estimatedAmount ? (
-                <View style={styles.taskInfoItem}>
-                  <View style={styles.taskInfoLabelRow}>
-                    <Feather name="database" size={14} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                      Geschätzte Menge
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="body">{activeTask.plannedQuantity || activeTask.estimatedAmount} {activeTask.plannedQuantityUnit || "kg"}</ThemedText>
-                </View>
-              ) : null}
-
-              <View style={styles.taskInfoItem}>
-                <View style={styles.taskInfoLabelRow}>
-                  <Feather name="tag" size={14} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Priorität
-                  </ThemedText>
-                </View>
-                <StatusBadge 
-                  status={activeTask.priority === "urgent" ? "critical" : activeTask.priority === "high" ? "warning" : "success"} 
-                  size="small"
-                  label={activeTask.priority === "urgent" ? "Dringend" : activeTask.priority === "high" ? "Hoch" : "Normal"}
-                />
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Status: {AUTOMOTIVE_TASK_STATUS_LABELS[task.status] || task.status}
+                </ThemedText>
               </View>
             </View>
           </Card>
-        ) : null}
-
-        {scanResult.type === "customer" && (targetContainerInfo || (activeTask?.deliveryContainerID && targetWarehouseContainer)) ? (
-          <Card style={{ ...styles.targetWarehouseCard, backgroundColor: theme.infoLight }}>
-            <View style={styles.targetWarehouseHeader}>
-              <View style={[styles.targetWarehouseIconContainer, { backgroundColor: theme.info }]}>
-                <Feather name="truck" size={20} color={theme.textOnPrimary} />
-              </View>
-              <ThemedText type="bodyBold" style={{ color: theme.info }}>
-                Zielcontainer im Lager
+        ) : (
+          <Card style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}>
+            <View style={styles.cardHeader}>
+              <Feather name="alert-circle" size={24} color={theme.warning} />
+              <ThemedText type="body" style={{ color: theme.warning }}>
+                Keine aktive Aufgabe für diese Box
               </ThemedText>
             </View>
-            
-            <View style={styles.targetWarehouseContent}>
-              <View style={styles.targetContainerInfo}>
-                <Feather name="package" size={16} color={theme.primary} />
-                <ThemedText type="bodyBold" style={{ color: theme.primary }}>
-                  {targetContainerInfo?.id || targetWarehouseContainer?.id}
-                </ThemedText>
-              </View>
-              
-              <View style={styles.targetContainerInfo}>
-                <Feather name="map-pin" size={16} color={theme.textSecondary} />
-                <ThemedText type="body" style={{ color: theme.text }}>
-                  {targetContainerInfo?.location || targetWarehouseContainer?.location}
-                </ThemedText>
-              </View>
-
-              {targetContainerInfo ? (
-                <>
-                  <View style={[styles.divider, { backgroundColor: theme.divider, marginVertical: Spacing.sm }]} />
-                  
-                  <View style={styles.targetContainerStats}>
-                    <View style={styles.targetStatItem}>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Material
-                      </ThemedText>
-                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
-                        {targetContainerInfo.content || targetContainerInfo.materialType}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.targetStatItem}>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Kapazität
-                      </ThemedText>
-                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
-                        {targetContainerInfo.capacity} {targetContainerInfo.unit}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.targetStatItem}>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Aktueller Füllstand
-                      </ThemedText>
-                      <ThemedText type="bodyBold" style={{ color: theme.text }}>
-                        {targetContainerInfo.currentFill.toFixed(0)} {targetContainerInfo.unit}
-                      </ThemedText>
-                    </View>
-                    
-                    <View style={styles.targetStatItem}>
-                      <ThemedText type="small" style={{ color: theme.success }}>
-                        Restkapazität
-                      </ThemedText>
-                      <ThemedText type="bodyBold" style={{ color: theme.success }}>
-                        {targetContainerInfo.remainingCapacity.toFixed(0)} {targetContainerInfo.unit}
-                      </ThemedText>
-                    </View>
-                  </View>
-                </>
-              ) : null}
-            </View>
           </Card>
-        ) : null}
+        )}
 
         {success ? (
-          <View style={[styles.successBanner, { backgroundColor: theme.successLight }]}>
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
             <Feather name="check-circle" size={20} color={theme.success} />
-            <ThemedText type="small" style={[styles.successText, { color: theme.success }]}>
+            <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
               {success}
             </ThemedText>
           </View>
         ) : null}
 
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: theme.errorLight }]}>
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
             <Feather name="alert-circle" size={20} color={theme.error} />
-            <ThemedText type="small" style={[styles.errorText, { color: theme.error }]}>
+            <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
               {error}
             </ThemedText>
           </View>
         ) : null}
 
-        {scanResult.type === "warehouse" && activeTask && !hasValidationError ? (
-          <Card style={[styles.weightInputCard, { backgroundColor: theme.cardSurface }]}>
+        {task && nextAction && requiresWeight ? (
+          <Card style={[styles.weightCard, { backgroundColor: theme.cardSurface }]}>
             <ThemedText type="bodyBold" style={{ marginBottom: Spacing.sm }}>
-              Gemessenes Gewicht
-            </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-              Bitte geben Sie das tatsächlich gemessene Gewicht ein:
+              Gewicht eingeben
             </ThemedText>
             <View style={[styles.weightInputContainer, { backgroundColor: theme.backgroundSecondary, borderColor: weightError ? theme.error : theme.border }]}>
-              <Feather name="package" size={20} color={theme.textSecondary} />
+              <Feather name="activity" size={20} color={theme.textSecondary} />
               <TextInput
                 style={[styles.weightInput, { color: theme.text }]}
-                value={measuredWeight}
+                value={weightInput}
                 onChangeText={(text) => {
-                  setMeasuredWeight(text);
+                  setWeightInput(text);
                   setWeightError(null);
                 }}
                 placeholder="0"
@@ -723,54 +383,260 @@ export default function ScannerScreen() {
 
         <View style={styles.modalActions}>
           <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
-            Abbrechen
+            Schließen
           </Button>
-          {scanResult.type === "customer" && activeTask && !hasValidationError ? (
-            OPEN_STATUSES.includes(activeTask.status) && !taskAccepted ? (
-              <Button
-                onPress={acceptTask}
-                disabled={isProcessing}
-                style={[styles.confirmButton, { backgroundColor: theme.primary }]}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
-                ) : (
-                  "Auftrag annehmen"
-                )}
-              </Button>
-            ) : (activeTask.status === "ACCEPTED" || taskAccepted) ? (
-              <Button
-                onPress={confirmPickup}
-                disabled={isProcessing}
-                style={[styles.confirmButton, { backgroundColor: theme.accent }]}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
-                ) : (
-                  "Abholung bestätigen"
-                )}
-              </Button>
-            ) : null
-          ) : scanResult.type === "warehouse" && activeTask && !hasValidationError ? (
+          {task && nextAction ? (
             <Button
-              onPress={confirmDelivery}
-              disabled={isProcessing || !measuredWeight}
-              style={[styles.confirmButton, { backgroundColor: theme.accent }]}
+              onPress={() => handleActionPress(task.id, nextAction.nextStatus)}
+              disabled={isProcessing}
+              style={[styles.actionButton, { backgroundColor: theme.accent }]}
             >
               {isProcessing ? (
                 <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
-                "Lieferung bestätigen"
+                <>
+                  <Feather name={nextAction.icon as any} size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
+                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                    {nextAction.label}
+                  </ThemedText>
+                </>
               )}
             </Button>
-          ) : !activeTask ? (
-            <ThemedText type="small" style={[styles.noTaskText, { color: theme.textSecondary }]}>
-              Keine aktive Aufgabe für diesen Container
-            </ThemedText>
           ) : null}
         </View>
-      </ScrollView>
+      </>
     );
+  };
+
+  const renderStandContent = (result: StandScanResult) => {
+    const { stand, station, hall, material, boxes: standBoxes } = result;
+    const boxAtStand = standBoxes.find(b => b.status === "AT_STAND" && !b.currentTaskId);
+    const boxWithTask = standBoxes.find(b => b.currentTaskId);
+
+    return (
+      <>
+        <View style={styles.modalHeader}>
+          <ThemedText type="h3">Stellplatz gescannt</ThemedText>
+          <Pressable onPress={closeModal} style={styles.closeButton}>
+            <Feather name="x" size={24} color={theme.text} />
+          </Pressable>
+        </View>
+
+        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+          <View style={styles.cardHeader}>
+            <Feather name="map-pin" size={28} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              <ThemedText type="h4">{stand.identifier}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {station?.name || "Station"} {hall ? `- ${hall.name}` : ""}
+              </ThemedText>
+            </View>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+
+          {material ? (
+            <View style={styles.infoRow}>
+              <Feather name="layers" size={16} color={theme.textSecondary} />
+              <ThemedText type="body">Material: {material.name}</ThemedText>
+            </View>
+          ) : null}
+
+          <View style={styles.infoRow}>
+            <Feather name="box" size={16} color={theme.textSecondary} />
+            <ThemedText type="body">
+              Boxen am Platz: {standBoxes.filter(b => b.status === "AT_STAND").length}
+            </ThemedText>
+          </View>
+        </Card>
+
+        {boxWithTask ? (
+          <Card style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}>
+            <View style={styles.cardHeader}>
+              <Feather name="box" size={24} color={theme.info} />
+              <View style={{ flex: 1 }}>
+                <ThemedText type="bodyBold" style={{ color: theme.info }}>
+                  Box mit Aufgabe: {boxWithTask.serial}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Scannen Sie die Box für Details
+                </ThemedText>
+              </View>
+            </View>
+          </Card>
+        ) : boxAtStand ? (
+          <Card style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}>
+            <View style={styles.cardHeader}>
+              <Feather name="box" size={24} color={theme.warning} />
+              <View style={{ flex: 1 }}>
+                <ThemedText type="bodyBold" style={{ color: theme.warning }}>
+                  Box ohne Aufgabe: {boxAtStand.serial}
+                </ThemedText>
+              </View>
+            </View>
+          </Card>
+        ) : (
+          <Card style={{ ...styles.infoCard, backgroundColor: theme.successLight }}>
+            <View style={styles.cardHeader}>
+              <Feather name="check-circle" size={24} color={theme.success} />
+              <ThemedText type="body" style={{ color: theme.success }}>
+                Keine Box am Stellplatz
+              </ThemedText>
+            </View>
+          </Card>
+        )}
+
+        {success ? (
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
+            <Feather name="check-circle" size={20} color={theme.success} />
+            <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
+              {success}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        {error ? (
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
+            <Feather name="alert-circle" size={20} color={theme.error} />
+            <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
+              {error}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.modalActions}>
+          <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
+            Schließen
+          </Button>
+          {boxAtStand ? (
+            <Button
+              onPress={() => createTaskForBox(boxAtStand.id, stand.id)}
+              disabled={isProcessing}
+              style={[styles.actionButton, { backgroundColor: theme.accent }]}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color={theme.textOnPrimary} />
+              ) : (
+                <>
+                  <Feather name="plus" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
+                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                    Aufgabe erstellen
+                  </ThemedText>
+                </>
+              )}
+            </Button>
+          ) : null}
+        </View>
+      </>
+    );
+  };
+
+  const renderWarehouseContent = (result: WarehouseScanResult) => {
+    const { container } = result;
+    const fillPercentage = container.maxCapacity > 0 
+      ? Math.round((container.currentAmount / container.maxCapacity) * 100) 
+      : 0;
+
+    return (
+      <>
+        <View style={styles.modalHeader}>
+          <ThemedText type="h3">Lagercontainer gescannt</ThemedText>
+          <Pressable onPress={closeModal} style={styles.closeButton}>
+            <Feather name="x" size={24} color={theme.text} />
+          </Pressable>
+        </View>
+
+        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+          <View style={styles.cardHeader}>
+            <Feather name="archive" size={28} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              <ThemedText type="h4">{container.id}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {container.location}
+              </ThemedText>
+            </View>
+            <StatusBadge 
+              status={fillPercentage >= 90 ? "critical" : fillPercentage >= 70 ? "warning" : "success"} 
+              size="small"
+              label={`${fillPercentage}%`}
+            />
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+
+          <View style={styles.infoRow}>
+            <Feather name="layers" size={16} color={theme.textSecondary} />
+            <ThemedText type="body">Material: {container.materialType}</ThemedText>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Feather name="database" size={16} color={theme.textSecondary} />
+            <ThemedText type="body">
+              Kapazität: {container.currentAmount.toFixed(0)} / {container.maxCapacity} {container.quantityUnit}
+            </ThemedText>
+          </View>
+
+          {container.warehouseZone ? (
+            <View style={styles.infoRow}>
+              <Feather name="grid" size={16} color={theme.textSecondary} />
+              <ThemedText type="body">Zone: {container.warehouseZone}</ThemedText>
+            </View>
+          ) : null}
+        </Card>
+
+        {success ? (
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
+            <Feather name="check-circle" size={20} color={theme.success} />
+            <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
+              {success}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        {error ? (
+          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
+            <Feather name="alert-circle" size={20} color={theme.error} />
+            <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
+              {error}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.modalActions}>
+          <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
+            Schließen
+          </Button>
+        </View>
+      </>
+    );
+  };
+
+  const renderModalContent = () => {
+    if (!scanResult) return null;
+
+    if (success) {
+      return (
+        <View style={styles.successContainer}>
+          <View style={[styles.successIcon, { backgroundColor: `${theme.success}20` }]}>
+            <Feather name="check-circle" size={48} color={theme.success} />
+          </View>
+          <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+            {success}
+          </ThemedText>
+        </View>
+      );
+    }
+
+    switch (scanResult.type) {
+      case "box":
+        return renderBoxContent(scanResult);
+      case "stand":
+        return renderStandContent(scanResult);
+      case "warehouse":
+        return renderWarehouseContent(scanResult);
+      default:
+        return null;
+    }
   };
 
   if (!permission) {
@@ -790,7 +656,7 @@ export default function ScannerScreen() {
             Kamerazugriff erforderlich
           </ThemedText>
           <ThemedText type="body" style={[styles.permissionText, { color: theme.textSecondary }]}>
-            ContainerFlow benötigt Kamerazugriff zum Scannen von QR-Codes auf Containern.
+            ContainerFlow benötigt Kamerazugriff zum Scannen von QR-Codes.
           </ThemedText>
           <Button onPress={requestPermission} style={[styles.permissionButton, { backgroundColor: theme.accent }]}>
             Kamera aktivieren
@@ -819,37 +685,11 @@ export default function ScannerScreen() {
 
       <View style={[styles.overlay, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <View style={[styles.segmentedControl, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
-            <Pressable
-              style={[
-                styles.segmentButton,
-                appMode === "info" && { backgroundColor: theme.info },
-              ]}
-              onPress={() => setAppMode("info")}
-            >
-              <Feather name="info" size={18} color={appMode === "info" ? theme.textOnPrimary : theme.textSecondary} />
-              <ThemedText
-                type="smallBold"
-                style={{ color: appMode === "info" ? theme.textOnPrimary : theme.textSecondary }}
-              >
-                Info
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.segmentButton,
-                appMode === "task" && { backgroundColor: theme.accent },
-              ]}
-              onPress={() => setAppMode("task")}
-            >
-              <Feather name="clipboard" size={18} color={appMode === "task" ? theme.textOnPrimary : theme.textSecondary} />
-              <ThemedText
-                type="smallBold"
-                style={{ color: appMode === "task" ? theme.textOnPrimary : theme.textSecondary }}
-              >
-                Aufgabe
-              </ThemedText>
-            </Pressable>
+          <View style={[styles.scanModeIndicator, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
+            <Feather name="maximize" size={18} color={theme.accent} />
+            <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              Box / Stellplatz / Container scannen
+            </ThemedText>
           </View>
 
           <Pressable
@@ -870,20 +710,12 @@ export default function ScannerScreen() {
         </View>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-          <View style={[styles.modeIndicator, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
-            <Feather name={getModeIcon() as any} size={20} color={appMode === "info" ? theme.info : theme.accent} />
-            <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.sm }}>
-              {getModeDisplayText()}
+          <View style={[styles.helpText, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
+            <Feather name="info" size={16} color={theme.textSecondary} />
+            <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              Scannen Sie einen QR-Code zum Fortfahren
             </ThemedText>
           </View>
-          {inProgressTask ? (
-            <View style={[styles.activeTaskBanner, { backgroundColor: `${theme.statusInProgress}20` }]}>
-              <Feather name="truck" size={16} color={theme.statusInProgress} />
-              <ThemedText type="small" style={{ color: theme.statusInProgress, marginLeft: Spacing.xs }}>
-                Aufgabe läuft - scannen Sie den Zielcontainer
-              </ThemedText>
-            </View>
-          ) : null}
         </View>
       </View>
 
@@ -895,20 +727,9 @@ export default function ScannerScreen() {
       >
         <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
-            {success ? (
-              <View style={styles.successContainer}>
-                <View style={[styles.successIcon, { backgroundColor: `${theme.success}20` }]}>
-                  <Feather name="check-circle" size={48} color={theme.success} />
-                </View>
-                <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.lg }}>
-                  {success}
-                </ThemedText>
-              </View>
-            ) : appMode === "info" ? (
-              renderInfoModeContent()
-            ) : (
-              renderTaskModeContent()
-            )}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {renderModalContent()}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -955,18 +776,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
   },
-  segmentedControl: {
-    flexDirection: "row",
-    borderRadius: BorderRadius.md,
-    padding: 4,
-  },
-  segmentButton: {
+  scanModeIndicator: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    gap: Spacing.xs,
+    borderRadius: BorderRadius.md,
   },
   flashButton: {
     width: 44,
@@ -1030,19 +845,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
-  modeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.full,
-  },
-  activeTaskBanner: {
+  helpText: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.full,
   },
   modalOverlay: {
     flex: 1,
@@ -1054,9 +862,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     maxHeight: "85%",
   },
-  modalScrollView: {
-    maxHeight: "100%",
-  },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1066,10 +871,11 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: Spacing.sm,
   },
-  containerCard: {
+  infoCard: {
     marginBottom: Spacing.md,
+    padding: Spacing.lg,
   },
-  containerHeader: {
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
@@ -1078,80 +884,13 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: Spacing.md,
   },
-  infoGrid: {
-    gap: Spacing.md,
-  },
   infoRow: {
-    gap: Spacing.md,
-  },
-  infoItem: {
-    gap: Spacing.xs,
-  },
-  infoLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  containerDetails: {
-    marginTop: Spacing.md,
-    gap: Spacing.sm,
-  },
-  detailItem: {
-    gap: 2,
-  },
-  taskInfoCard: {
-    marginBottom: Spacing.md,
-  },
-  taskInfoHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  taskInfoGrid: {
-    gap: Spacing.md,
-  },
-  taskInfoItem: {
-    gap: Spacing.xs,
-  },
-  taskInfoLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  targetWarehouseCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-  },
-  targetWarehouseHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  targetWarehouseIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  targetWarehouseContent: {
-    gap: Spacing.xs,
-  },
-  targetContainerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  targetContainerStats: {
-    gap: Spacing.sm,
-  },
-  targetStatItem: {
-    gap: 2,
-  },
-  successBanner: {
+  feedbackBanner: {
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
@@ -1159,50 +898,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     gap: Spacing.sm,
   },
-  successText: {
-    flex: 1,
-  },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
-  },
-  errorText: {
-    flex: 1,
-  },
-  modalActions: {
-    marginTop: Spacing.lg,
-    gap: Spacing.md,
-  },
-  cancelButton: {
-    paddingVertical: Spacing.md,
-  },
-  confirmButton: {
-    paddingVertical: Spacing.lg,
-  },
-  closeButtonFull: {
-    marginTop: Spacing.md,
-    paddingVertical: Spacing.lg,
-  },
-  noTaskText: {
-    textAlign: "center",
-    paddingVertical: Spacing.md,
-  },
-  successContainer: {
-    alignItems: "center",
-    paddingVertical: Spacing["3xl"],
-  },
-  successIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  weightInputCard: {
+  weightCard: {
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
@@ -1219,5 +915,29 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: "600",
+  },
+  modalActions: {
+    marginTop: Spacing.lg,
+    gap: Spacing.md,
+  },
+  cancelButton: {
+    paddingVertical: Spacing.md,
+  },
+  actionButton: {
+    paddingVertical: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+  },
+  successIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

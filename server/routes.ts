@@ -2446,6 +2446,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/stands/qr/:qrCode - Look up stand by QR code (must be before :id route)
+  app.get("/api/stands/qr/:qrCode", async (req, res) => {
+    try {
+      const [stand] = await db.select().from(stands).where(eq(stands.qrCode, req.params.qrCode));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+      // Get station and hall info
+      const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+      const [hall] = station ? await db.select().from(halls).where(eq(halls.id, station.hallId)) : [null];
+      // Get material info
+      const [material] = stand.materialId ? await db.select().from(materials).where(eq(materials.id, stand.materialId)) : [null];
+      // Get boxes at this stand
+      const standBoxes = await db.select().from(boxes).where(eq(boxes.standId, stand.id));
+      res.json({ stand, station, hall, material, boxes: standBoxes });
+    } catch (error) {
+      console.error("Failed to fetch stand by QR:", error);
+      res.status(500).json({ error: "Failed to fetch stand" });
+    }
+  });
+
   // GET /api/stands/:id - Get stand by ID
   app.get("/api/stands/:id", async (req, res) => {
     try {
