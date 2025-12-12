@@ -2,7 +2,13 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { createHash } from "crypto";
-import { checkDatabaseHealth } from "./db";
+import { checkDatabaseHealth, db } from "./db";
+import { 
+  materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers,
+  assertAutomotiveTransition, getAutomotiveTimestampFieldForStatus,
+  type Material, type Hall, type Station, type Stand, type Box, type TaskEvent
+} from "@shared/schema";
+import { eq, and, desc, notInArray, isNull } from "drizzle-orm";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -2192,6 +2198,735 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(driverOverview);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch driver overview" });
+    }
+  });
+
+  // ============================================================================
+  // AUTOMOTIVE FACTORY API ENDPOINTS
+  // ============================================================================
+
+  // ----------------------------------------------------------------------------
+  // MATERIALS CRUD
+  // ----------------------------------------------------------------------------
+
+  // GET /api/materials - List all materials
+  app.get("/api/materials", async (req, res) => {
+    try {
+      const result = await db.select().from(materials).where(eq(materials.isActive, true));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch materials:", error);
+      res.status(500).json({ error: "Failed to fetch materials" });
+    }
+  });
+
+  // GET /api/materials/:id - Get material by ID
+  app.get("/api/materials/:id", async (req, res) => {
+    try {
+      const [material] = await db.select().from(materials).where(eq(materials.id, req.params.id));
+      if (!material) {
+        return res.status(404).json({ error: "Material not found" });
+      }
+      res.json(material);
+    } catch (error) {
+      console.error("Failed to fetch material:", error);
+      res.status(500).json({ error: "Failed to fetch material" });
+    }
+  });
+
+  // POST /api/materials - Create material (admin only)
+  app.post("/api/materials", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { name, code, description, hazardClass, disposalStream, densityHint, defaultUnit, qrCode } = req.body;
+      
+      if (!name || !code) {
+        return res.status(400).json({ error: "Name and code are required" });
+      }
+
+      const [material] = await db.insert(materials).values({
+        name,
+        code,
+        description: description || null,
+        hazardClass: hazardClass || null,
+        disposalStream: disposalStream || null,
+        densityHint: densityHint || null,
+        defaultUnit: defaultUnit || "kg",
+        qrCode: qrCode || null,
+      }).returning();
+
+      res.status(201).json(material);
+    } catch (error) {
+      console.error("Failed to create material:", error);
+      res.status(500).json({ error: "Failed to create material" });
+    }
+  });
+
+  // PUT /api/materials/:id - Update material (admin only)
+  app.put("/api/materials/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [existing] = await db.select().from(materials).where(eq(materials.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Material not found" });
+      }
+
+      const { name, code, description, hazardClass, disposalStream, densityHint, defaultUnit, qrCode, isActive } = req.body;
+      
+      const [material] = await db.update(materials)
+        .set({
+          ...(name !== undefined && { name }),
+          ...(code !== undefined && { code }),
+          ...(description !== undefined && { description }),
+          ...(hazardClass !== undefined && { hazardClass }),
+          ...(disposalStream !== undefined && { disposalStream }),
+          ...(densityHint !== undefined && { densityHint }),
+          ...(defaultUnit !== undefined && { defaultUnit }),
+          ...(qrCode !== undefined && { qrCode }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(materials.id, req.params.id))
+        .returning();
+
+      res.json(material);
+    } catch (error) {
+      console.error("Failed to update material:", error);
+      res.status(500).json({ error: "Failed to update material" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // HALLS CRUD
+  // ----------------------------------------------------------------------------
+
+  // GET /api/halls - List all halls
+  app.get("/api/halls", async (req, res) => {
+    try {
+      const result = await db.select().from(halls).where(eq(halls.isActive, true));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch halls:", error);
+      res.status(500).json({ error: "Failed to fetch halls" });
+    }
+  });
+
+  // GET /api/halls/:id - Get hall by ID with stations
+  app.get("/api/halls/:id", async (req, res) => {
+    try {
+      const [hall] = await db.select().from(halls).where(eq(halls.id, req.params.id));
+      if (!hall) {
+        return res.status(404).json({ error: "Hall not found" });
+      }
+
+      const hallStations = await db.select().from(stations).where(
+        and(eq(stations.hallId, req.params.id), eq(stations.isActive, true))
+      );
+
+      res.json({ ...hall, stations: hallStations });
+    } catch (error) {
+      console.error("Failed to fetch hall:", error);
+      res.status(500).json({ error: "Failed to fetch hall" });
+    }
+  });
+
+  // POST /api/halls - Create hall (admin only)
+  app.post("/api/halls", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { name, code, description, locationMeta } = req.body;
+      
+      if (!name || !code) {
+        return res.status(400).json({ error: "Name and code are required" });
+      }
+
+      const [hall] = await db.insert(halls).values({
+        name,
+        code,
+        description: description || null,
+        locationMeta: locationMeta || null,
+      }).returning();
+
+      res.status(201).json(hall);
+    } catch (error) {
+      console.error("Failed to create hall:", error);
+      res.status(500).json({ error: "Failed to create hall" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // STATIONS CRUD
+  // ----------------------------------------------------------------------------
+
+  // GET /api/stations - List all stations (optionally filter by hallId)
+  app.get("/api/stations", async (req, res) => {
+    try {
+      const { hallId } = req.query;
+      
+      let conditions = [eq(stations.isActive, true)];
+      if (hallId && typeof hallId === 'string') {
+        conditions.push(eq(stations.hallId, hallId));
+      }
+
+      const result = await db.select().from(stations).where(and(...conditions));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch stations:", error);
+      res.status(500).json({ error: "Failed to fetch stations" });
+    }
+  });
+
+  // GET /api/stations/:id - Get station by ID with stands
+  app.get("/api/stations/:id", async (req, res) => {
+    try {
+      const [station] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!station) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+
+      const stationStands = await db.select().from(stands).where(
+        and(eq(stands.stationId, req.params.id), eq(stands.isActive, true))
+      );
+
+      res.json({ ...station, stands: stationStands });
+    } catch (error) {
+      console.error("Failed to fetch station:", error);
+      res.status(500).json({ error: "Failed to fetch station" });
+    }
+  });
+
+  // POST /api/stations - Create station (admin only)
+  app.post("/api/stations", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { hallId, name, code, sequence, locationMeta } = req.body;
+      
+      if (!hallId || !name || !code) {
+        return res.status(400).json({ error: "hallId, name, and code are required" });
+      }
+
+      const [hall] = await db.select().from(halls).where(eq(halls.id, hallId));
+      if (!hall) {
+        return res.status(404).json({ error: "Hall not found" });
+      }
+
+      const [station] = await db.insert(stations).values({
+        hallId,
+        name,
+        code,
+        sequence: sequence || null,
+        locationMeta: locationMeta || null,
+      }).returning();
+
+      res.status(201).json(station);
+    } catch (error) {
+      console.error("Failed to create station:", error);
+      res.status(500).json({ error: "Failed to create station" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // STANDS CRUD
+  // ----------------------------------------------------------------------------
+
+  // GET /api/stands - List all stands (optionally filter by stationId, materialId)
+  app.get("/api/stands", async (req, res) => {
+    try {
+      const { stationId, materialId } = req.query;
+      
+      let conditions = [eq(stands.isActive, true)];
+      if (stationId && typeof stationId === 'string') {
+        conditions.push(eq(stands.stationId, stationId));
+      }
+      if (materialId && typeof materialId === 'string') {
+        conditions.push(eq(stands.materialId, materialId));
+      }
+
+      const result = await db.select().from(stands).where(and(...conditions));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch stands:", error);
+      res.status(500).json({ error: "Failed to fetch stands" });
+    }
+  });
+
+  // GET /api/stands/:id - Get stand by ID
+  app.get("/api/stands/:id", async (req, res) => {
+    try {
+      const [stand] = await db.select().from(stands).where(eq(stands.id, req.params.id));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+      res.json(stand);
+    } catch (error) {
+      console.error("Failed to fetch stand:", error);
+      res.status(500).json({ error: "Failed to fetch stand" });
+    }
+  });
+
+  // POST /api/stands - Create stand (admin only)
+  app.post("/api/stands", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { stationId, identifier, materialId, qrCode, sequence, positionMeta, dailyFull } = req.body;
+      
+      if (!stationId || !identifier || !qrCode) {
+        return res.status(400).json({ error: "stationId, identifier, and qrCode are required" });
+      }
+
+      const [station] = await db.select().from(stations).where(eq(stations.id, stationId));
+      if (!station) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+
+      const [stand] = await db.insert(stands).values({
+        stationId,
+        identifier,
+        materialId: materialId || null,
+        qrCode,
+        sequence: sequence || null,
+        positionMeta: positionMeta || null,
+        dailyFull: dailyFull || false,
+      }).returning();
+
+      res.status(201).json(stand);
+    } catch (error) {
+      console.error("Failed to create stand:", error);
+      res.status(500).json({ error: "Failed to create stand" });
+    }
+  });
+
+  // PUT /api/stands/:id - Update stand (admin only, including dailyFull flag)
+  app.put("/api/stands/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [existing] = await db.select().from(stands).where(eq(stands.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const { identifier, materialId, qrCode, sequence, positionMeta, dailyFull, isActive } = req.body;
+      
+      const [stand] = await db.update(stands)
+        .set({
+          ...(identifier !== undefined && { identifier }),
+          ...(materialId !== undefined && { materialId }),
+          ...(qrCode !== undefined && { qrCode }),
+          ...(sequence !== undefined && { sequence }),
+          ...(positionMeta !== undefined && { positionMeta }),
+          ...(dailyFull !== undefined && { dailyFull }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(stands.id, req.params.id))
+        .returning();
+
+      res.json(stand);
+    } catch (error) {
+      console.error("Failed to update stand:", error);
+      res.status(500).json({ error: "Failed to update stand" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // BOXES CRUD
+  // ----------------------------------------------------------------------------
+
+  // GET /api/boxes - List all boxes
+  app.get("/api/boxes", async (req, res) => {
+    try {
+      const result = await db.select().from(boxes).where(eq(boxes.isActive, true));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch boxes:", error);
+      res.status(500).json({ error: "Failed to fetch boxes" });
+    }
+  });
+
+  // GET /api/boxes/qr/:qrCode - Look up box by QR code (must be before :id route)
+  app.get("/api/boxes/qr/:qrCode", async (req, res) => {
+    try {
+      const [box] = await db.select().from(boxes).where(eq(boxes.qrCode, req.params.qrCode));
+      if (!box) {
+        return res.status(404).json({ error: "Box not found" });
+      }
+      res.json(box);
+    } catch (error) {
+      console.error("Failed to fetch box by QR:", error);
+      res.status(500).json({ error: "Failed to fetch box" });
+    }
+  });
+
+  // GET /api/boxes/:id - Get box by ID
+  app.get("/api/boxes/:id", async (req, res) => {
+    try {
+      const [box] = await db.select().from(boxes).where(eq(boxes.id, req.params.id));
+      if (!box) {
+        return res.status(404).json({ error: "Box not found" });
+      }
+      res.json(box);
+    } catch (error) {
+      console.error("Failed to fetch box:", error);
+      res.status(500).json({ error: "Failed to fetch box" });
+    }
+  });
+
+  // POST /api/boxes - Create box (admin only)
+  app.post("/api/boxes", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { qrCode, serial, standId, status, notes } = req.body;
+      
+      if (!qrCode || !serial) {
+        return res.status(400).json({ error: "qrCode and serial are required" });
+      }
+
+      const [box] = await db.insert(boxes).values({
+        qrCode,
+        serial,
+        standId: standId || null,
+        status: status || "AT_STAND",
+        notes: notes || null,
+      }).returning();
+
+      res.status(201).json(box);
+    } catch (error) {
+      console.error("Failed to create box:", error);
+      res.status(500).json({ error: "Failed to create box" });
+    }
+  });
+
+  // PUT /api/boxes/:id - Update box (admin only)
+  app.put("/api/boxes/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [existing] = await db.select().from(boxes).where(eq(boxes.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Box not found" });
+      }
+
+      const { qrCode, serial, standId, status, notes, isActive } = req.body;
+      
+      const [box] = await db.update(boxes)
+        .set({
+          ...(qrCode !== undefined && { qrCode }),
+          ...(serial !== undefined && { serial }),
+          ...(standId !== undefined && { standId }),
+          ...(status !== undefined && { status }),
+          ...(notes !== undefined && { notes }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, req.params.id))
+        .returning();
+
+      res.json(box);
+    } catch (error) {
+      console.error("Failed to update box:", error);
+      res.status(500).json({ error: "Failed to update box" });
+    }
+  });
+
+  // POST /api/boxes/:id/position - Position box at a stand
+  app.post("/api/boxes/:id/position", requireAuth, async (req, res) => {
+    try {
+      const { stationId, standId } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!standId) {
+        return res.status(400).json({ error: "standId is required" });
+      }
+
+      const [box] = await db.select().from(boxes).where(eq(boxes.id, req.params.id));
+      if (!box) {
+        return res.status(404).json({ error: "Box not found" });
+      }
+
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+      if (!station) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+
+      const [hall] = await db.select().from(halls).where(eq(halls.id, station.hallId));
+      
+      let material = null;
+      if (stand.materialId) {
+        const [mat] = await db.select().from(materials).where(eq(materials.id, stand.materialId));
+        material = mat;
+      }
+
+      const beforeData = { standId: box.standId, status: box.status };
+      
+      const [updatedBox] = await db.update(boxes)
+        .set({
+          standId,
+          status: "AT_STAND",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, req.params.id))
+        .returning();
+
+      await db.insert(taskEvents).values({
+        taskId: box.currentTaskId || req.params.id,
+        actorUserId: authUser.id,
+        action: "BOX_POSITIONED",
+        entityType: "box",
+        entityId: box.id,
+        beforeData,
+        afterData: { standId, status: "AT_STAND" },
+      });
+
+      res.json({
+        box: updatedBox,
+        stand,
+        material,
+        station,
+        hall,
+      });
+    } catch (error) {
+      console.error("Failed to position box:", error);
+      res.status(500).json({ error: "Failed to position box" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // AUTOMOTIVE TASK ENDPOINTS
+  // ----------------------------------------------------------------------------
+
+  // POST /api/automotive/tasks - Create automotive task
+  app.post("/api/automotive/tasks", requireAuth, async (req, res) => {
+    try {
+      const { boxId, standId, taskType } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!boxId || !standId) {
+        return res.status(400).json({ error: "boxId and standId are required" });
+      }
+
+      const validTaskTypes = ["MANUAL", "DAILY_FULL"];
+      if (taskType && !validTaskTypes.includes(taskType)) {
+        return res.status(400).json({ error: "taskType must be MANUAL or DAILY_FULL" });
+      }
+
+      const [box] = await db.select().from(boxes).where(eq(boxes.id, boxId));
+      if (!box) {
+        return res.status(404).json({ error: "Box not found" });
+      }
+
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const activeTaskStatuses = ["OPEN", "PICKED_UP", "IN_TRANSIT", "DROPPED_OFF", "TAKEN_OVER", "WEIGHED"];
+      const existingActiveTasks = await db.select().from(tasks).where(
+        and(
+          eq(tasks.boxId, boxId),
+          notInArray(tasks.status, ["DISPOSED", "CANCELLED"])
+        )
+      );
+
+      if (existingActiveTasks.length > 0) {
+        return res.status(409).json({ 
+          error: "Box already has an active task",
+          activeTask: existingActiveTasks[0]
+        });
+      }
+
+      const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+      
+      const [task] = await db.insert(tasks).values({
+        title: `Automotive Task - Box ${box.serial}`,
+        description: `Pick up box from stand ${stand.identifier}`,
+        containerID: boxId,
+        boxId,
+        standId,
+        materialType: stand.materialId ? stand.materialId : null,
+        taskType: taskType || "MANUAL",
+        status: "OPEN",
+        createdBy: authUser.id,
+        priority: "normal",
+      }).returning();
+
+      await db.update(boxes)
+        .set({ currentTaskId: task.id, updatedAt: new Date() })
+        .where(eq(boxes.id, boxId));
+
+      await db.insert(taskEvents).values({
+        taskId: task.id,
+        actorUserId: authUser.id,
+        action: "TASK_CREATED",
+        entityType: "task",
+        entityId: task.id,
+        beforeData: null,
+        afterData: { status: "OPEN", boxId, standId, taskType: taskType || "MANUAL" },
+      });
+
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Failed to create automotive task:", error);
+      res.status(500).json({ error: "Failed to create automotive task" });
+    }
+  });
+
+  // PUT /api/automotive/tasks/:id/status - Update task status with transition guard
+  app.put("/api/automotive/tasks/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { status, weightKg, targetWarehouseContainerId, reason } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!status) {
+        return res.status(400).json({ error: "status is required" });
+      }
+
+      const [task] = await db.select().from(tasks).where(eq(tasks.id, req.params.id));
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      try {
+        assertAutomotiveTransition(task.status, status);
+      } catch (error: any) {
+        return res.status(409).json({ 
+          error: error.message,
+          currentStatus: task.status,
+          requestedStatus: status
+        });
+      }
+
+      if (task.status === "TAKEN_OVER" && status === "WEIGHED") {
+        if (weightKg === undefined || weightKg === null) {
+          return res.status(400).json({ error: "weightKg is required for WEIGHED status" });
+        }
+      }
+
+      const beforeData = { 
+        status: task.status, 
+        weightKg: task.weightKg,
+        targetWarehouseContainerId: task.targetWarehouseContainerId
+      };
+
+      const updateData: any = {
+        status,
+        updatedAt: new Date(),
+      };
+
+      const timestampField = getAutomotiveTimestampFieldForStatus(status);
+      if (timestampField) {
+        updateData[timestampField] = new Date();
+      }
+
+      if (weightKg !== undefined) {
+        updateData.weightKg = weightKg;
+        updateData.weighedByUserId = authUser.id;
+      }
+
+      if (targetWarehouseContainerId !== undefined) {
+        updateData.targetWarehouseContainerId = targetWarehouseContainerId;
+      }
+
+      if (reason !== undefined) {
+        updateData.cancellationReason = reason;
+      }
+
+      const [updatedTask] = await db.update(tasks)
+        .set(updateData)
+        .where(eq(tasks.id, req.params.id))
+        .returning();
+
+      if (status === "DISPOSED" || status === "CANCELLED") {
+        if (task.boxId) {
+          await db.update(boxes)
+            .set({ 
+              currentTaskId: null, 
+              status: status === "DISPOSED" ? "AT_WAREHOUSE" : "AT_STAND",
+              updatedAt: new Date() 
+            })
+            .where(eq(boxes.id, task.boxId));
+        }
+      }
+
+      await db.insert(taskEvents).values({
+        taskId: task.id,
+        actorUserId: authUser.id,
+        action: `STATUS_${status}`,
+        entityType: "task",
+        entityId: task.id,
+        beforeData,
+        afterData: { 
+          status, 
+          weightKg: updateData.weightKg,
+          targetWarehouseContainerId: updateData.targetWarehouseContainerId,
+          reason
+        },
+      });
+
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+      res.status(500).json({ error: "Failed to update task status" });
+    }
+  });
+
+  // GET /api/automotive/tasks/:id/suggest-container - Suggest warehouse container
+  app.get("/api/automotive/tasks/:id/suggest-container", async (req, res) => {
+    try {
+      const [task] = await db.select().from(tasks).where(eq(tasks.id, req.params.id));
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      let materialId = task.materialType;
+      
+      if (task.standId) {
+        const [stand] = await db.select().from(stands).where(eq(stands.id, task.standId));
+        if (stand && stand.materialId) {
+          materialId = stand.materialId;
+        }
+      }
+
+      const containers = await db.select().from(warehouseContainers).where(
+        and(
+          eq(warehouseContainers.isActive, true),
+          eq(warehouseContainers.isFull, false),
+          eq(warehouseContainers.isBlocked, false),
+          materialId ? eq(warehouseContainers.materialId, materialId) : isNull(warehouseContainers.materialId)
+        )
+      );
+
+      const sortedContainers = containers
+        .map(c => ({
+          ...c,
+          availableCapacity: c.maxCapacity - c.currentAmount
+        }))
+        .sort((a, b) => b.availableCapacity - a.availableCapacity);
+
+      res.json(sortedContainers);
+    } catch (error) {
+      console.error("Failed to suggest container:", error);
+      res.status(500).json({ error: "Failed to suggest container" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // TASK EVENTS ENDPOINTS
+  // ----------------------------------------------------------------------------
+
+  // GET /api/task-events - Get all events for a task
+  app.get("/api/task-events", async (req, res) => {
+    try {
+      const { taskId } = req.query;
+      
+      if (!taskId || typeof taskId !== 'string') {
+        return res.status(400).json({ error: "taskId query parameter is required" });
+      }
+
+      const events = await db.select().from(taskEvents)
+        .where(eq(taskEvents.taskId, taskId))
+        .orderBy(desc(taskEvents.timestamp));
+
+      res.json(events);
+    } catch (error) {
+      console.error("Failed to fetch task events:", error);
+      res.status(500).json({ error: "Failed to fetch task events" });
     }
   });
 
