@@ -30,23 +30,33 @@ __export(schema_exports, {
   users: () => users,
   usersRelations: () => usersRelations,
   warehouseContainers: () => warehouseContainers,
-  warehouseContainersRelations: () => warehouseContainersRelations
+  warehouseContainersRelations: () => warehouseContainersRelations,
 });
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, real, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  boolean,
+  timestamp,
+  real,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 var users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("driver"),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 var usersRelations = relations(users, ({ many }) => ({
   tasks: many(tasks),
-  activityLogs: many(activityLogs)
+  activityLogs: many(activityLogs),
 }));
 var customerContainers = pgTable("customer_containers", {
   id: varchar("id").primaryKey(),
@@ -58,10 +68,10 @@ var customerContainers = pgTable("customer_containers", {
   lastEmptied: timestamp("last_emptied"),
   qrCode: text("qr_code").notNull().unique(),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 var customerContainersRelations = relations(customerContainers, ({ many }) => ({
-  tasks: many(tasks)
+  tasks: many(tasks),
 }));
 var warehouseContainers = pgTable("warehouse_containers", {
   id: varchar("id").primaryKey(),
@@ -72,32 +82,43 @@ var warehouseContainers = pgTable("warehouse_containers", {
   lastEmptied: timestamp("last_emptied"),
   qrCode: text("qr_code").notNull().unique(),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-var warehouseContainersRelations = relations(warehouseContainers, ({ many }) => ({
-  tasks: many(tasks),
-  fillHistory: many(fillHistory)
-}));
+var warehouseContainersRelations = relations(
+  warehouseContainers,
+  ({ many }) => ({
+    tasks: many(tasks),
+    fillHistory: many(fillHistory),
+  }),
+);
 var fillHistory = pgTable("fill_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  warehouseContainerId: varchar("warehouse_container_id").notNull().references(() => warehouseContainers.id),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  warehouseContainerId: varchar("warehouse_container_id")
+    .notNull()
+    .references(() => warehouseContainers.id),
   amountAdded: real("amount_added").notNull(),
   taskId: varchar("task_id").references(() => tasks.id),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 var fillHistoryRelations = relations(fillHistory, ({ one }) => ({
   warehouseContainer: one(warehouseContainers, {
     fields: [fillHistory.warehouseContainerId],
-    references: [warehouseContainers.id]
+    references: [warehouseContainers.id],
   }),
   task: one(tasks, {
     fields: [fillHistory.taskId],
-    references: [tasks.id]
-  })
+    references: [tasks.id],
+  }),
 }));
 var tasks = pgTable("tasks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  containerID: varchar("container_id").notNull().references(() => customerContainers.id),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  containerID: varchar("container_id")
+    .notNull()
+    .references(() => customerContainers.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
   status: text("status").notNull().default("open"),
   scheduledTime: timestamp("scheduled_time"),
@@ -108,54 +129,60 @@ var tasks = pgTable("tasks", {
   pickupTimestamp: timestamp("pickup_timestamp"),
   pickupLocation: jsonb("pickup_location"),
   deliveryTimestamp: timestamp("delivery_timestamp"),
-  deliveryContainerID: varchar("delivery_container_id").references(() => warehouseContainers.id),
+  deliveryContainerID: varchar("delivery_container_id").references(
+    () => warehouseContainers.id,
+  ),
   cancellationReason: text("cancellation_reason"),
   createdBy: varchar("created_by").references(() => users.id),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 var tasksRelations = relations(tasks, ({ one }) => ({
   container: one(customerContainers, {
     fields: [tasks.containerID],
-    references: [customerContainers.id]
+    references: [customerContainers.id],
   }),
   assignee: one(users, {
     fields: [tasks.assignedTo],
-    references: [users.id]
+    references: [users.id],
   }),
   deliveryContainer: one(warehouseContainers, {
     fields: [tasks.deliveryContainerID],
-    references: [warehouseContainers.id]
+    references: [warehouseContainers.id],
   }),
   creator: one(users, {
     fields: [tasks.createdBy],
-    references: [users.id]
-  })
+    references: [users.id],
+  }),
 }));
 var activityLogs = pgTable("activity_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
   action: text("action").notNull(),
   taskId: varchar("task_id").references(() => tasks.id),
   containerId: varchar("container_id"),
   location: jsonb("location"),
   details: text("details"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 var activityLogsRelations = relations(activityLogs, ({ one }) => ({
   user: one(users, {
     fields: [activityLogs.userId],
-    references: [users.id]
+    references: [users.id],
   }),
   task: one(tasks, {
     fields: [activityLogs.taskId],
-    references: [tasks.id]
-  })
+    references: [tasks.id],
+  }),
 }));
 var insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   name: true,
-  role: true
+  role: true,
 });
 var insertCustomerContainerSchema = createInsertSchema(customerContainers);
 var insertWarehouseContainerSchema = createInsertSchema(warehouseContainers);
@@ -169,7 +196,7 @@ import pg from "pg";
 var { Pool } = pg;
 if (!process.env.DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?"
+    "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 var pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -194,45 +221,81 @@ var DatabaseStorage = class {
     return db.select().from(users).where(eq(users.isActive, true));
   }
   async updateUser(id, data) {
-    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
     return user || void 0;
   }
   async getCustomerContainers() {
-    return db.select().from(customerContainers).where(eq(customerContainers.isActive, true));
+    return db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.isActive, true));
   }
   async getCustomerContainer(id) {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.id, id));
+    const [container] = await db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.id, id));
     return container || void 0;
   }
   async getCustomerContainerByQR(qrCode) {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.qrCode, qrCode));
+    const [container] = await db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createCustomerContainer(data) {
-    const [container] = await db.insert(customerContainers).values(data).returning();
+    const [container] = await db
+      .insert(customerContainers)
+      .values(data)
+      .returning();
     return container;
   }
   async updateCustomerContainer(id, data) {
-    const [container] = await db.update(customerContainers).set(data).where(eq(customerContainers.id, id)).returning();
+    const [container] = await db
+      .update(customerContainers)
+      .set(data)
+      .where(eq(customerContainers.id, id))
+      .returning();
     return container || void 0;
   }
   async getWarehouseContainers() {
-    return db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
+    return db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.isActive, true));
   }
   async getWarehouseContainer(id) {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+    const [container] = await db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.id, id));
     return container || void 0;
   }
   async getWarehouseContainerByQR(qrCode) {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.qrCode, qrCode));
+    const [container] = await db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createWarehouseContainer(data) {
-    const [container] = await db.insert(warehouseContainers).values(data).returning();
+    const [container] = await db
+      .insert(warehouseContainers)
+      .values(data)
+      .returning();
     return container;
   }
   async updateWarehouseContainer(id, data) {
-    const [container] = await db.update(warehouseContainers).set(data).where(eq(warehouseContainers.id, id)).returning();
+    const [container] = await db
+      .update(warehouseContainers)
+      .set(data)
+      .where(eq(warehouseContainers.id, id))
+      .returning();
     return container || void 0;
   }
   async getTasks(filters) {
@@ -253,7 +316,11 @@ var DatabaseStorage = class {
       conditions.push(lte(tasks.scheduledTime, endOfDay));
     }
     if (conditions.length > 0) {
-      return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt));
+      return db
+        .select()
+        .from(tasks)
+        .where(and(...conditions))
+        .orderBy(desc(tasks.createdAt));
     }
     return db.select().from(tasks).orderBy(desc(tasks.createdAt));
   }
@@ -266,7 +333,11 @@ var DatabaseStorage = class {
     return task;
   }
   async updateTask(id, data) {
-    const [task] = await db.update(tasks).set(data).where(eq(tasks.id, id)).returning();
+    const [task] = await db
+      .update(tasks)
+      .set(data)
+      .where(eq(tasks.id, id))
+      .returning();
     return task || void 0;
   }
   async getActivityLogs(filters) {
@@ -281,7 +352,11 @@ var DatabaseStorage = class {
       conditions.push(eq(activityLogs.action, filters.action));
     }
     if (conditions.length > 0) {
-      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.createdAt));
+      return db
+        .select()
+        .from(activityLogs)
+        .where(and(...conditions))
+        .orderBy(desc(activityLogs.createdAt));
     }
     return db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt));
   }
@@ -290,7 +365,11 @@ var DatabaseStorage = class {
     return log2;
   }
   async getFillHistory(warehouseContainerId) {
-    return db.select().from(fillHistory).where(eq(fillHistory.warehouseContainerId, warehouseContainerId)).orderBy(desc(fillHistory.createdAt));
+    return db
+      .select()
+      .from(fillHistory)
+      .where(eq(fillHistory.warehouseContainerId, warehouseContainerId))
+      .orderBy(desc(fillHistory.createdAt));
   }
   async createFillHistory(data) {
     const [history] = await db.insert(fillHistory).values(data).returning();
@@ -309,7 +388,10 @@ async function registerRoutes(app2) {
     res.status(200).end();
   });
   app2.get("/api/health", (req, res) => {
-    res.status(200).json({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    res.status(200).json({
+      status: "ok",
+      timestamp: /* @__PURE__ */ new Date().toISOString(),
+    });
   });
   app2.get("/api/auth/replit", (req, res) => {
     const userId = req.headers["x-replit-user-id"];
@@ -318,7 +400,7 @@ async function registerRoutes(app2) {
     if (!userId || !userName) {
       return res.status(401).json({
         error: "Not authenticated with Replit",
-        authenticated: false
+        authenticated: false,
       });
     }
     res.json({
@@ -326,8 +408,8 @@ async function registerRoutes(app2) {
       replitUser: {
         id: userId,
         name: userName,
-        roles: userRoles ? userRoles.split(",") : []
-      }
+        roles: userRoles ? userRoles.split(",") : [],
+      },
     });
   });
   app2.post("/api/auth/replit/login", async (req, res) => {
@@ -347,7 +429,7 @@ async function registerRoutes(app2) {
           email: replitEmail,
           password: hashPassword(`replit-${userId}-${Date.now()}`),
           name: userName,
-          role: isFirstUser ? "admin" : "driver"
+          role: isFirstUser ? "admin" : "driver",
         });
       }
       if (!user.isActive) {
@@ -364,7 +446,9 @@ async function registerRoutes(app2) {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
+        return res
+          .status(400)
+          .json({ error: "Email and password are required" });
       }
       const user = await storage.getUserByEmail(email);
       if (!user) {
@@ -408,7 +492,9 @@ async function registerRoutes(app2) {
     try {
       const { email, password, name, role } = req.body;
       if (!email || !password || !name) {
-        return res.status(400).json({ error: "Email, password, and name are required" });
+        return res
+          .status(400)
+          .json({ error: "Email, password, and name are required" });
       }
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
@@ -419,7 +505,7 @@ async function registerRoutes(app2) {
         email,
         password: hashedPassword,
         name,
-        role: role || "driver"
+        role: role || "driver",
       });
       const { password: _, ...userWithoutPassword } = user;
       res.status(201).json(userWithoutPassword);
@@ -460,7 +546,9 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/containers/customer/qr/:qrCode", async (req, res) => {
     try {
-      const container = await storage.getCustomerContainerByQR(req.params.qrCode);
+      const container = await storage.getCustomerContainerByQR(
+        req.params.qrCode,
+      );
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -479,7 +567,10 @@ async function registerRoutes(app2) {
   });
   app2.patch("/api/containers/customer/:id", async (req, res) => {
     try {
-      const container = await storage.updateCustomerContainer(req.params.id, req.body);
+      const container = await storage.updateCustomerContainer(
+        req.params.id,
+        req.body,
+      );
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -509,7 +600,9 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/containers/warehouse/qr/:qrCode", async (req, res) => {
     try {
-      const container = await storage.getWarehouseContainerByQR(req.params.qrCode);
+      const container = await storage.getWarehouseContainerByQR(
+        req.params.qrCode,
+      );
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -528,7 +621,10 @@ async function registerRoutes(app2) {
   });
   app2.patch("/api/containers/warehouse/:id", async (req, res) => {
     try {
-      const container = await storage.updateWarehouseContainer(req.params.id, req.body);
+      const container = await storage.updateWarehouseContainer(
+        req.params.id,
+        req.body,
+      );
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -552,7 +648,9 @@ async function registerRoutes(app2) {
       if (assignedTo) filters.assignedTo = assignedTo;
       if (status) filters.status = status;
       if (date) filters.date = new Date(date);
-      const taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : void 0);
+      const taskList = await storage.getTasks(
+        Object.keys(filters).length > 0 ? filters : void 0,
+      );
       res.json(taskList);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -598,7 +696,7 @@ async function registerRoutes(app2) {
       const updatedTask = await storage.updateTask(req.params.id, {
         status: "in_progress",
         pickupTimestamp: /* @__PURE__ */ new Date(),
-        pickupLocation: location
+        pickupLocation: location,
       });
       await storage.createActivityLog({
         userId,
@@ -606,7 +704,7 @@ async function registerRoutes(app2) {
         taskId: task.id,
         containerId: task.containerID,
         location,
-        details: `Picked up container ${task.containerID}`
+        details: `Picked up container ${task.containerID}`,
       });
       res.json(updatedTask);
     } catch (error) {
@@ -620,32 +718,36 @@ async function registerRoutes(app2) {
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
-      const warehouseContainer = await storage.getWarehouseContainer(warehouseContainerId);
+      const warehouseContainer =
+        await storage.getWarehouseContainer(warehouseContainerId);
       if (!warehouseContainer) {
         return res.status(404).json({ error: "Warehouse container not found" });
       }
       if (warehouseContainer.materialType !== task.materialType) {
         return res.status(400).json({ error: "Material type mismatch" });
       }
-      const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
+      const availableSpace =
+        warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
       if (amount > availableSpace) {
-        return res.status(400).json({ error: "Insufficient capacity", availableSpace });
+        return res
+          .status(400)
+          .json({ error: "Insufficient capacity", availableSpace });
       }
       const updatedTask = await storage.updateTask(req.params.id, {
         status: "completed",
         deliveryTimestamp: /* @__PURE__ */ new Date(),
-        deliveryContainerID: warehouseContainerId
+        deliveryContainerID: warehouseContainerId,
       });
       await storage.updateWarehouseContainer(warehouseContainerId, {
-        currentAmount: warehouseContainer.currentAmount + amount
+        currentAmount: warehouseContainer.currentAmount + amount,
       });
       await storage.createFillHistory({
         warehouseContainerId,
         amountAdded: amount,
-        taskId: task.id
+        taskId: task.id,
       });
       await storage.updateCustomerContainer(task.containerID, {
-        lastEmptied: /* @__PURE__ */ new Date()
+        lastEmptied: /* @__PURE__ */ new Date(),
       });
       await storage.createActivityLog({
         userId,
@@ -653,7 +755,7 @@ async function registerRoutes(app2) {
         taskId: task.id,
         containerId: warehouseContainerId,
         location,
-        details: `Delivered ${amount}kg to container ${warehouseContainerId}`
+        details: `Delivered ${amount}kg to container ${warehouseContainerId}`,
       });
       res.json(updatedTask);
     } catch (error) {
@@ -669,14 +771,14 @@ async function registerRoutes(app2) {
       }
       const updatedTask = await storage.updateTask(req.params.id, {
         status: "cancelled",
-        cancellationReason: reason
+        cancellationReason: reason,
       });
       await storage.createActivityLog({
         userId,
         action: "cancelled",
         taskId: task.id,
         containerId: task.containerID,
-        details: `Task cancelled: ${reason}`
+        details: `Task cancelled: ${reason}`,
       });
       res.json(updatedTask);
     } catch (error) {
@@ -692,7 +794,9 @@ async function registerRoutes(app2) {
       if (action) filters.action = action;
       if (startDate) filters.startDate = new Date(startDate);
       if (endDate) filters.endDate = new Date(endDate);
-      const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
+      const logs = await storage.getActivityLogs(
+        Object.keys(filters).length > 0 ? filters : void 0,
+      );
       res.json(logs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch activity logs" });
@@ -707,27 +811,39 @@ async function registerRoutes(app2) {
       if (action) filters.action = action;
       if (startDate) filters.startDate = new Date(startDate);
       if (endDate) filters.endDate = new Date(endDate);
-      const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
+      const logs = await storage.getActivityLogs(
+        Object.keys(filters).length > 0 ? filters : void 0,
+      );
       const users2 = await storage.getUsers();
       const getUserName = (id) => {
         const user = users2.find((u) => u.id === id);
         return user?.name || "Unknown";
       };
-      const csvHeader = "ID,Date,Time,Driver,Action,Container ID,Task ID,Details\n";
-      const csvRows = logs.map((log2) => {
-        const date = new Date(log2.createdAt);
-        const dateStr = date.toLocaleDateString("en-US");
-        const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-        const driverName = getUserName(log2.userId).replace(/,/g, ";");
-        const action2 = log2.action.replace(/,/g, ";");
-        const containerId2 = log2.containerId?.replace(/,/g, ";") || "";
-        const taskId = log2.taskId?.replace(/,/g, ";") || "";
-        const details = log2.details?.replace(/,/g, ";").replace(/\n/g, " ") || "";
-        return `${log2.id},${dateStr},${timeStr},${driverName},${action2},${containerId2},${taskId},${details}`;
-      }).join("\n");
+      const csvHeader =
+        "ID,Date,Time,Driver,Action,Container ID,Task ID,Details\n";
+      const csvRows = logs
+        .map((log2) => {
+          const date = new Date(log2.createdAt);
+          const dateStr = date.toLocaleDateString("en-US");
+          const timeStr = date.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          const driverName = getUserName(log2.userId).replace(/,/g, ";");
+          const action2 = log2.action.replace(/,/g, ";");
+          const containerId2 = log2.containerId?.replace(/,/g, ";") || "";
+          const taskId = log2.taskId?.replace(/,/g, ";") || "";
+          const details =
+            log2.details?.replace(/,/g, ";").replace(/\n/g, " ") || "";
+          return `${log2.id},${dateStr},${timeStr},${driverName},${action2},${containerId2},${taskId},${details}`;
+        })
+        .join("\n");
       const csv = csvHeader + csvRows;
       res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename=activity-log-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=activity-log-${/* @__PURE__ */ new Date().toISOString().split("T")[0]}.csv`,
+      );
       res.send(csv);
     } catch (error) {
       res.status(500).json({ error: "Failed to export activity logs" });
@@ -744,7 +860,9 @@ async function registerRoutes(app2) {
       startOfWeek.setDate(now.getDate() - 7);
       const driverStats = drivers.map((driver) => {
         const driverTasks = allTasks.filter((t) => t.assignedTo === driver.id);
-        const completedTasks = driverTasks.filter((t) => t.status === "completed");
+        const completedTasks = driverTasks.filter(
+          (t) => t.status === "completed",
+        );
         const completedToday = completedTasks.filter((t) => {
           if (!t.deliveryTimestamp) return false;
           return new Date(t.deliveryTimestamp).toDateString() === today;
@@ -754,13 +872,25 @@ async function registerRoutes(app2) {
           const deliveryDate = new Date(t.deliveryTimestamp);
           return deliveryDate >= startOfWeek;
         });
-        const avgDeliveryTime = completedTasks.length > 0 ? completedTasks.reduce((sum, t) => {
-          if (t.pickupTimestamp && t.deliveryTimestamp) {
-            return sum + (new Date(t.deliveryTimestamp).getTime() - new Date(t.pickupTimestamp).getTime());
-          }
-          return sum;
-        }, 0) / completedTasks.length / (1e3 * 60) : 0;
-        const completionRate = driverTasks.length > 0 ? Math.round(completedTasks.length / driverTasks.length * 100) : 0;
+        const avgDeliveryTime =
+          completedTasks.length > 0
+            ? completedTasks.reduce((sum, t) => {
+                if (t.pickupTimestamp && t.deliveryTimestamp) {
+                  return (
+                    sum +
+                    (new Date(t.deliveryTimestamp).getTime() -
+                      new Date(t.pickupTimestamp).getTime())
+                  );
+                }
+                return sum;
+              }, 0) /
+              completedTasks.length /
+              (1e3 * 60)
+            : 0;
+        const completionRate =
+          driverTasks.length > 0
+            ? Math.round((completedTasks.length / driverTasks.length) * 100)
+            : 0;
         return {
           id: driver.id,
           name: driver.name,
@@ -769,21 +899,36 @@ async function registerRoutes(app2) {
           totalCompleted: completedTasks.length,
           completedToday: completedToday.length,
           completedThisWeek: completedThisWeek.length,
-          inProgress: driverTasks.filter((t) => t.status === "in_progress").length,
+          inProgress: driverTasks.filter((t) => t.status === "in_progress")
+            .length,
           completionRate,
-          avgDeliveryTimeMinutes: Math.round(avgDeliveryTime)
+          avgDeliveryTimeMinutes: Math.round(avgDeliveryTime),
         };
       });
       const overallStats = {
         totalDrivers: drivers.length,
-        activeDrivers: driverStats.filter((d) => d.inProgress > 0 || d.completedToday > 0).length,
-        totalCompletedToday: driverStats.reduce((sum, d) => sum + d.completedToday, 0),
-        totalCompletedThisWeek: driverStats.reduce((sum, d) => sum + d.completedThisWeek, 0),
-        avgCompletionRate: driverStats.length > 0 ? Math.round(driverStats.reduce((sum, d) => sum + d.completionRate, 0) / driverStats.length) : 0
+        activeDrivers: driverStats.filter(
+          (d) => d.inProgress > 0 || d.completedToday > 0,
+        ).length,
+        totalCompletedToday: driverStats.reduce(
+          (sum, d) => sum + d.completedToday,
+          0,
+        ),
+        totalCompletedThisWeek: driverStats.reduce(
+          (sum, d) => sum + d.completedThisWeek,
+          0,
+        ),
+        avgCompletionRate:
+          driverStats.length > 0
+            ? Math.round(
+                driverStats.reduce((sum, d) => sum + d.completionRate, 0) /
+                  driverStats.length,
+              )
+            : 0,
       };
       res.json({
         drivers: driverStats,
-        overall: overallStats
+        overall: overallStats,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch driver performance" });
@@ -802,20 +947,25 @@ async function registerRoutes(app2) {
       const dailyData = [];
       for (let i = 6; i >= 0; i--) {
         const date = daysAgo(i);
-        const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const dateStr = date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
         const dayTasks = allTasks.filter((t) => {
           if (!t.deliveryTimestamp) return false;
           const taskDate = new Date(t.deliveryTimestamp);
           return taskDate.toDateString() === date.toDateString();
         });
         const totalDelivered = dayTasks.reduce((sum, t) => {
-          const container = warehouseContainers2.find((c) => c.id === t.deliveryContainerID);
+          const container = warehouseContainers2.find(
+            (c) => c.id === t.deliveryContainerID,
+          );
           return sum + (container ? 50 : 0);
         }, 0);
         dailyData.push({
           date: dateStr,
           deliveries: dayTasks.length,
-          volumeKg: totalDelivered
+          volumeKg: totalDelivered,
         });
       }
       const currentFillLevels = warehouseContainers2.map((c) => ({
@@ -824,7 +974,7 @@ async function registerRoutes(app2) {
         materialType: c.materialType,
         currentAmount: c.currentAmount,
         maxCapacity: c.maxCapacity,
-        fillPercentage: Math.round(c.currentAmount / c.maxCapacity * 100)
+        fillPercentage: Math.round((c.currentAmount / c.maxCapacity) * 100),
       }));
       const materialBreakdown = warehouseContainers2.reduce((acc, c) => {
         const existing = acc.find((m) => m.material === c.materialType);
@@ -835,7 +985,7 @@ async function registerRoutes(app2) {
           acc.push({
             material: c.materialType,
             currentAmount: c.currentAmount,
-            maxCapacity: c.maxCapacity
+            maxCapacity: c.maxCapacity,
           });
         }
         return acc;
@@ -843,7 +993,7 @@ async function registerRoutes(app2) {
       res.json({
         dailyTrends: dailyData,
         containerLevels: currentFillLevels,
-        materialBreakdown
+        materialBreakdown,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch analytics" });
@@ -863,15 +1013,27 @@ async function registerRoutes(app2) {
         return created >= today && created <= todayEnd;
       });
       const openTasks = allTasks.filter((t) => t.status === "open").length;
-      const inProgressTasks = allTasks.filter((t) => t.status === "in_progress").length;
-      const completedToday = todayTasks.filter((t) => t.status === "completed").length;
-      const activeDrivers = users2.filter((u) => u.role === "driver" && u.isActive).length;
+      const inProgressTasks = allTasks.filter(
+        (t) => t.status === "in_progress",
+      ).length;
+      const completedToday = todayTasks.filter(
+        (t) => t.status === "completed",
+      ).length;
+      const activeDrivers = users2.filter(
+        (u) => u.role === "driver" && u.isActive,
+      ).length;
       const criticalContainers = warehouseContainers2.filter((c) => {
-        const fillPercentage = c.currentAmount / c.maxCapacity * 100;
+        const fillPercentage = (c.currentAmount / c.maxCapacity) * 100;
         return fillPercentage >= 80;
       }).length;
-      const totalCapacity = warehouseContainers2.reduce((acc, c) => acc + c.maxCapacity, 0);
-      const usedCapacity = warehouseContainers2.reduce((acc, c) => acc + c.currentAmount, 0);
+      const totalCapacity = warehouseContainers2.reduce(
+        (acc, c) => acc + c.maxCapacity,
+        0,
+      );
+      const usedCapacity = warehouseContainers2.reduce(
+        (acc, c) => acc + c.currentAmount,
+        0,
+      );
       const availableCapacity = totalCapacity - usedCapacity;
       res.json({
         openTasks,
@@ -880,7 +1042,7 @@ async function registerRoutes(app2) {
         activeDrivers,
         criticalContainers,
         totalCapacity,
-        availableCapacity
+        availableCapacity,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
@@ -898,11 +1060,11 @@ var log = console.log;
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origins = /* @__PURE__ */ new Set();
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+    if (process.env.EXPO_PUBLIC_DOMAIN) {
+      origins.add(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
     }
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+    if (process.env.EXPO_PUBLIC_DOMAIN) {
+      process.env.EXPO_PUBLIC_DOMAIN.split(",").forEach((d) => {
         origins.add(`https://${d.trim()}`);
       });
     }
@@ -911,7 +1073,7 @@ function setupCors(app2) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS"
+        "GET, POST, PUT, DELETE, OPTIONS",
       );
       res.header("Access-Control-Allow-Headers", "Content-Type");
       res.header("Access-Control-Allow-Credentials", "true");
@@ -927,8 +1089,8 @@ function setupBodyParsing(app2) {
     express.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
-      }
-    })
+      },
+    }),
   );
   app2.use(express.urlencoded({ extended: false }));
 }
@@ -938,7 +1100,7 @@ function setupRequestLogging(app2) {
     const path2 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
-    res.json = function(bodyJson, ...args) {
+    res.json = function (bodyJson, ...args) {
       capturedJsonResponse = bodyJson;
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
@@ -972,10 +1134,12 @@ function serveExpoManifest(platform, res) {
     process.cwd(),
     "static-build",
     platform,
-    "manifest.json"
+    "manifest.json",
   );
   if (!fs.existsSync(manifestPath)) {
-    return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
+    return res
+      .status(404)
+      .json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
@@ -983,12 +1147,7 @@ function serveExpoManifest(platform, res) {
   const manifest = fs.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
-function serveLandingPage({
-  req,
-  res,
-  landingPageTemplate,
-  appName
-}) {
+function serveLandingPage({ req, res, landingPageTemplate, appName }) {
   const forwardedProto = req.header("x-forwarded-proto");
   const protocol = forwardedProto || req.protocol || "https";
   const forwardedHost = req.header("x-forwarded-host");
@@ -997,7 +1156,10 @@ function serveLandingPage({
   const expsUrl = `${host}`;
   log(`baseUrl`, baseUrl);
   log(`expsUrl`, expsUrl);
-  const html = landingPageTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl).replace(/EXPS_URL_PLACEHOLDER/g, expsUrl).replace(/APP_NAME_PLACEHOLDER/g, appName);
+  const html = landingPageTemplate
+    .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
+    .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
+    .replace(/APP_NAME_PLACEHOLDER/g, appName);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
 }
@@ -1006,7 +1168,7 @@ function configureExpoAndLanding(app2) {
     process.cwd(),
     "server",
     "templates",
-    "landing-page.html"
+    "landing-page.html",
   );
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
@@ -1027,7 +1189,7 @@ function configureExpoAndLanding(app2) {
         req,
         res,
         landingPageTemplate,
-        appName
+        appName,
       });
     }
     next();
@@ -1057,10 +1219,10 @@ function setupErrorHandler(app2) {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true
+      reusePort: true,
     },
     () => {
       log(`express server serving on port ${port}`);
-    }
+    },
   );
 })();

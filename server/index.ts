@@ -28,7 +28,7 @@ function setupCors(app: express.Application) {
       ];
 
       const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) ||
-        (process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN));
+        (process.env.EXPO_PUBLIC_DOMAIN && origin.includes(process.env.EXPO_PUBLIC_DOMAIN));
 
       if (isAllowed) {
         res.header("Access-Control-Allow-Origin", origin);
