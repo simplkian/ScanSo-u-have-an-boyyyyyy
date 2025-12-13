@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, FlatList } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -23,6 +23,7 @@ type UserWithoutPassword = Omit<User, "password">;
 type RouteProps = RouteProp<TasksStackParamList, "TaskDetail">;
 
 const ACTIVE_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT"];
+const CLAIM_TTL_MINUTES = 30;
 
 export default function TaskDetailScreen() {
   const headerHeight = useHeaderHeight();
@@ -35,8 +36,10 @@ export default function TaskDetailScreen() {
   const { taskId } = route.params;
   const [isDeleting, setIsDeleting] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [isHandingOver, setIsHandingOver] = useState(false);
+  const [claimTimeRemaining, setClaimTimeRemaining] = useState<number | null>(null);
 
   const { data: task, isLoading } = useQuery<Task>({
     queryKey: [`/api/tasks/${taskId}`],
@@ -47,6 +50,40 @@ export default function TaskDetailScreen() {
   });
 
   const drivers = users.filter((u) => u.role === "DRIVER" || u.role === "driver").filter((u) => u.isActive && u.id !== user?.id);
+
+  const getClaimTimeRemaining = (claimedAt: Date | string | null): number | null => {
+    if (!claimedAt) return null;
+    const claimTime = new Date(claimedAt).getTime();
+    const expiryTime = claimTime + CLAIM_TTL_MINUTES * 60 * 1000;
+    const remaining = expiryTime - Date.now();
+    return remaining > 0 ? Math.ceil(remaining / 60000) : 0;
+  };
+
+  const isClaimExpired = (claimedAt: Date | string | null): boolean => {
+    if (!claimedAt) return true;
+    const remaining = getClaimTimeRemaining(claimedAt);
+    return remaining === 0;
+  };
+
+  useEffect(() => {
+    if (!task?.claimedAt || !task?.claimedByUserId) {
+      setClaimTimeRemaining(null);
+      return;
+    }
+    const updateRemaining = () => {
+      const remaining = getClaimTimeRemaining(task.claimedAt);
+      setClaimTimeRemaining(remaining);
+    };
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 30000);
+    return () => clearInterval(interval);
+  }, [task?.claimedAt, task?.claimedByUserId]);
+
+  const getClaimerName = (): string => {
+    if (!task?.claimedByUserId) return "";
+    const claimer = users.find((u) => u.id === task.claimedByUserId);
+    return claimer?.name || "Unbekannt";
+  };
   
   const deleteTaskMutation = useMutation({
     mutationFn: async () => {
@@ -72,13 +109,17 @@ export default function TaskDetailScreen() {
     try {
       const response = await apiRequest("POST", `/api/tasks/${taskId}/claim`, { userId: user.id });
       if (response.status === 409) {
-        Alert.alert("Fehler", "Dieser Auftrag wurde bereits von einem anderen Fahrer angenommen.");
+        const errorData = await response.json().catch(() => ({}));
+        const claimerInfo = errorData.claimedBy ? ` von ${errorData.claimedBy}` : "";
+        const remainingInfo = errorData.remainingMinutes ? ` (${errorData.remainingMinutes} Min. verbleibend)` : "";
+        Alert.alert("Bereits übernommen", `Dieser Auftrag wurde bereits${claimerInfo} übernommen${remainingInfo}.`);
+        queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}`] });
         setIsClaiming(false);
         return;
       }
       if (!response.ok) {
         const errorData = await response.json();
-        Alert.alert("Fehler", errorData.error || "Auftrag konnte nicht angenommen werden.");
+        Alert.alert("Fehler", errorData.error || "Auftrag konnte nicht übernommen werden.");
         setIsClaiming(false);
         return;
       }
@@ -86,12 +127,36 @@ export default function TaskDetailScreen() {
       queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
-      Alert.alert("Erfolg", "Auftrag erfolgreich angenommen");
+      Alert.alert("Erfolg", "Auftrag erfolgreich übernommen");
     } catch (error) {
-      Alert.alert("Fehler", "Auftrag konnte nicht angenommen werden.");
+      Alert.alert("Fehler", "Auftrag konnte nicht übernommen werden.");
       console.error("Claim task error:", error);
     } finally {
       setIsClaiming(false);
+    }
+  };
+
+  const handleReleaseTask = async () => {
+    if (!user || !task) return;
+    setIsReleasing(true);
+    try {
+      const response = await apiRequest("POST", `/api/tasks/${taskId}/release`, { userId: user.id });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        Alert.alert("Fehler", errorData.error || "Auftrag konnte nicht freigegeben werden.");
+        setIsReleasing(false);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      Alert.alert("Erfolg", "Auftrag wurde freigegeben");
+    } catch (error) {
+      Alert.alert("Fehler", "Auftrag konnte nicht freigegeben werden.");
+      console.error("Release task error:", error);
+    } finally {
+      setIsReleasing(false);
     }
   };
 
@@ -120,7 +185,20 @@ export default function TaskDetailScreen() {
     }
   };
 
-  const canClaim = task && (task.status === "OFFEN" || task.status === "PLANNED") && !task.claimedByUserId && !task.assignedTo;
+  const claimExpired = task?.claimedAt ? isClaimExpired(task.claimedAt) : true;
+  const isClaimedByCurrentUser = task?.claimedByUserId === user?.id;
+  const isClaimedByOther = task?.claimedByUserId && !isClaimedByCurrentUser && !claimExpired;
+  
+  const canClaim = task && 
+    (task.status === "OFFEN" || task.status === "PLANNED") && 
+    !task.assignedTo &&
+    (!task.claimedByUserId || claimExpired);
+  
+  const canRelease = task && 
+    (task.status === "OFFEN" || task.status === "PLANNED") && 
+    isClaimedByCurrentUser && 
+    !claimExpired;
+  
   const canHandover = task && 
     !["COMPLETED", "CANCELLED"].includes(task.status) && 
     (isAdmin || task.assignedTo === user?.id || task.claimedByUserId === user?.id);
@@ -236,7 +314,7 @@ export default function TaskDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Card style={[styles.headerCard, { backgroundColor: theme.cardSurface }]}>
+        <Card style={{ ...styles.headerCard, backgroundColor: theme.cardSurface }}>
           <View style={styles.headerRow}>
             <View style={styles.containerInfo}>
               <Feather name="package" size={32} color={theme.primary} />
@@ -253,7 +331,7 @@ export default function TaskDetailScreen() {
           </View>
         </Card>
 
-        <Card style={[styles.infoCard, { backgroundColor: theme.cardSurface }]}>
+        <Card style={{ ...styles.infoCard, backgroundColor: theme.cardSurface }}>
           <ThemedText type="h4" style={styles.sectionTitle}>
             Abholungsdetails
           </ThemedText>
@@ -303,7 +381,7 @@ export default function TaskDetailScreen() {
         </Card>
 
         {task.notes ? (
-          <Card style={[styles.notesCard, { backgroundColor: theme.cardSurface }]}>
+          <Card style={{ ...styles.notesCard, backgroundColor: theme.cardSurface }}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Anweisungen
             </ThemedText>
@@ -314,7 +392,7 @@ export default function TaskDetailScreen() {
         ) : null}
 
         {hasAnyTimestamp ? (
-          <Card style={[styles.timestampCard, { backgroundColor: theme.cardSurface }]}>
+          <Card style={{ ...styles.timestampCard, backgroundColor: theme.cardSurface }}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Aktivitätsverlauf
             </ThemedText>
@@ -361,35 +439,86 @@ export default function TaskDetailScreen() {
           </Card>
         ) : null}
 
-        {canClaim ? (
-          <Card style={[styles.claimCard, { backgroundColor: theme.cardSurface }]}>
+        {(canClaim || canRelease || isClaimedByOther) ? (
+          <Card style={{ ...styles.claimCard, backgroundColor: theme.cardSurface }}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Auftrag verfügbar
+              {canRelease ? "Auftrag übernommen" : isClaimedByOther ? "Auftrag reserviert" : "Auftrag verfügbar"}
             </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-              Dieser Auftrag ist noch nicht zugewiesen. Sie können ihn annehmen.
-            </ThemedText>
-            <Button 
-              onPress={handleClaimTask} 
-              disabled={isClaiming}
-              style={[styles.claimButton, { backgroundColor: theme.primary }]}
-            >
-              <View style={styles.buttonContent}>
-                {isClaiming ? (
-                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
-                ) : (
-                  <Feather name="user-check" size={20} color={theme.textOnPrimary} />
-                )}
-                <ThemedText type="body" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
-                  {isClaiming ? "Wird angenommen..." : "Auftrag annehmen"}
+            
+            {canRelease ? (
+              <View style={styles.claimStatusRow}>
+                <Feather name="clock" size={16} color={theme.info} />
+                <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+                  {claimTimeRemaining !== null && claimTimeRemaining > 0 
+                    ? `Noch ${claimTimeRemaining} Min. reserviert` 
+                    : "Reservierung läuft ab"}
                 </ThemedText>
               </View>
-            </Button>
+            ) : isClaimedByOther ? (
+              <View style={styles.claimStatusRow}>
+                <Feather name="user" size={16} color={theme.warning} />
+                <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+                  Übernommen von {getClaimerName()}
+                  {claimTimeRemaining !== null && claimTimeRemaining > 0 
+                    ? ` (${claimTimeRemaining} Min. verbleibend)` 
+                    : " (Abgelaufen)"}
+                </ThemedText>
+              </View>
+            ) : claimExpired && task?.claimedByUserId ? (
+              <View style={styles.claimStatusRow}>
+                <Feather name="alert-circle" size={16} color={theme.error} />
+                <ThemedText type="small" style={{ color: theme.error }}>
+                  Vorherige Reservierung abgelaufen
+                </ThemedText>
+              </View>
+            ) : (
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+                Dieser Auftrag ist verfügbar. Sie können ihn übernehmen.
+              </ThemedText>
+            )}
+
+            {canClaim ? (
+              <Button 
+                onPress={handleClaimTask} 
+                disabled={isClaiming}
+                style={[styles.claimButton, { backgroundColor: theme.primary, marginTop: Spacing.md }]}
+              >
+                <View style={styles.buttonContent}>
+                  {isClaiming ? (
+                    <ActivityIndicator size="small" color={theme.textOnPrimary} />
+                  ) : (
+                    <Feather name="user-check" size={20} color={theme.textOnPrimary} />
+                  )}
+                  <ThemedText type="body" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
+                    {isClaiming ? "Wird übernommen..." : "Übernehmen"}
+                  </ThemedText>
+                </View>
+              </Button>
+            ) : null}
+
+            {canRelease ? (
+              <Button 
+                onPress={handleReleaseTask} 
+                disabled={isReleasing}
+                style={[styles.releaseButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, marginTop: Spacing.md }]}
+              >
+                <View style={styles.buttonContent}>
+                  {isReleasing ? (
+                    <ActivityIndicator size="small" color={theme.text} />
+                  ) : (
+                    <Feather name="unlock" size={20} color={theme.text} />
+                  )}
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
+                    {isReleasing ? "Wird freigegeben..." : "Freigeben"}
+                  </ThemedText>
+                </View>
+              </Button>
+            ) : null}
           </Card>
         ) : null}
 
         {canHandover ? (
-          <Card style={[styles.handoverCard, { backgroundColor: theme.cardSurface }]}>
+          <Card style={{ ...styles.handoverCard, backgroundColor: theme.cardSurface }}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Auftrag übergeben
             </ThemedText>
@@ -432,7 +561,7 @@ export default function TaskDetailScreen() {
         ) : null}
 
         {isAdmin ? (
-          <Card style={[styles.adminCard, { backgroundColor: theme.cardSurface, borderColor: theme.error }]}>
+          <Card style={{ ...styles.adminCard, backgroundColor: theme.cardSurface, borderColor: theme.error }}>
             <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.error }]}>
               Admin-Aktionen
             </ThemedText>
@@ -635,8 +764,18 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginTop: Spacing.md,
   },
+  claimStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   claimButton: {
     paddingVertical: Spacing.lg,
+  },
+  releaseButton: {
+    paddingVertical: Spacing.lg,
+    borderWidth: 1,
   },
   handoverCard: {
     padding: Spacing.lg,

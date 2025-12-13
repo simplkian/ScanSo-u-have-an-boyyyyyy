@@ -10,7 +10,6 @@ import { Card } from "@/components/Card";
 import { FilterChip } from "@/components/FilterChip";
 import { ProgressBar } from "@/components/ProgressBar";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { EmptyState } from "@/components/EmptyState";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { AUTOMOTIVE_TASK_STATUS_LABELS } from "@shared/schema";
@@ -32,6 +31,31 @@ interface StationData {
   materialName: string | null;
   totalWeightKg: string | null;
   taskCount: number;
+  avgLeadTimeMinutes: string | null;
+}
+
+interface HallData {
+  hallId: string;
+  hallName: string;
+  taskCount: number;
+  totalWeightKg: string | null;
+  avgLeadTimeMinutes: string | null;
+}
+
+interface UserPerformanceEntry {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  role: string;
+  totalWeightKg: string | null;
+  taskCount: number;
+}
+
+interface UsersData {
+  data: {
+    byWeigher: UserPerformanceEntry[];
+    byDriver: UserPerformanceEntry[];
+  };
 }
 
 interface LeadTimesData {
@@ -110,8 +134,26 @@ export default function AnalyticsScreen() {
     isLoading: stationsLoading,
     refetch: refetchStations,
     isRefetching: stationsRefetching,
-  } = useQuery<{ data: StationData[] }>({
+  } = useQuery<StationData[]>({
     queryKey: ["/api/analytics/stations", { from, to }],
+  });
+
+  const { 
+    data: hallsResponse, 
+    isLoading: hallsLoading,
+    refetch: refetchHalls,
+    isRefetching: hallsRefetching,
+  } = useQuery<HallData[]>({
+    queryKey: ["/api/analytics/halls", { from, to }],
+  });
+
+  const { 
+    data: usersResponse, 
+    isLoading: usersLoading,
+    refetch: refetchUsers,
+    isRefetching: usersRefetching,
+  } = useQuery<UsersData>({
+    queryKey: ["/api/analytics/users", { from, to }],
   });
 
   const { 
@@ -132,18 +174,22 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/backlog"],
   });
 
-  const isLoading = materialsLoading || stationsLoading || leadTimesLoading || backlogLoading;
-  const isRefetching = materialsRefetching || stationsRefetching || leadTimesRefetching || backlogRefetching;
+  const isLoading = materialsLoading || stationsLoading || hallsLoading || usersLoading || leadTimesLoading || backlogLoading;
+  const isRefetching = materialsRefetching || stationsRefetching || hallsRefetching || usersRefetching || leadTimesRefetching || backlogRefetching;
 
   const handleRefresh = () => {
     refetchMaterials();
     refetchStations();
+    refetchHalls();
+    refetchUsers();
     refetchLeadTimes();
     refetchBacklog();
   };
 
   const materials = materialsResponse?.data ?? [];
-  const stations = stationsResponse?.data ?? [];
+  const stations = stationsResponse ?? [];
+  const halls = hallsResponse ?? [];
+  const usersData = usersResponse?.data;
   const leadTimes = leadTimesResponse?.data;
   const backlog = backlogResponse;
 
@@ -160,25 +206,25 @@ export default function AnalyticsScreen() {
     return materials.reduce((sum, m) => sum + parseFloat(m.totalWeightKg || "0"), 0);
   }, [materials]);
 
+  const totalTaskCount = useMemo(() => {
+    return materials.reduce((sum, m) => sum + m.taskCount, 0);
+  }, [materials]);
+
+  const avgLeadTimeHours = useMemo(() => {
+    if (!leadTimes) return null;
+    const openToPickup = parseFloat(leadTimes.avgOpenToPickedUpHours || "0");
+    const pickupToDropoff = parseFloat(leadTimes.avgPickedUpToDroppedOffHours || "0");
+    const dropoffToDisposed = parseFloat(leadTimes.avgDroppedOffToDisposedHours || "0");
+    const total = openToPickup + pickupToDropoff + dropoffToDisposed;
+    return total > 0 ? total : null;
+  }, [leadTimes]);
+
   const topMaterial = useMemo(() => {
     if (materials.length === 0) return null;
     return [...materials].sort((a, b) => 
       parseFloat(b.totalWeightKg || "0") - parseFloat(a.totalWeightKg || "0")
     )[0];
   }, [materials]);
-
-  const topStation = useMemo(() => {
-    if (stations.length === 0) return null;
-    const stationTotals: Record<string, { name: string; total: number }> = {};
-    for (const s of stations) {
-      if (!stationTotals[s.stationId]) {
-        stationTotals[s.stationId] = { name: s.stationName, total: 0 };
-      }
-      stationTotals[s.stationId].total += parseFloat(s.totalWeightKg || "0");
-    }
-    const sorted = Object.values(stationTotals).sort((a, b) => b.total - a.total);
-    return sorted[0] || null;
-  }, [stations]);
 
   const openTasksCount = useMemo(() => {
     if (!backlog?.summary) return 0;
@@ -195,6 +241,14 @@ export default function AnalyticsScreen() {
     if (isNaN(num)) return "-";
     if (num < 1) return `${Math.round(num * 60)} min`;
     return `${formatNumber(num)} h`;
+  };
+
+  const formatMinutes = (minutes: string | null) => {
+    if (!minutes) return "-";
+    const num = parseFloat(minutes);
+    if (isNaN(num)) return "-";
+    if (num < 60) return `${Math.round(num)} min`;
+    return `${formatNumber(num / 60)} h`;
   };
 
   const getMaxLeadTime = () => {
@@ -258,6 +312,20 @@ export default function AnalyticsScreen() {
         <View style={styles.kpiGrid}>
           <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
             <View style={styles.kpiContent}>
+              <View style={[styles.kpiIconContainer, { backgroundColor: theme.success + "20" }]}>
+                <Feather name="check-circle" size={20} color={theme.success} />
+              </View>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                Aufgaben erledigt
+              </ThemedText>
+              <ThemedText type="h4" style={{ color: theme.text }}>
+                {formatNumber(totalTaskCount)}
+              </ThemedText>
+            </View>
+          </Card>
+
+          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+            <View style={styles.kpiContent}>
               <View style={[styles.kpiIconContainer, { backgroundColor: theme.accent + "20" }]}>
                 <Feather name="trending-up" size={20} color={theme.accent} />
               </View>
@@ -272,51 +340,28 @@ export default function AnalyticsScreen() {
 
           <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: theme.success + "20" }]}>
-                <Feather name="package" size={20} color={theme.success} />
-              </View>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                Top Material
-              </ThemedText>
-              <ThemedText type="bodyBold" style={{ color: theme.text }} numberOfLines={1}>
-                {topMaterial?.materialName || "-"}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {topMaterial ? `${formatNumber(parseFloat(topMaterial.totalWeightKg || "0"))} kg` : "-"}
-              </ThemedText>
-            </View>
-          </Card>
-
-          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
-            <View style={styles.kpiContent}>
               <View style={[styles.kpiIconContainer, { backgroundColor: theme.info + "20" }]}>
-                <Feather name="map-pin" size={20} color={theme.info} />
+                <Feather name="clock" size={20} color={theme.info} />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                Top Station
+                Durchschn. Durchlauf
               </ThemedText>
-              <ThemedText type="bodyBold" style={{ color: theme.text }} numberOfLines={1}>
-                {topStation?.name || "-"}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {topStation ? `${formatNumber(topStation.total)} kg` : "-"}
+              <ThemedText type="h4" style={{ color: theme.text }}>
+                {avgLeadTimeHours ? `${formatNumber(avgLeadTimeHours)} h` : "-"}
               </ThemedText>
             </View>
           </Card>
 
           <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: theme.warning + "20" }]}>
-                <Feather name="clock" size={20} color={theme.warning} />
+              <View style={[styles.kpiIconContainer, { backgroundColor: openTasksCount > 0 ? theme.warning + "20" : theme.success + "20" }]}>
+                <Feather name="alert-triangle" size={20} color={openTasksCount > 0 ? theme.warning : theme.success} />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                Offene Tasks
+                Rückstand ({">"}24h)
               </ThemedText>
               <ThemedText type="h4" style={{ color: openTasksCount > 0 ? theme.warning : theme.text }}>
                 {openTasksCount}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {">"} 24h
               </ThemedText>
             </View>
           </Card>
@@ -324,9 +369,12 @@ export default function AnalyticsScreen() {
 
         <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
           <View style={styles.sectionHeader}>
-            <ThemedText type="h4" style={{ color: theme.text }}>
-              Material-Übersicht
-            </ThemedText>
+            <View style={styles.sectionTitleRow}>
+              <Feather name="package" size={18} color={theme.primary} />
+              <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+                Materialien
+              </ThemedText>
+            </View>
             <Pressable 
               onPress={() => setMaterialSortAsc(!materialSortAsc)}
               style={styles.sortButton}
@@ -337,7 +385,7 @@ export default function AnalyticsScreen() {
                 color={theme.textSecondary} 
               />
               <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
-                Gewicht
+                kg
               </ThemedText>
             </Pressable>
           </View>
@@ -350,7 +398,7 @@ export default function AnalyticsScreen() {
               Anzahl
             </ThemedText>
             <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
-              Gewicht (kg)
+              Gewicht
             </ThemedText>
           </View>
 
@@ -366,7 +414,7 @@ export default function AnalyticsScreen() {
                 key={material.materialId || index} 
                 style={[
                   styles.tableRow, 
-                  index < sortedMaterials.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.divider }
+                  index < sortedMaterials.length - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
                 ]}
               >
                 <ThemedText type="small" style={[styles.cellMaterial, { color: theme.text }]} numberOfLines={1}>
@@ -384,19 +432,25 @@ export default function AnalyticsScreen() {
         </Card>
 
         <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
-          <ThemedText type="h4" style={{ color: theme.text, marginBottom: Spacing.md }}>
-            Stations-Übersicht
-          </ThemedText>
+          <View style={styles.sectionTitleRow}>
+            <Feather name="map-pin" size={18} color={theme.primary} />
+            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+              Stationen
+            </ThemedText>
+          </View>
 
           <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
             <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellStation, { color: theme.textSecondary }]}>
               Station
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellMaterialSmall, { color: theme.textSecondary }]}>
-              Material
+            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+              Anz.
             </ThemedText>
             <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeightSmall, { color: theme.textSecondary }]}>
               kg
+            </ThemedText>
+            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellLeadTime, { color: theme.textSecondary }]}>
+              Zeit
             </ThemedText>
           </View>
 
@@ -409,20 +463,23 @@ export default function AnalyticsScreen() {
           ) : (
             stations.slice(0, 10).map((station, index) => (
               <View 
-                key={`${station.stationId}-${station.materialId}-${index}`} 
+                key={`${station.stationId}-${index}`} 
                 style={[
                   styles.tableRow, 
-                  index < Math.min(stations.length, 10) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.divider }
+                  index < Math.min(stations.length, 10) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
                 ]}
               >
                 <ThemedText type="small" style={[styles.cellStation, { color: theme.text }]} numberOfLines={1}>
                   {station.stationName}
                 </ThemedText>
-                <ThemedText type="small" style={[styles.cellMaterialSmall, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {station.materialName || "-"}
+                <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                  {station.taskCount}
                 </ThemedText>
                 <ThemedText type="smallBold" style={[styles.cellWeightSmall, { color: theme.text }]}>
                   {formatNumber(parseFloat(station.totalWeightKg || "0"))}
+                </ThemedText>
+                <ThemedText type="small" style={[styles.cellLeadTime, { color: theme.textSecondary }]}>
+                  {formatMinutes(station.avgLeadTimeMinutes)}
                 </ThemedText>
               </View>
             ))
@@ -435,9 +492,154 @@ export default function AnalyticsScreen() {
         </Card>
 
         <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
-          <ThemedText type="h4" style={{ color: theme.text, marginBottom: Spacing.md }}>
-            Durchlaufzeiten
-          </ThemedText>
+          <View style={styles.sectionTitleRow}>
+            <Feather name="home" size={18} color={theme.primary} />
+            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+              Hallen
+            </ThemedText>
+          </View>
+
+          <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
+            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellHall, { color: theme.textSecondary }]}>
+              Halle
+            </ThemedText>
+            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+              Anzahl
+            </ThemedText>
+            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+              Gewicht
+            </ThemedText>
+          </View>
+
+          {halls.length === 0 ? (
+            <View style={styles.emptyRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Keine Daten im Zeitraum
+              </ThemedText>
+            </View>
+          ) : (
+            halls.map((hall, index) => (
+              <View 
+                key={hall.hallId || index} 
+                style={[
+                  styles.tableRow, 
+                  index < halls.length - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                ]}
+              >
+                <ThemedText type="small" style={[styles.cellHall, { color: theme.text }]} numberOfLines={1}>
+                  {hall.hallName || "Unbekannt"}
+                </ThemedText>
+                <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                  {hall.taskCount}
+                </ThemedText>
+                <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                  {formatNumber(parseFloat(hall.totalWeightKg || "0"))}
+                </ThemedText>
+              </View>
+            ))
+          )}
+        </Card>
+
+        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <View style={styles.sectionTitleRow}>
+            <Feather name="users" size={18} color={theme.primary} />
+            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+              Benutzer-Leistung
+            </ThemedText>
+          </View>
+
+          {usersData?.byDriver && usersData.byDriver.length > 0 ? (
+            <>
+              <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+                Fahrer
+              </ThemedText>
+              <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellUser, { color: theme.textSecondary }]}>
+                  Name
+                </ThemedText>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+                  Aufg.
+                </ThemedText>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+                  kg
+                </ThemedText>
+              </View>
+              {usersData.byDriver.slice(0, 5).map((user, index) => (
+                <View 
+                  key={user.userId || index} 
+                  style={[
+                    styles.tableRow, 
+                    index < Math.min(usersData.byDriver.length, 5) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                  ]}
+                >
+                  <ThemedText type="small" style={[styles.cellUser, { color: theme.text }]} numberOfLines={1}>
+                    {user.userName || user.userEmail || "Unbekannt"}
+                  </ThemedText>
+                  <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                    {user.taskCount}
+                  </ThemedText>
+                  <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                    {formatNumber(parseFloat(user.totalWeightKg || "0"))}
+                  </ThemedText>
+                </View>
+              ))}
+            </>
+          ) : null}
+
+          {usersData?.byWeigher && usersData.byWeigher.length > 0 ? (
+            <View style={{ marginTop: usersData?.byDriver?.length ? Spacing.xl : 0 }}>
+              <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+                Wieger
+              </ThemedText>
+              <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellUser, { color: theme.textSecondary }]}>
+                  Name
+                </ThemedText>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+                  Aufg.
+                </ThemedText>
+                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+                  kg
+                </ThemedText>
+              </View>
+              {usersData.byWeigher.slice(0, 5).map((user, index) => (
+                <View 
+                  key={user.userId || index} 
+                  style={[
+                    styles.tableRow, 
+                    index < Math.min(usersData.byWeigher.length, 5) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                  ]}
+                >
+                  <ThemedText type="small" style={[styles.cellUser, { color: theme.text }]} numberOfLines={1}>
+                    {user.userName || user.userEmail || "Unbekannt"}
+                  </ThemedText>
+                  <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                    {user.taskCount}
+                  </ThemedText>
+                  <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                    {formatNumber(parseFloat(user.totalWeightKg || "0"))}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {(!usersData?.byDriver?.length && !usersData?.byWeigher?.length) ? (
+            <View style={styles.emptyRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Keine Benutzerdaten im Zeitraum
+              </ThemedText>
+            </View>
+          ) : null}
+        </Card>
+
+        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <View style={styles.sectionTitleRow}>
+            <Feather name="activity" size={18} color={theme.primary} />
+            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+              Durchlaufzeiten
+            </ThemedText>
+          </View>
 
           {!leadTimes || leadTimes.taskCount === 0 ? (
             <View style={styles.emptyRow}>
@@ -507,9 +709,12 @@ export default function AnalyticsScreen() {
 
         <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
           <View style={styles.sectionHeader}>
-            <ThemedText type="h4" style={{ color: theme.text }}>
-              Rückstand ({">"}24h)
-            </ThemedText>
+            <View style={styles.sectionTitleRow}>
+              <Feather name="alert-triangle" size={18} color={openTasksCount > 0 ? theme.warning : theme.success} />
+              <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+                Rückstand ({">"}24h)
+              </ThemedText>
+            </View>
             {openTasksCount > 0 ? (
               <View style={[styles.backlogBadge, { backgroundColor: theme.warning + "20" }]}>
                 <ThemedText type="captionBold" style={{ color: theme.warning }}>
@@ -592,6 +797,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.md,
   },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   sortButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -617,24 +826,32 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.sm,
   },
   cellCount: {
-    width: 60,
+    width: 50,
     textAlign: "center",
   },
   cellWeight: {
-    width: 80,
+    width: 70,
     textAlign: "right",
   },
   cellStation: {
-    flex: 1.5,
-    paddingRight: Spacing.sm,
-  },
-  cellMaterialSmall: {
-    flex: 1,
+    flex: 1.2,
     paddingRight: Spacing.sm,
   },
   cellWeightSmall: {
-    width: 60,
+    width: 55,
     textAlign: "right",
+  },
+  cellLeadTime: {
+    width: 55,
+    textAlign: "right",
+  },
+  cellHall: {
+    flex: 2,
+    paddingRight: Spacing.sm,
+  },
+  cellUser: {
+    flex: 2,
+    paddingRight: Spacing.sm,
   },
   emptyRow: {
     flexDirection: "row",
