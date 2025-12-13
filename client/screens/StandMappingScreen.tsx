@@ -99,13 +99,15 @@ export default function StandMappingScreen() {
   });
 
   const { data: boxesAtStand = [], isLoading: boxesAtStandLoading, refetch: refetchBoxesAtStand } = useQuery<Box[]>({
-    queryKey: ["/api/boxes", { standId: selectedStandId }],
+    queryKey: ["/api/admin/stands/boxes", selectedStandId],
     queryFn: async () => {
       if (!selectedStandId) return [];
-      const response = await apiRequest("GET", `/api/boxes?standId=${selectedStandId}`);
+      const response = await apiRequest("GET", `/api/admin/stands/${selectedStandId}/boxes`);
       return response.json();
     },
     enabled: !!selectedStandId,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   useEffect(() => {
@@ -126,18 +128,21 @@ export default function StandMappingScreen() {
 
   const assignBoxMutation = useMutation({
     mutationFn: async ({ boxId, standId }: { boxId: string; standId: string }) => {
-      const response = await apiRequest("PUT", `/api/boxes/${boxId}`, {
-        standId,
-        status: "AT_STAND",
+      const response = await apiRequest("POST", `/api/admin/stands/${standId}/assign-box`, {
+        boxId,
       });
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 409) {
+          throw new Error(`Box ist bereits an Stellplatz "${errorData.currentStandIdentifier}" zugewiesen`);
+        }
         throw new Error(errorData.error || "Zuweisung fehlgeschlagen");
       }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stands/boxes"] });
       refetchBoxesAtStand();
       setSelectedBoxId(null);
       setBoxSearchQuery("");
@@ -159,10 +164,9 @@ export default function StandMappingScreen() {
   });
 
   const removeBoxMutation = useMutation({
-    mutationFn: async (boxId: string) => {
-      const response = await apiRequest("PUT", `/api/boxes/${boxId}`, {
-        standId: null,
-        status: "IN_TRANSIT",
+    mutationFn: async ({ boxId, standId }: { boxId: string; standId: string }) => {
+      const response = await apiRequest("POST", `/api/admin/stands/${standId}/unassign-box`, {
+        boxId,
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -172,6 +176,7 @@ export default function StandMappingScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stands/boxes"] });
       refetchBoxesAtStand();
       const message = "Box erfolgreich entfernt!";
       if (Platform.OS === "web") {
@@ -200,7 +205,7 @@ export default function StandMappingScreen() {
       box.serial.toLowerCase().includes(boxSearchQuery.toLowerCase())
   );
 
-  const currentBoxAtStand = boxesAtStand.find((b) => b.status === "AT_STAND");
+  const currentBoxAtStand = boxesAtStand.length > 0 ? boxesAtStand[0] : null;
 
   const handleAssignBox = () => {
     if (!selectedBoxId || !selectedStandId) return;
@@ -208,9 +213,10 @@ export default function StandMappingScreen() {
   };
 
   const handleRemoveBox = (boxId: string) => {
+    if (!selectedStandId) return;
     if (Platform.OS === "web") {
       if (window.confirm("Box wirklich vom Stellplatz entfernen?")) {
-        removeBoxMutation.mutate(boxId);
+        removeBoxMutation.mutate({ boxId, standId: selectedStandId });
       }
     } else {
       Alert.alert(
@@ -218,7 +224,7 @@ export default function StandMappingScreen() {
         "Box wirklich vom Stellplatz entfernen?",
         [
           { text: "Abbrechen", style: "cancel" },
-          { text: "Entfernen", style: "destructive", onPress: () => removeBoxMutation.mutate(boxId) },
+          { text: "Entfernen", style: "destructive", onPress: () => removeBoxMutation.mutate({ boxId, standId: selectedStandId }) },
         ]
       );
     }
@@ -402,7 +408,10 @@ export default function StandMappingScreen() {
                     <View style={{ flex: 1 }}>
                       <ThemedText type="bodyBold">{currentBoxAtStand.serial}</ThemedText>
                       <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Status: Am Stellplatz
+                        Status: {currentBoxAtStand.status}
+                      </ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textTertiary, fontFamily: 'monospace' }}>
+                        stand_id: {currentBoxAtStand.standId || 'null'}
                       </ThemedText>
                     </View>
                     <StatusBadge status="success" size="small" label="Belegt" />

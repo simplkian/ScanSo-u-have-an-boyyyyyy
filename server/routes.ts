@@ -4075,17 +4075,218 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BOXES CRUD
   // ----------------------------------------------------------------------------
 
-  // GET /api/boxes - List all boxes (optionally includeInactive)
+  // GET /api/boxes - List boxes with optional filters (standId, includeInactive)
   app.get("/api/boxes", async (req, res) => {
     try {
-      const { includeInactive } = req.query;
-      const result = includeInactive === 'true'
-        ? await db.select().from(boxes)
-        : await db.select().from(boxes).where(eq(boxes.isActive, true));
+      const { includeInactive, standId } = req.query;
+      
+      const conditions = [];
+      
+      if (includeInactive !== 'true') {
+        conditions.push(eq(boxes.isActive, true));
+      }
+      
+      if (standId) {
+        conditions.push(eq(boxes.standId, standId as string));
+      }
+      
+      const result = conditions.length > 0
+        ? await db.select().from(boxes).where(and(...conditions))
+        : await db.select().from(boxes);
+      
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch boxes:", error);
       res.status(500).json({ error: "Failed to fetch boxes" });
+    }
+  });
+
+  // GET /api/admin/stands/:standId/boxes - Get boxes at a specific stand (admin only)
+  app.get("/api/admin/stands/:standId/boxes", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { standId } = req.params;
+      
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stellplatz nicht gefunden" });
+      }
+      
+      const result = await db.select().from(boxes).where(
+        and(eq(boxes.standId, standId), eq(boxes.isActive, true))
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch boxes for stand:", error);
+      res.status(500).json({ error: "Failed to fetch boxes" });
+    }
+  });
+
+  // POST /api/admin/stands/:standId/assign-box - Assign box to stand with conflict detection
+  app.post("/api/admin/stands/:standId/assign-box", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { standId } = req.params;
+      const { boxId, boxSerial, boxQr } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!boxId && !boxSerial && !boxQr) {
+        return res.status(400).json({ error: "boxId, boxSerial oder boxQr erforderlich" });
+      }
+      
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stellplatz nicht gefunden" });
+      }
+      
+      let box;
+      if (boxId) {
+        [box] = await db.select().from(boxes).where(eq(boxes.id, boxId));
+      } else if (boxSerial) {
+        [box] = await db.select().from(boxes).where(eq(boxes.serial, boxSerial));
+      } else if (boxQr) {
+        [box] = await db.select().from(boxes).where(eq(boxes.qrCode, boxQr));
+      }
+      
+      if (!box) {
+        return res.status(404).json({ error: "Box nicht gefunden" });
+      }
+      
+      if (!box.isActive) {
+        return res.status(400).json({ error: "Box ist deaktiviert" });
+      }
+      
+      if (box.standId !== null && box.standId !== standId) {
+        const [currentStand] = await db.select().from(stands).where(eq(stands.id, box.standId));
+        return res.status(409).json({ 
+          error: "Box ist bereits an einem anderen Stellplatz platziert",
+          currentStandId: box.standId,
+          currentStandIdentifier: currentStand?.identifier || "Unbekannt"
+        });
+      }
+      
+      if (box.standId === standId) {
+        return res.json({ 
+          message: "Box ist bereits an diesem Stellplatz", 
+          box,
+          alreadyAssigned: true 
+        });
+      }
+      
+      const beforeData = { standId: box.standId, status: box.status };
+      
+      const [updatedBox] = await db.update(boxes)
+        .set({
+          standId,
+          status: "AT_STAND",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, box.id))
+        .returning();
+      
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "BOX_PLACED",
+        entityType: "box",
+        entityId: box.id,
+        details: {
+          boxSerial: box.serial,
+          fromStandId: box.standId,
+          toStandId: standId,
+          standIdentifier: stand.identifier,
+          before: beforeData,
+          after: { standId, status: "AT_STAND" },
+        },
+      });
+      
+      const standMeta = await buildStandContextMeta(standId);
+      await createAuditEvent({
+        taskId: box.currentTaskId || box.id,
+        actorUserId: authUser.id,
+        action: "BOX_PLACED",
+        entityType: "box",
+        entityId: box.id,
+        beforeData,
+        afterData: { standId, status: "AT_STAND" },
+        metaJson: { ...standMeta, boxId: box.id, source: "ADMIN_UI" },
+      });
+      
+      res.json({ 
+        message: "Box erfolgreich zugewiesen", 
+        box: updatedBox 
+      });
+    } catch (error) {
+      console.error("Failed to assign box to stand:", error);
+      res.status(500).json({ error: "Zuweisung fehlgeschlagen" });
+    }
+  });
+
+  // POST /api/admin/stands/:standId/unassign-box - Remove box from stand
+  app.post("/api/admin/stands/:standId/unassign-box", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { standId } = req.params;
+      const { boxId } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!boxId) {
+        return res.status(400).json({ error: "boxId erforderlich" });
+      }
+      
+      const [box] = await db.select().from(boxes).where(eq(boxes.id, boxId));
+      if (!box) {
+        return res.status(404).json({ error: "Box nicht gefunden" });
+      }
+      
+      if (box.standId !== standId) {
+        return res.status(400).json({ error: "Box ist nicht an diesem Stellplatz" });
+      }
+      
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      const beforeData = { standId: box.standId, status: box.status };
+      
+      const [updatedBox] = await db.update(boxes)
+        .set({
+          standId: null,
+          status: "IN_TRANSIT",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, boxId))
+        .returning();
+      
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "BOX_UNPLACED",
+        entityType: "box",
+        entityId: boxId,
+        details: {
+          boxSerial: box.serial,
+          fromStandId: standId,
+          standIdentifier: stand?.identifier,
+          before: beforeData,
+          after: { standId: null, status: "IN_TRANSIT" },
+        },
+      });
+      
+      const standMeta = await buildStandContextMeta(standId);
+      await createAuditEvent({
+        taskId: box.currentTaskId || boxId,
+        actorUserId: authUser.id,
+        action: "BOX_UNPLACED",
+        entityType: "box",
+        entityId: boxId,
+        beforeData,
+        afterData: { standId: null, status: "IN_TRANSIT" },
+        metaJson: { ...standMeta, boxId, source: "ADMIN_UI" },
+      });
+      
+      res.json({ 
+        message: "Box erfolgreich vom Stellplatz entfernt", 
+        box: updatedBox 
+      });
+    } catch (error) {
+      console.error("Failed to unassign box from stand:", error);
+      res.status(500).json({ error: "Entfernung fehlgeschlagen" });
     }
   });
 
