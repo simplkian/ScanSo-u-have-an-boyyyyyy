@@ -67,7 +67,7 @@ export default function ProfileScreen() {
               {getInitials(user?.name || "User")}
             </ThemedText>
           </View>
-          <ThemedText type="h3" style={{ color: theme.text }}>
+          <ThemedText type="h3" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>
             {user?.name}
           </ThemedText>
           <View style={[styles.roleBadge, { backgroundColor: theme.backgroundDefault }]}>
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
             <Feather name="mail" size={20} color={theme.textSecondary} />
             <View style={styles.infoContent}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>E-Mail</ThemedText>
-              <ThemedText type="body" style={{ color: theme.text }}>{user?.email}</ThemedText>
+              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>{user?.email}</ThemedText>
             </View>
           </View>
           <View style={styles.infoRow}>
@@ -120,7 +120,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="grid" size={20} color={theme.primary} />
-                <ThemedText type="body" style={{ color: theme.text }}>Dashboard</ThemedText>
+                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Dashboard</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>
@@ -130,7 +130,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="users" size={20} color={theme.primary} />
-                <ThemedText type="body" style={{ color: theme.text }}>Fahrer verwalten</ThemedText>
+                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Fahrer verwalten</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>
@@ -140,7 +140,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="activity" size={20} color={theme.primary} />
-                <ThemedText type="body" style={{ color: theme.text }}>Aktivitätsverlauf</ThemedText>
+                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Aktivitätsverlauf</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>
@@ -158,7 +158,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.menuItemLeft}>
               <Feather name="grid" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.text }}>QR-Center</ThemedText>
+              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>QR-Center</ThemedText>
             </View>
             <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </Pressable>
@@ -226,14 +226,14 @@ export default function ProfileScreen() {
           <Pressable style={[styles.menuItem, { borderBottomColor: theme.border }]}>
             <View style={styles.menuItemLeft}>
               <Feather name="bell" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.text }}>Benachrichtigungen</ThemedText>
+              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Benachrichtigungen</ThemedText>
             </View>
             <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </Pressable>
           <Pressable style={[styles.menuItem, { borderBottomColor: theme.border }]}>
             <View style={styles.menuItemLeft}>
               <Feather name="help-circle" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.text }}>Hilfe & Support</ThemedText>
+              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Hilfe & Support</ThemedText>
             </View>
             <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </Pressable>
@@ -305,6 +305,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    flex: 1,
+    minWidth: 0,
   },
   themeToggle: {
     flexDirection: "row",

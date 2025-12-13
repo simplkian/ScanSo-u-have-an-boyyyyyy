@@ -178,10 +178,10 @@ export default function QRCenterScreen() {
       >
         <View style={styles.entityRow}>
           <View style={styles.entityInfo}>
-            <ThemedText type="bodyBold" style={{ color: theme.text }}>
+            <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>
               {item.name}
             </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary }}>
               {getEntityTypeLabel(item.type)}
             </ThemedText>
           </View>
@@ -469,6 +469,7 @@ const styles = StyleSheet.create({
   entityInfo: {
     flex: 1,
     gap: Spacing.xs,
+    minWidth: 0,
   },
   qrPreview: {
     width: 56,
