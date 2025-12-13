@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  LayoutChangeEvent,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -67,10 +68,16 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const [selectedHall, setSelectedHall] = useState<HallData | null>(null);
+  const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
 
   const { data: mapData, isLoading, error } = useQuery<MapData>({
     queryKey: ["/api/factory/map-data"],
   });
+
+  const handleMapLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setMapDimensions({ width, height });
+  }, []);
 
   const handleHallPress = (hall: HallData) => {
     if (hallFloorPlans[hall.code]) {
@@ -133,11 +140,11 @@ export default function MapScreen() {
         </View>
 
         <Card style={styles.mapCard}>
-          <View style={styles.mapContainer}>
+          <View style={styles.mapContainer} onLayout={handleMapLayout}>
             <Image
               source={selectedHall ? hallFloorPlans[selectedHall.code] : OutdoorMap}
               style={styles.mapImage}
-              contentFit="contain"
+              contentFit="fill"
             />
 
             {selectedHall ? (
@@ -151,8 +158,8 @@ export default function MapScreen() {
                       styles.marker,
                       styles.stationMarker,
                       {
-                        left: x * MAP_WIDTH - 16,
-                        top: y * MAP_HEIGHT - 16,
+                        left: x * mapDimensions.width - 16,
+                        top: y * mapDimensions.height - 16,
                         backgroundColor: theme.info,
                       },
                     ]}
@@ -174,8 +181,8 @@ export default function MapScreen() {
                       styles.marker,
                       styles.hallMarker,
                       {
-                        left: x * MAP_WIDTH - 20,
-                        top: y * MAP_HEIGHT - 20,
+                        left: x * mapDimensions.width - 20,
+                        top: y * mapDimensions.height - 20,
                         backgroundColor: hasFloorPlan ? theme.accent : theme.textSecondary,
                       },
                     ]}
