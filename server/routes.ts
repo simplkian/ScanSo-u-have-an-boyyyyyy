@@ -9,7 +9,7 @@ import {
   assertAutomotiveTransition, getAutomotiveTimestampFieldForStatus,
   type Material, type Hall, type Station, type Stand, type Box, type TaskEvent, type TaskSchedule
 } from "@shared/schema";
-import { eq, and, desc, notInArray, isNull, gte, lte, sql, inArray, count, sum, avg } from "drizzle-orm";
+import { eq, and, desc, notInArray, isNull, gte, lte, sql, inArray, count, sum, avg, or, ilike } from "drizzle-orm";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -6652,6 +6652,370 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[MapData] Failed to fetch:", error);
       res.status(500).json({ error: "Failed to fetch map data" });
+    }
+  });
+
+  // ============================================================================
+  // QR CENTER ENDPOINTS
+  // ============================================================================
+
+  const QR_ENTITY_TYPES = ["HALL", "STATION", "STAND", "BOX", "WAREHOUSE_CONTAINER"] as const;
+  type QREntityType = typeof QR_ENTITY_TYPES[number];
+
+  function generateQrCode(type: QREntityType, id: string, version?: string): string {
+    const payload: { t: string; id: string; v?: string } = { t: type, id };
+    if (version) {
+      payload.v = version;
+    }
+    return JSON.stringify(payload);
+  }
+
+  function generateRandomVersion(): string {
+    return Math.random().toString(36).substring(2, 10);
+  }
+
+  /**
+   * GET /api/qr/entities
+   * List entities with QR codes, with optional filtering by type and search query
+   * Query params: type (HALL|STATION|STAND|BOX|WAREHOUSE_CONTAINER), query (search string)
+   * Returns: { id, displayName, qrCode, extraMeta }[]
+   */
+  app.get("/api/qr/entities", requireAuth, async (req, res) => {
+    try {
+      const { type, query } = req.query;
+      const entityType = type as QREntityType | undefined;
+      const searchQuery = query as string | undefined;
+
+      if (entityType && !QR_ENTITY_TYPES.includes(entityType)) {
+        return res.status(400).json({ error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}` });
+      }
+
+      const results: { id: string; displayName: string; qrCode: string | null; extraMeta: any }[] = [];
+      const searchPattern = searchQuery ? `%${searchQuery}%` : null;
+
+      // Halls - search by code/name
+      if (!entityType || entityType === "HALL") {
+        let hallQuery = db.select().from(halls).where(eq(halls.isActive, true));
+        if (searchPattern) {
+          hallQuery = db.select().from(halls).where(
+            and(
+              eq(halls.isActive, true),
+              or(ilike(halls.code, searchPattern), ilike(halls.name, searchPattern))
+            )
+          );
+        }
+        const hallsResult = await hallQuery;
+        for (const h of hallsResult) {
+          results.push({
+            id: h.id,
+            displayName: `${h.code} - ${h.name}`,
+            qrCode: h.qrCode,
+            extraMeta: { type: "HALL", code: h.code, name: h.name },
+          });
+        }
+      }
+
+      // Stations - search by code/name
+      if (!entityType || entityType === "STATION") {
+        let stationQuery = db.select().from(stations).where(eq(stations.isActive, true));
+        if (searchPattern) {
+          stationQuery = db.select().from(stations).where(
+            and(
+              eq(stations.isActive, true),
+              or(ilike(stations.code, searchPattern), ilike(stations.name, searchPattern))
+            )
+          );
+        }
+        const stationsResult = await stationQuery;
+        for (const s of stationsResult) {
+          results.push({
+            id: s.id,
+            displayName: `${s.code} - ${s.name}`,
+            qrCode: s.qrCode,
+            extraMeta: { type: "STATION", code: s.code, name: s.name, hallId: s.hallId },
+          });
+        }
+      }
+
+      // Stands - search by identifier
+      if (!entityType || entityType === "STAND") {
+        let standQuery = db.select().from(stands).where(eq(stands.isActive, true));
+        if (searchPattern) {
+          standQuery = db.select().from(stands).where(
+            and(eq(stands.isActive, true), ilike(stands.identifier, searchPattern))
+          );
+        }
+        const standsResult = await standQuery;
+        for (const st of standsResult) {
+          results.push({
+            id: st.id,
+            displayName: `Stand ${st.identifier}`,
+            qrCode: st.qrCode,
+            extraMeta: { type: "STAND", identifier: st.identifier, stationId: st.stationId, materialId: st.materialId },
+          });
+        }
+      }
+
+      // Boxes - search by serial
+      if (!entityType || entityType === "BOX") {
+        let boxQuery = db.select().from(boxes).where(eq(boxes.isActive, true));
+        if (searchPattern) {
+          boxQuery = db.select().from(boxes).where(
+            and(eq(boxes.isActive, true), ilike(boxes.serial, searchPattern))
+          );
+        }
+        const boxesResult = await boxQuery;
+        for (const b of boxesResult) {
+          results.push({
+            id: b.id,
+            displayName: `Box ${b.serial}`,
+            qrCode: b.qrCode,
+            extraMeta: { type: "BOX", serial: b.serial, status: b.status },
+          });
+        }
+      }
+
+      // Warehouse Containers - search by materialType/zone/location
+      if (!entityType || entityType === "WAREHOUSE_CONTAINER") {
+        let wcQuery = db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
+        if (searchPattern) {
+          wcQuery = db.select().from(warehouseContainers).where(
+            and(
+              eq(warehouseContainers.isActive, true),
+              or(
+                ilike(warehouseContainers.materialType, searchPattern),
+                ilike(warehouseContainers.zone, searchPattern),
+                ilike(warehouseContainers.location, searchPattern)
+              )
+            )
+          );
+        }
+        const wcResult = await wcQuery;
+        for (const wc of wcResult) {
+          results.push({
+            id: wc.id,
+            displayName: `${wc.materialType} @ ${wc.zone}/${wc.location}`,
+            qrCode: wc.qrCode,
+            extraMeta: { type: "WAREHOUSE_CONTAINER", materialType: wc.materialType, zone: wc.zone, location: wc.location },
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("[QRCenter] Failed to fetch entities:", error);
+      res.status(500).json({ error: "Failed to fetch QR entities" });
+    }
+  });
+
+  /**
+   * POST /api/qr/ensure
+   * Ensure entity has a QR code - generate if empty, otherwise no-op
+   * Body: { type, id }
+   * Returns: { qrCode }
+   */
+  app.post("/api/qr/ensure", requireAuth, async (req, res) => {
+    try {
+      const { type, id } = req.body;
+
+      if (!type || !id) {
+        return res.status(400).json({ error: "type and id are required" });
+      }
+
+      if (!QR_ENTITY_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}` });
+      }
+
+      let existingQrCode: string | null = null;
+      let entityFound = false;
+
+      switch (type) {
+        case "HALL": {
+          const [hall] = await db.select().from(halls).where(eq(halls.id, id));
+          if (hall) {
+            entityFound = true;
+            existingQrCode = hall.qrCode;
+            if (!existingQrCode) {
+              const newQrCode = generateQrCode("HALL", id);
+              await db.update(halls).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(halls.id, id));
+              existingQrCode = newQrCode;
+            }
+          }
+          break;
+        }
+        case "STATION": {
+          const [station] = await db.select().from(stations).where(eq(stations.id, id));
+          if (station) {
+            entityFound = true;
+            existingQrCode = station.qrCode;
+            if (!existingQrCode) {
+              const newQrCode = generateQrCode("STATION", id);
+              await db.update(stations).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stations.id, id));
+              existingQrCode = newQrCode;
+            }
+          }
+          break;
+        }
+        case "STAND": {
+          const [stand] = await db.select().from(stands).where(eq(stands.id, id));
+          if (stand) {
+            entityFound = true;
+            existingQrCode = stand.qrCode;
+            if (!existingQrCode) {
+              const newQrCode = generateQrCode("STAND", id);
+              await db.update(stands).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stands.id, id));
+              existingQrCode = newQrCode;
+            }
+          }
+          break;
+        }
+        case "BOX": {
+          const [box] = await db.select().from(boxes).where(eq(boxes.id, id));
+          if (box) {
+            entityFound = true;
+            existingQrCode = box.qrCode;
+            if (!existingQrCode) {
+              const newQrCode = generateQrCode("BOX", id);
+              await db.update(boxes).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(boxes.id, id));
+              existingQrCode = newQrCode;
+            }
+          }
+          break;
+        }
+        case "WAREHOUSE_CONTAINER": {
+          const [wc] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+          if (wc) {
+            entityFound = true;
+            existingQrCode = wc.qrCode;
+            if (!existingQrCode) {
+              const newQrCode = generateQrCode("WAREHOUSE_CONTAINER", id);
+              await db.update(warehouseContainers).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(warehouseContainers.id, id));
+              existingQrCode = newQrCode;
+            }
+          }
+          break;
+        }
+      }
+
+      if (!entityFound) {
+        return res.status(404).json({ error: `${type} with id ${id} not found` });
+      }
+
+      res.json({ qrCode: existingQrCode });
+    } catch (error) {
+      console.error("[QRCenter] Failed to ensure QR code:", error);
+      res.status(500).json({ error: "Failed to ensure QR code" });
+    }
+  });
+
+  /**
+   * POST /api/qr/regenerate
+   * Regenerate QR code for an entity (Admin only)
+   * Body: { type, id }
+   * Returns: { qrCode, oldQrCode }
+   */
+  app.post("/api/qr/regenerate", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { type, id } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!type || !id) {
+        return res.status(400).json({ error: "type and id are required" });
+      }
+
+      if (!QR_ENTITY_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}` });
+      }
+
+      let oldQrCode: string | null = null;
+      let newQrCode: string;
+      let entityFound = false;
+      let entityDisplayName = "";
+
+      const version = generateRandomVersion();
+
+      switch (type) {
+        case "HALL": {
+          const [hall] = await db.select().from(halls).where(eq(halls.id, id));
+          if (hall) {
+            entityFound = true;
+            oldQrCode = hall.qrCode;
+            entityDisplayName = `${hall.code} - ${hall.name}`;
+            newQrCode = generateQrCode("HALL", id, version);
+            await db.update(halls).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(halls.id, id));
+          }
+          break;
+        }
+        case "STATION": {
+          const [station] = await db.select().from(stations).where(eq(stations.id, id));
+          if (station) {
+            entityFound = true;
+            oldQrCode = station.qrCode;
+            entityDisplayName = `${station.code} - ${station.name}`;
+            newQrCode = generateQrCode("STATION", id, version);
+            await db.update(stations).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stations.id, id));
+          }
+          break;
+        }
+        case "STAND": {
+          const [stand] = await db.select().from(stands).where(eq(stands.id, id));
+          if (stand) {
+            entityFound = true;
+            oldQrCode = stand.qrCode;
+            entityDisplayName = `Stand ${stand.identifier}`;
+            newQrCode = generateQrCode("STAND", id, version);
+            await db.update(stands).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stands.id, id));
+          }
+          break;
+        }
+        case "BOX": {
+          const [box] = await db.select().from(boxes).where(eq(boxes.id, id));
+          if (box) {
+            entityFound = true;
+            oldQrCode = box.qrCode;
+            entityDisplayName = `Box ${box.serial}`;
+            newQrCode = generateQrCode("BOX", id, version);
+            await db.update(boxes).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(boxes.id, id));
+          }
+          break;
+        }
+        case "WAREHOUSE_CONTAINER": {
+          const [wc] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+          if (wc) {
+            entityFound = true;
+            oldQrCode = wc.qrCode;
+            entityDisplayName = `${wc.materialType} @ ${wc.zone}/${wc.location}`;
+            newQrCode = generateQrCode("WAREHOUSE_CONTAINER", id, version);
+            await db.update(warehouseContainers).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(warehouseContainers.id, id));
+          }
+          break;
+        }
+      }
+
+      if (!entityFound) {
+        return res.status(404).json({ error: `${type} with id ${id} not found` });
+      }
+
+      // Log to activityLogs
+      await db.insert(activityLogs).values({
+        type: "MANUAL_EDIT",
+        action: "QR_REGENERATE",
+        message: `QR-Code für ${type} "${entityDisplayName}" neu generiert`,
+        userId: authUser.id,
+        metadata: {
+          entityType: type,
+          entityId: id,
+          entityDisplayName,
+          oldQrCode,
+          newQrCode: newQrCode!,
+          version,
+        },
+      });
+
+      res.json({ qrCode: newQrCode!, oldQrCode });
+    } catch (error) {
+      console.error("[QRCenter] Failed to regenerate QR code:", error);
+      res.status(500).json({ error: "Failed to regenerate QR code" });
     }
   });
 
