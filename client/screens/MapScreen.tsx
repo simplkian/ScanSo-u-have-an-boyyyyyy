@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
@@ -66,6 +67,7 @@ const MAP_HEIGHT = MAP_WIDTH / MAP_ASPECT_RATIO;
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const [selectedHall, setSelectedHall] = useState<HallData | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
@@ -121,8 +123,9 @@ export default function MapScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + Spacing["4xl"] },
+          { paddingBottom: tabBarHeight + Spacing.xl },
         ]}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
