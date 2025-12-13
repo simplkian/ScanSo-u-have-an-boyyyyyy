@@ -152,6 +152,17 @@ export default function ProfileScreen() {
             Einstellungen
           </ThemedText>
           
+          <Pressable
+            style={[styles.menuItem, { borderBottomColor: theme.border }]}
+            onPress={() => navigation.navigate("QRCenter")}
+          >
+            <View style={styles.menuItemLeft}>
+              <Feather name="grid" size={20} color={theme.textSecondary} />
+              <ThemedText type="body" style={{ color: theme.text }}>QR-Center</ThemedText>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+          </Pressable>
+
           <View style={[styles.themeToggle, { borderBottomColor: theme.border }]}>
             <View style={styles.menuItemLeft}>
               <Feather name={isDark ? "moon" : "sun"} size={20} color={theme.textSecondary} />

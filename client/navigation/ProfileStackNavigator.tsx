@@ -12,6 +12,7 @@ import ManualTaskScreen from "@/screens/ManualTaskScreen";
 import StandMappingScreen from "@/screens/StandMappingScreen";
 import LayoutManagementScreen from "@/screens/LayoutManagementScreen";
 import MapEditorScreen from "@/screens/MapEditorScreen";
+import QRCenterScreen from "@/screens/QRCenterScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -28,6 +29,7 @@ export type ProfileStackParamList = {
   StandMapping: undefined;
   LayoutManagement: undefined;
   MapEditor: undefined;
+  QRCenter: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -108,6 +110,11 @@ export default function ProfileStackNavigator() {
           options={{ headerTitle: "Profil" }}
         />
       )}
+      <Stack.Screen
+        name="QRCenter"
+        component={QRCenterScreen}
+        options={{ headerTitle: "QR-Center" }}
+      />
     </Stack.Navigator>
   );
 }
