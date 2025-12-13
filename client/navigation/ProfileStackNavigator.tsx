@@ -11,6 +11,7 @@ import ScheduleManagementScreen from "@/screens/ScheduleManagementScreen";
 import ManualTaskScreen from "@/screens/ManualTaskScreen";
 import StandMappingScreen from "@/screens/StandMappingScreen";
 import LayoutManagementScreen from "@/screens/LayoutManagementScreen";
+import MapEditorScreen from "@/screens/MapEditorScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -26,6 +27,7 @@ export type ProfileStackParamList = {
   ManualTask: undefined;
   StandMapping: undefined;
   LayoutManagement: undefined;
+  MapEditor: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -87,6 +89,11 @@ export default function ProfileStackNavigator() {
             name="LayoutManagement"
             component={LayoutManagementScreen}
             options={{ headerTitle: "Layout-Verwaltung" }}
+          />
+          <Stack.Screen
+            name="MapEditor"
+            component={MapEditorScreen}
+            options={{ headerTitle: "Karten-Editor" }}
           />
           <Stack.Screen
             name="Profile"

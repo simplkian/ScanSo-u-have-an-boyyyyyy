@@ -293,6 +293,18 @@ export default function AdminDashboardScreen() {
               </ThemedText>
             </View>
           </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("MapEditor")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="edit-3" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Karten-Editor
+              </ThemedText>
+            </View>
+          </Button>
         </View>
 
         <Pressable

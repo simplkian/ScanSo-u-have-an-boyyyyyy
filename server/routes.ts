@@ -6198,9 +6198,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // ADMIN MAP EDITOR ENDPOINTS
+  // ============================================================================
+
+  /**
+   * PATCH /api/admin/halls/:id/map-marker
+   * Set hall marker position on OUT map (normalized 0..1)
+   */
+  app.patch("/api/admin/halls/:id/map-marker", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { x, y } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (x === undefined && y === undefined) {
+        return res.status(400).json({ error: "x oder y Koordinate erforderlich" });
+      }
+
+      if (x !== null && (typeof x !== "number" || x < 0 || x > 1)) {
+        return res.status(400).json({ error: "x muss eine Zahl zwischen 0 und 1 sein" });
+      }
+      if (y !== null && (typeof y !== "number" || y < 0 || y > 1)) {
+        return res.status(400).json({ error: "y muss eine Zahl zwischen 0 und 1 sein" });
+      }
+
+      const [hall] = await db.select().from(halls).where(eq(halls.id, req.params.id));
+      if (!hall) {
+        return res.status(404).json({ error: "Halle nicht gefunden" });
+      }
+
+      const beforeLocationMeta = hall.locationMeta;
+      let newLocationMeta: any;
+
+      if (x === null && y === null) {
+        newLocationMeta = { ...(hall.locationMeta as any || {}), mapMarker: null };
+      } else {
+        newLocationMeta = {
+          ...(hall.locationMeta as any || {}),
+          mapMarker: { x, y },
+        };
+      }
+
+      const [updatedHall] = await db.update(halls)
+        .set({ locationMeta: newLocationMeta, updatedAt: new Date() })
+        .where(eq(halls.id, req.params.id))
+        .returning();
+
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "MAP_HALL_MARKER_SET",
+        entityType: "hall",
+        entityId: req.params.id,
+        details: {
+          hallCode: hall.code,
+          hallName: hall.name,
+          before: beforeLocationMeta,
+          after: newLocationMeta,
+          x,
+          y,
+          mapKey: "OUT.png",
+        },
+      });
+
+      res.json({
+        ...updatedHall,
+        mapMarker: newLocationMeta?.mapMarker || null,
+      });
+    } catch (error) {
+      console.error("[MapEditor] Failed to set hall marker:", error);
+      res.status(500).json({ error: "Fehler beim Setzen des Hallenmarkers" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/stations/:id/position
+   * Set station marker position on hall map (normalized 0..1)
+   */
+  app.patch("/api/admin/stations/:id/position", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { x, y } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (x === undefined && y === undefined) {
+        return res.status(400).json({ error: "x oder y Koordinate erforderlich" });
+      }
+
+      if (x !== null && (typeof x !== "number" || x < 0 || x > 1)) {
+        return res.status(400).json({ error: "x muss eine Zahl zwischen 0 und 1 sein" });
+      }
+      if (y !== null && (typeof y !== "number" || y < 0 || y > 1)) {
+        return res.status(400).json({ error: "y muss eine Zahl zwischen 0 und 1 sein" });
+      }
+
+      const [station] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!station) {
+        return res.status(404).json({ error: "Station nicht gefunden" });
+      }
+
+      const [hall] = await db.select().from(halls).where(eq(halls.id, station.hallId));
+
+      const beforeLocationMeta = station.locationMeta;
+      let newLocationMeta: any;
+
+      if (x === null && y === null) {
+        newLocationMeta = null;
+      } else {
+        newLocationMeta = { x, y };
+      }
+
+      const [updatedStation] = await db.update(stations)
+        .set({ locationMeta: newLocationMeta, updatedAt: new Date() })
+        .where(eq(stations.id, req.params.id))
+        .returning();
+
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "MAP_STATION_MARKER_SET",
+        entityType: "station",
+        entityId: req.params.id,
+        details: {
+          stationCode: station.code,
+          stationName: station.name,
+          hallId: station.hallId,
+          hallCode: hall?.code,
+          before: beforeLocationMeta,
+          after: newLocationMeta,
+          x,
+          y,
+          mapKey: hall?.code ? `${hall.code}.png` : null,
+        },
+      });
+
+      res.json({
+        ...updatedStation,
+        position: newLocationMeta,
+      });
+    } catch (error) {
+      console.error("[MapEditor] Failed to set station position:", error);
+      res.status(500).json({ error: "Fehler beim Setzen der Stationsposition" });
+    }
+  });
+
+  /**
+   * GET /api/admin/map-editor/data
+   * Returns all halls and stations with their marker positions for admin editor
+   */
+  app.get("/api/admin/map-editor/data", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const hallsResult = await db.select().from(halls);
+      const stationsResult = await db.select().from(stations);
+
+      const hallsWithMarkers = hallsResult.map(h => {
+        const locationMeta = h.locationMeta as any;
+        return {
+          id: h.id,
+          code: h.code,
+          name: h.name,
+          isActive: h.isActive,
+          mapMarker: locationMeta?.mapMarker || null,
+          mapImageKey: locationMeta?.mapImageKey || (h.code === "OUT" ? "OUT.png" : `${h.code}.png`),
+        };
+      });
+
+      const stationsWithPositions = stationsResult.map(s => {
+        const locationMeta = s.locationMeta as any;
+        return {
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          hallId: s.hallId,
+          isActive: s.isActive,
+          position: locationMeta ? { x: locationMeta.x, y: locationMeta.y } : null,
+        };
+      });
+
+      const hallsWithoutMarkers = hallsWithMarkers.filter(h => !h.mapMarker && h.code !== "OUT");
+      const stationsWithoutPosition = stationsWithPositions.filter(s => !s.position);
+
+      res.json({
+        halls: hallsWithMarkers,
+        stations: stationsWithPositions,
+        missing: {
+          halls: hallsWithoutMarkers,
+          stations: stationsWithoutPosition,
+        },
+      });
+    } catch (error) {
+      console.error("[MapEditor] Failed to fetch data:", error);
+      res.status(500).json({ error: "Failed to fetch map editor data" });
+    }
+  });
+
   /**
    * GET /api/factory/map-data
-   * Returns halls, stations and their positions for map rendering
+   * Returns halls, stations and their positions for map rendering (user view)
+   * Uses locationMeta for marker positions
    */
   app.get("/api/factory/map-data", async (req, res) => {
     try {
@@ -6208,19 +6400,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stationsResult = await db.select().from(stations).where(eq(stations.isActive, true));
       
       res.json({
-        halls: hallsResult.map(h => ({
-          id: h.id,
-          code: h.code,
-          name: h.name,
-          positionMeta: h.positionMeta,
-        })),
-        stations: stationsResult.map(s => ({
-          id: s.id,
-          code: s.code,
-          name: s.name,
-          hallId: s.hallId,
-          positionMeta: s.positionMeta,
-        })),
+        halls: hallsResult.map(h => {
+          const locationMeta = h.locationMeta as any;
+          return {
+            id: h.id,
+            code: h.code,
+            name: h.name,
+            positionMeta: locationMeta?.mapMarker || h.positionMeta,
+          };
+        }),
+        stations: stationsResult.map(s => {
+          const locationMeta = s.locationMeta as any;
+          return {
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            hallId: s.hallId,
+            positionMeta: locationMeta ? { x: locationMeta.x, y: locationMeta.y } : s.positionMeta,
+          };
+        }),
       });
     } catch (error) {
       console.error("[MapData] Failed to fetch:", error);
