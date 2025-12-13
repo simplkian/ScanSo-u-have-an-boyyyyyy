@@ -531,7 +531,7 @@ export default function AutomotiveManagementScreen() {
   };
 
   const renderMaterialItem = ({ item }: { item: Material }) => (
-    <Card style={[styles.itemCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item)}>
+    <Card style={[styles.itemCard, ...(!item.isActive ? [styles.inactiveCard] : [])]} onPress={() => openViewModal(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Feather name="box" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
@@ -563,7 +563,7 @@ export default function AutomotiveManagementScreen() {
   );
 
   const renderHallItem = ({ item }: { item: Hall }) => (
-    <Card style={[styles.itemCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item)}>
+    <Card style={[styles.itemCard, ...(!item.isActive ? [styles.inactiveCard] : [])]} onPress={() => openViewModal(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Feather name="home" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
@@ -584,7 +584,7 @@ export default function AutomotiveManagementScreen() {
   );
 
   const renderStationItem = ({ item }: { item: Station }) => (
-    <Card style={[styles.itemCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item)}>
+    <Card style={[styles.itemCard, ...(!item.isActive ? [styles.inactiveCard] : [])]} onPress={() => openViewModal(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Feather name="map-pin" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
@@ -614,7 +614,7 @@ export default function AutomotiveManagementScreen() {
   );
 
   const renderStandItem = ({ item }: { item: Stand }) => (
-    <Card style={[styles.itemCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item)}>
+    <Card style={[styles.itemCard, ...(!item.isActive ? [styles.inactiveCard] : [])]} onPress={() => openViewModal(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Feather name="target" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />
@@ -639,7 +639,7 @@ export default function AutomotiveManagementScreen() {
   );
 
   const renderBoxItem = ({ item }: { item: Box }) => (
-    <Card style={[styles.itemCard, !item.isActive && styles.inactiveCard]} onPress={() => openViewModal(item)}>
+    <Card style={[styles.itemCard, ...(!item.isActive ? [styles.inactiveCard] : [])]} onPress={() => openViewModal(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.itemInfo}>
           <Feather name="package" size={24} color={item.isActive ? theme.primary : theme.textTertiary} />

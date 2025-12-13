@@ -235,7 +235,7 @@ export default function LayoutManagementScreen() {
     >
       <ThemedText
         type="bodyBold"
-        style={{ color: activeTab === tab ? theme.textOnAccent : theme.textPrimary }}
+        style={{ color: activeTab === tab ? theme.textOnAccent : theme.text }}
       >
         {label}
       </ThemedText>
@@ -272,7 +272,7 @@ export default function LayoutManagementScreen() {
         >
           <ThemedText
             type="small"
-            style={{ color: selectedId === null ? theme.textOnAccent : theme.textPrimary }}
+            style={{ color: selectedId === null ? theme.textOnAccent : theme.text }}
           >
             {placeholder}
           </ThemedText>
@@ -291,7 +291,7 @@ export default function LayoutManagementScreen() {
           >
             <ThemedText
               type="small"
-              style={{ color: selectedId === opt.id ? theme.textOnAccent : theme.textPrimary }}
+              style={{ color: selectedId === opt.id ? theme.textOnAccent : theme.text }}
             >
               {opt.name}
             </ThemedText>
@@ -519,7 +519,7 @@ export default function LayoutManagementScreen() {
                       >
                         <ThemedText
                           type="body"
-                          style={{ color: targetHallId === hall.id ? theme.textOnAccent : theme.textPrimary }}
+                          style={{ color: targetHallId === hall.id ? theme.textOnAccent : theme.text }}
                         >
                           {hall.code} - {hall.name}
                         </ThemedText>
@@ -535,7 +535,7 @@ export default function LayoutManagementScreen() {
                     style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
                     onPress={() => setMoveStationModalVisible(false)}
                   >
-                    <ThemedText type="body" style={{ color: theme.textPrimary }}>
+                    <ThemedText type="body" style={{ color: theme.text }}>
                       Abbrechen
                     </ThemedText>
                   </Button>
@@ -613,7 +613,7 @@ export default function LayoutManagementScreen() {
                   >
                     <ThemedText
                       type="body"
-                      style={{ color: editMaterialId === null ? theme.textOnAccent : theme.textPrimary }}
+                      style={{ color: editMaterialId === null ? theme.textOnAccent : theme.text }}
                     >
                       Kein Material
                     </ThemedText>
@@ -634,7 +634,7 @@ export default function LayoutManagementScreen() {
                       >
                         <ThemedText
                           type="body"
-                          style={{ color: editMaterialId === material.id ? theme.textOnAccent : theme.textPrimary }}
+                          style={{ color: editMaterialId === material.id ? theme.textOnAccent : theme.text }}
                         >
                           {material.code} - {material.name}
                         </ThemedText>
@@ -667,7 +667,7 @@ export default function LayoutManagementScreen() {
                         >
                           <ThemedText
                             type="body"
-                            style={{ color: editStationId === station.id ? theme.textOnAccent : theme.textPrimary }}
+                            style={{ color: editStationId === station.id ? theme.textOnAccent : theme.text }}
                           >
                             {station.name} ({hall?.code || "?"})
                           </ThemedText>
@@ -696,7 +696,7 @@ export default function LayoutManagementScreen() {
                     <Feather name="check-circle" size={16} color={editIsActive ? theme.textOnAccent : theme.textSecondary} />
                     <ThemedText
                       type="body"
-                      style={{ color: editIsActive ? theme.textOnAccent : theme.textPrimary }}
+                      style={{ color: editIsActive ? theme.textOnAccent : theme.text }}
                     >
                       Aktiv
                     </ThemedText>
@@ -714,7 +714,7 @@ export default function LayoutManagementScreen() {
                     <Feather name="x-circle" size={16} color={!editIsActive ? theme.textOnAccent : theme.textSecondary} />
                     <ThemedText
                       type="body"
-                      style={{ color: !editIsActive ? theme.textOnAccent : theme.textPrimary }}
+                      style={{ color: !editIsActive ? theme.textOnAccent : theme.text }}
                     >
                       Inaktiv
                     </ThemedText>
@@ -728,7 +728,7 @@ export default function LayoutManagementScreen() {
                 style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
                 onPress={() => setEditStandModalVisible(false)}
               >
-                <ThemedText type="body" style={{ color: theme.textPrimary }}>
+                <ThemedText type="body" style={{ color: theme.text }}>
                   Abbrechen
                 </ThemedText>
               </Button>
