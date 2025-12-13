@@ -330,6 +330,7 @@ export const halls = pgTable("halls", {
   description: text("description"),
   locationMeta: jsonb("location_meta"),
   positionMeta: jsonb("position_meta"),
+  qrCode: text("qr_code").unique(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -353,10 +354,13 @@ export const stations = pgTable("stations", {
   sequence: integer("sequence"),
   locationMeta: jsonb("location_meta"),
   positionMeta: jsonb("position_meta"),
+  qrCode: text("qr_code").unique(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  hallCodeUnique: sql`UNIQUE(hall_id, code)`,
+}));
 
 export const stationsRelations = relations(stations, ({ one, many }) => ({
   hall: one(halls, {

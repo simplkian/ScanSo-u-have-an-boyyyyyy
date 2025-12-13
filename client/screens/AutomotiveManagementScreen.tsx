@@ -145,6 +145,7 @@ export default function AutomotiveManagementScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("view");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [standPickerVisible, setStandPickerVisible] = useState(false);
 
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedHall, setSelectedHall] = useState<Hall | null>(null);
@@ -461,6 +462,42 @@ export default function AutomotiveManagementScreen() {
     } catch (err) {
       console.error("Failed to toggle active:", err);
       showToast("Fehler beim Ändern des Status", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePositionBox = async (standId: string) => {
+    if (!selectedBox) return;
+    setIsSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/boxes/${selectedBox.id}/position`, { standId });
+      queryClient.invalidateQueries({ queryKey: ["/api/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stands"] });
+      const stand = stands.find(s => s.id === standId);
+      setSelectedBox({ ...selectedBox, standId, status: "AT_STAND", stand: stand || undefined });
+      setStandPickerVisible(false);
+      showToast(`Box wurde am Stellplatz ${stand?.identifier || ""} positioniert`, "success");
+    } catch (err) {
+      console.error("Failed to position box:", err);
+      showToast("Fehler beim Positionieren der Box", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveBoxFromStand = async () => {
+    if (!selectedBox) return;
+    setIsSubmitting(true);
+    try {
+      await apiRequest("PUT", `/api/boxes/${selectedBox.id}`, { standId: null, status: "IN_TRANSIT" });
+      queryClient.invalidateQueries({ queryKey: ["/api/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stands"] });
+      setSelectedBox({ ...selectedBox, standId: undefined, status: "IN_TRANSIT", stand: undefined });
+      showToast("Box wurde vom Stellplatz entfernt", "success");
+    } catch (err) {
+      console.error("Failed to remove box from stand:", err);
+      showToast("Fehler beim Entfernen der Box vom Stellplatz", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -950,6 +987,37 @@ export default function AutomotiveManagementScreen() {
               <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>Bearbeiten</ThemedText>
             </View>
           </Button>
+          
+          {activeTab === "boxes" && selectedBox ? (
+            <>
+              <Button 
+                variant="secondary" 
+                onPress={() => setStandPickerVisible(true)} 
+                style={styles.actionButton}
+                disabled={isSubmitting}
+              >
+                <View style={styles.buttonContent}>
+                  <Feather name="map-pin" size={18} color={theme.success} />
+                  <ThemedText type="body" style={{ color: theme.success, fontWeight: "600" }}>Am Stellplatz positionieren</ThemedText>
+                </View>
+              </Button>
+              
+              {selectedBox.standId ? (
+                <Button 
+                  variant="secondary" 
+                  onPress={handleRemoveBoxFromStand} 
+                  style={styles.actionButton}
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                >
+                  <View style={styles.buttonContent}>
+                    <Feather name="x-circle" size={18} color={theme.error} />
+                    <ThemedText type="body" style={{ color: theme.error, fontWeight: "600" }}>Vom Stellplatz entfernen</ThemedText>
+                  </View>
+                </Button>
+              ) : null}
+            </>
+          ) : null}
         </View>
       </ScrollView>
     );
@@ -1042,6 +1110,49 @@ export default function AutomotiveManagementScreen() {
             </View>
             
             {modalMode === "view" ? renderViewModal() : renderFormModal()}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={standPickerVisible} animationType="slide" transparent onRequestClose={() => setStandPickerVisible(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <ThemedText type="h3">Stellplatz auswählen</ThemedText>
+              <Pressable onPress={() => setStandPickerVisible(false)} style={styles.closeButton}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+            
+            <FlatList
+              data={stands.filter(s => s.isActive)}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.standPickerList}
+              renderItem={({ item }) => (
+                <Pressable 
+                  style={[styles.standPickerItem, { borderColor: theme.border }]}
+                  onPress={() => handlePositionBox(item.id)}
+                  disabled={isSubmitting}
+                >
+                  <View style={styles.standPickerInfo}>
+                    <Feather name="target" size={20} color={theme.primary} />
+                    <View>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>{item.identifier}</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        {getStationName(item.stationId)} {item.materialId ? `- ${getMaterialName(item.materialId)}` : ""}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Feather name="target" size={48} color={theme.textTertiary} />
+                  <ThemedText type="body" style={{ color: theme.textSecondary }}>Keine aktiven Stellplätze verfügbar</ThemedText>
+                </View>
+              }
+            />
           </View>
         </View>
       </Modal>
@@ -1215,5 +1326,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: Spacing.md,
+  },
+  standPickerList: {
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  standPickerItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+  },
+  standPickerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
   },
 });

@@ -3601,6 +3601,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/stations/:id/details - Get station with stands, boxes, and open tasks
+  app.get("/api/stations/:id/details", requireAuth, async (req, res) => {
+    try {
+      const [station] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!station) {
+        return res.status(404).json({ error: "Station nicht gefunden" });
+      }
+
+      // Get hall info
+      const [hall] = await db.select().from(halls).where(eq(halls.id, station.hallId));
+
+      // Get stands for this station
+      const stationStands = await db.select().from(stands).where(
+        and(eq(stands.stationId, req.params.id), eq(stands.isActive, true))
+      );
+
+      // Get materials for the stands
+      const materialIds = stationStands.map(s => s.materialId).filter(Boolean) as string[];
+      const standMaterials = materialIds.length > 0 
+        ? await db.select().from(materials).where(inArray(materials.id, materialIds))
+        : [];
+      const materialMap = new Map(standMaterials.map(m => [m.id, m]));
+
+      // Get boxes at these stands
+      const standIds = stationStands.map(s => s.id);
+      const standBoxes = standIds.length > 0 
+        ? await db.select().from(boxes).where(
+            and(inArray(boxes.standId, standIds), eq(boxes.isActive, true))
+          )
+        : [];
+
+      // Get open automotive tasks for this station's stands (status not DISPOSED or CANCELLED)
+      const openTasks = standIds.length > 0 
+        ? await db.select().from(tasks).where(
+            and(
+              inArray(tasks.standId, standIds),
+              notInArray(tasks.status, ['DISPOSED', 'CANCELLED', 'COMPLETED', 'completed'])
+            )
+          )
+        : [];
+
+      // Build response with nested data
+      const standsWithDetails = stationStands.map(stand => ({
+        ...stand,
+        material: stand.materialId ? materialMap.get(stand.materialId) || null : null,
+        boxes: standBoxes.filter(b => b.standId === stand.id),
+        openTasks: openTasks.filter(t => t.standId === stand.id),
+      }));
+
+      res.json({
+        ...station,
+        hall: hall || null,
+        stands: standsWithDetails,
+        totalBoxes: standBoxes.length,
+        totalOpenTasks: openTasks.length,
+      });
+    } catch (error) {
+      console.error("Failed to fetch station details:", error);
+      res.status(500).json({ error: "Fehler beim Laden der Stationsdetails" });
+    }
+  });
+
   // POST /api/stations - Create station (admin only)
   app.post("/api/stations", requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -3613,6 +3675,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [hall] = await db.select().from(halls).where(eq(halls.id, hallId));
       if (!hall) {
         return res.status(404).json({ error: "Hall not found" });
+      }
+
+      // Check for duplicate code within the same hall
+      const [existingStation] = await db.select().from(stations).where(
+        and(eq(stations.hallId, hallId), eq(stations.code, code))
+      );
+      if (existingStation) {
+        return res.status(400).json({ error: `Stationscode '${code}' existiert bereits in dieser Halle` });
       }
 
       const [station] = await db.insert(stations).values({
@@ -3630,16 +3700,231 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PUT /api/stations/:id - Update station (admin only)
+  app.put("/api/stations/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { name, code, sequence, locationMeta, positionMeta, isActive } = req.body;
+      
+      const [existingStation] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!existingStation) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+
+      // If code is being changed, check for duplicate within the same hall
+      if (code && code !== existingStation.code) {
+        const [duplicateStation] = await db.select().from(stations).where(
+          and(
+            eq(stations.hallId, existingStation.hallId), 
+            eq(stations.code, code),
+            sql`${stations.id} != ${req.params.id}`
+          )
+        );
+        if (duplicateStation) {
+          return res.status(400).json({ error: `Stationscode '${code}' existiert bereits in dieser Halle` });
+        }
+      }
+
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (code !== undefined) updateData.code = code;
+      if (sequence !== undefined) updateData.sequence = sequence;
+      if (locationMeta !== undefined) updateData.locationMeta = locationMeta;
+      if (positionMeta !== undefined) updateData.positionMeta = positionMeta;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      const [updatedStation] = await db.update(stations)
+        .set(updateData)
+        .where(eq(stations.id, req.params.id))
+        .returning();
+
+      res.json(updatedStation);
+    } catch (error) {
+      console.error("Failed to update station:", error);
+      res.status(500).json({ error: "Failed to update station" });
+    }
+  });
+
+  // PATCH /api/stations/:id - Move station to different hall (admin only)
+  app.patch("/api/stations/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { hallId } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!hallId) {
+        return res.status(400).json({ error: "hallId ist erforderlich" });
+      }
+
+      const [existingStation] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!existingStation) {
+        return res.status(404).json({ error: "Station nicht gefunden" });
+      }
+
+      if (hallId === existingStation.hallId) {
+        return res.status(400).json({ error: "Station ist bereits in dieser Halle" });
+      }
+
+      const [targetHall] = await db.select().from(halls).where(eq(halls.id, hallId));
+      if (!targetHall) {
+        return res.status(404).json({ error: "Ziel-Halle nicht gefunden" });
+      }
+
+      if (!targetHall.isActive) {
+        return res.status(400).json({ error: "Ziel-Halle ist nicht aktiv" });
+      }
+
+      const [duplicateStation] = await db.select().from(stations).where(
+        and(eq(stations.hallId, hallId), eq(stations.code, existingStation.code))
+      );
+      if (duplicateStation) {
+        return res.status(400).json({ error: `Stationscode '${existingStation.code}' existiert bereits in der Ziel-Halle` });
+      }
+
+      const [sourceHall] = await db.select().from(halls).where(eq(halls.id, existingStation.hallId));
+
+      const [updatedStation] = await db.update(stations)
+        .set({ hallId, updatedAt: new Date() })
+        .where(eq(stations.id, req.params.id))
+        .returning();
+
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "STATION_MOVED",
+        entityType: "station",
+        entityId: req.params.id,
+        details: {
+          stationName: existingStation.name,
+          stationCode: existingStation.code,
+          fromHallId: existingStation.hallId,
+          fromHallName: sourceHall?.name || "Unbekannt",
+          toHallId: hallId,
+          toHallName: targetHall.name,
+        },
+      });
+
+      res.json(updatedStation);
+    } catch (error) {
+      console.error("Failed to move station:", error);
+      res.status(500).json({ error: "Fehler beim Verschieben der Station" });
+    }
+  });
+
+  // PATCH /api/stands/:id - Edit stand (material, active, station) with validation (admin only)
+  app.patch("/api/stands/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { materialId, isActive, stationId } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (materialId === undefined && isActive === undefined && stationId === undefined) {
+        return res.status(400).json({ error: "Keine Änderungen angegeben" });
+      }
+
+      const [existingStand] = await db.select().from(stands).where(eq(stands.id, req.params.id));
+      if (!existingStand) {
+        return res.status(404).json({ error: "Stellplatz nicht gefunden" });
+      }
+
+      const changes: string[] = [];
+      const updateData: any = { updatedAt: new Date() };
+
+      if (materialId !== undefined && materialId !== existingStand.materialId) {
+        if (materialId !== null) {
+          const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, materialId));
+          if (!targetMaterial) {
+            return res.status(404).json({ error: "Material nicht gefunden" });
+          }
+          if (!targetMaterial.isActive) {
+            return res.status(400).json({ error: "Material ist nicht aktiv" });
+          }
+          changes.push(`Material: ${existingStand.materialId || 'keins'} → ${materialId}`);
+        } else {
+          changes.push(`Material entfernt`);
+        }
+        updateData.materialId = materialId;
+      }
+
+      if (stationId !== undefined && stationId !== existingStand.stationId) {
+        const [targetStation] = await db.select().from(stations).where(eq(stations.id, stationId));
+        if (!targetStation) {
+          return res.status(404).json({ error: "Ziel-Station nicht gefunden" });
+        }
+        if (!targetStation.isActive) {
+          return res.status(400).json({ error: "Ziel-Station ist nicht aktiv" });
+        }
+        const [targetHall] = await db.select().from(halls).where(eq(halls.id, targetStation.hallId));
+        if (!targetHall?.isActive) {
+          return res.status(400).json({ error: "Halle der Ziel-Station ist nicht aktiv" });
+        }
+        changes.push(`Station: ${existingStand.stationId} → ${stationId}`);
+        updateData.stationId = stationId;
+      }
+
+      if (isActive !== undefined && isActive !== existingStand.isActive) {
+        updateData.isActive = isActive;
+        changes.push(`Aktiv: ${existingStand.isActive} → ${isActive}`);
+
+        if (!isActive && existingStand.isActive) {
+          const standBoxes = await db.select().from(boxes).where(
+            and(eq(boxes.standId, req.params.id), eq(boxes.isActive, true))
+          );
+          if (standBoxes.length > 0) {
+            await db.update(boxes)
+              .set({ standId: null, updatedAt: new Date() })
+              .where(eq(boxes.standId, req.params.id));
+            changes.push(`${standBoxes.length} Box(en) vom Stellplatz abgemeldet`);
+          }
+        }
+      }
+
+      if (Object.keys(updateData).length === 1) {
+        return res.status(400).json({ error: "Keine Änderungen vorgenommen" });
+      }
+
+      const [updatedStand] = await db.update(stands)
+        .set(updateData)
+        .where(eq(stands.id, req.params.id))
+        .returning();
+
+      await db.insert(activityLogs).values({
+        userId: authUser.id,
+        action: "STAND_EDITED",
+        entityType: "stand",
+        entityId: req.params.id,
+        details: {
+          standIdentifier: existingStand.identifier,
+          changes,
+          before: {
+            materialId: existingStand.materialId,
+            stationId: existingStand.stationId,
+            isActive: existingStand.isActive,
+          },
+          after: {
+            materialId: updatedStand.materialId,
+            stationId: updatedStand.stationId,
+            isActive: updatedStand.isActive,
+          },
+        },
+      });
+
+      res.json(updatedStand);
+    } catch (error) {
+      console.error("Failed to edit stand:", error);
+      res.status(500).json({ error: "Fehler beim Bearbeiten des Stellplatzes" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // STANDS CRUD
   // ----------------------------------------------------------------------------
 
-  // GET /api/stands - List all stands (optionally filter by stationId, materialId)
+  // GET /api/stands - List all stands (optionally filter by stationId, materialId, includeInactive)
   app.get("/api/stands", async (req, res) => {
     try {
-      const { stationId, materialId } = req.query;
+      const { stationId, materialId, includeInactive } = req.query;
       
-      let conditions = [eq(stands.isActive, true)];
+      let conditions: any[] = [];
+      if (includeInactive !== 'true') {
+        conditions.push(eq(stands.isActive, true));
+      }
       if (stationId && typeof stationId === 'string') {
         conditions.push(eq(stands.stationId, stationId));
       }
@@ -3647,7 +3932,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conditions.push(eq(stands.materialId, materialId));
       }
 
-      const result = await db.select().from(stands).where(and(...conditions));
+      const result = conditions.length > 0 
+        ? await db.select().from(stands).where(and(...conditions))
+        : await db.select().from(stands);
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch stands:", error);
@@ -3788,10 +4075,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BOXES CRUD
   // ----------------------------------------------------------------------------
 
-  // GET /api/boxes - List all boxes
+  // GET /api/boxes - List all boxes (optionally includeInactive)
   app.get("/api/boxes", async (req, res) => {
     try {
-      const result = await db.select().from(boxes).where(eq(boxes.isActive, true));
+      const { includeInactive } = req.query;
+      const result = includeInactive === 'true'
+        ? await db.select().from(boxes)
+        : await db.select().from(boxes).where(eq(boxes.isActive, true));
       res.json(result);
     } catch (error) {
       console.error("Failed to fetch boxes:", error);
@@ -3854,12 +4144,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUT /api/boxes/:id - Update box (admin only)
   app.put("/api/boxes/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
+      const authUser = (req as any).authUser;
       const [existing] = await db.select().from(boxes).where(eq(boxes.id, req.params.id));
       if (!existing) {
         return res.status(404).json({ error: "Box not found" });
       }
 
       const { qrCode, serial, standId, status, notes, isActive } = req.body;
+      const wasAtStand = existing.standId !== null;
+      const beingRemovedFromStand = standId === null && wasAtStand;
       
       const [box] = await db.update(boxes)
         .set({
@@ -3873,6 +4166,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(boxes.id, req.params.id))
         .returning();
+
+      if (beingRemovedFromStand) {
+        const standMeta = await buildStandContextMeta(existing.standId!);
+        await createAuditEvent({
+          taskId: existing.currentTaskId || req.params.id,
+          actorUserId: authUser.id,
+          action: "BOX_REMOVED",
+          entityType: "box",
+          entityId: existing.id,
+          beforeData: { standId: existing.standId, status: existing.status },
+          afterData: { standId: null, status: status || existing.status },
+          metaJson: { ...standMeta, boxId: existing.id, source: "ADMIN_UI" },
+        });
+      }
 
       res.json(box);
     } catch (error) {
@@ -4139,9 +4446,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // PUT /api/automotive/tasks/:id/status - Update task status with transition guard
   // Auto-claims if not claimed, auto-releases on DROPPED_OFF
+  // Requires mandatory box scans for status transitions
   app.put("/api/automotive/tasks/:id/status", requireAuth, async (req, res) => {
     try {
-      const { status, weightKg, targetWarehouseContainerId, reason } = req.body;
+      const { status, weightKg, targetWarehouseContainerId, reason, scannedBoxId, scannedStandId } = req.body;
       const authUser = (req as any).authUser;
       
       if (!status) {
@@ -4161,6 +4469,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentStatus: task.status,
           requestedStatus: status
         });
+      }
+
+      // ========================================================================
+      // MANDATORY BOX SCAN VALIDATION
+      // All task transitions require a box scan to ensure physical verification
+      // ========================================================================
+      
+      // Define which transitions require box scans
+      const boxScanRequired = [
+        { from: "OPEN", to: "PICKED_UP" },
+        { from: "IN_TRANSIT", to: "DROPPED_OFF" },
+        { from: "DROPPED_OFF", to: "TAKEN_OVER" },
+        { from: "TAKEN_OVER", to: "WEIGHED" },
+        { from: "WEIGHED", to: "DISPOSED" },
+      ];
+      
+      const requiresBoxScan = boxScanRequired.some(
+        (t) => t.from === task.status && t.to === status
+      );
+      
+      if (requiresBoxScan && !scannedBoxId) {
+        return res.status(400).json({ error: "Box-Scan erforderlich" });
+      }
+      
+      // Validate scanned box matches the task's box (if box is already assigned)
+      if (scannedBoxId && task.boxId && scannedBoxId !== task.boxId) {
+        return res.status(400).json({ error: "Gescannte Box stimmt nicht mit der Aufgabe überein" });
+      }
+      
+      // OPEN -> PICKED_UP: Validate box is at the task's stand
+      if (task.status === "OPEN" && status === "PICKED_UP" && scannedBoxId) {
+        const [scannedBox] = await db.select().from(boxes).where(eq(boxes.id, scannedBoxId));
+        if (!scannedBox) {
+          return res.status(404).json({ error: "Gescannte Box nicht gefunden" });
+        }
+        
+        // If task has a standId, verify box is at that stand
+        if (task.standId && scannedBox.standId !== task.standId) {
+          return res.status(400).json({ error: "Box befindet sich nicht am richtigen Stand" });
+        }
+      }
+      
+      // IN_TRANSIT -> DROPPED_OFF: Requires both stand scan and box scan
+      if (task.status === "IN_TRANSIT" && status === "DROPPED_OFF") {
+        if (!scannedStandId) {
+          return res.status(400).json({ error: "Stand-Scan erforderlich für Abgabe" });
+        }
+        // Verify stand exists
+        const [scannedStand] = await db.select().from(stands).where(eq(stands.id, scannedStandId));
+        if (!scannedStand) {
+          return res.status(404).json({ error: "Gescannter Stand nicht gefunden" });
+        }
       }
 
       if (task.status === "TAKEN_OVER" && status === "WEIGHED") {
@@ -4209,6 +4569,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: now,
       };
 
+      // Assign scanned box to task if not already assigned
+      if (scannedBoxId && !task.boxId) {
+        updateData.boxId = scannedBoxId;
+      }
+
       // Auto-claim if needed
       if (autoClaimed) {
         updateData.claimedByUserId = authUser.id;
@@ -4245,15 +4610,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(tasks.id, req.params.id))
         .returning();
 
+      // ========================================================================
+      // BOX STATUS UPDATES BASED ON TRANSITION
+      // ========================================================================
+      const effectiveBoxId = scannedBoxId || task.boxId;
+      
+      // PICKED_UP: Remove box from stand, set status to IN_TRANSIT
+      if (status === "PICKED_UP" && effectiveBoxId) {
+        await db.update(boxes)
+          .set({ 
+            standId: null, 
+            status: "IN_TRANSIT",
+            currentTaskId: updatedTask.id,
+            lastSeenAt: now,
+            updatedAt: now 
+          })
+          .where(eq(boxes.id, effectiveBoxId));
+          
+        // Audit log for box removal from stand
+        await createAuditEvent({
+          taskId: updatedTask.id,
+          actorUserId: authUser.id,
+          action: "BOX_REMOVED",
+          entityType: "box",
+          entityId: effectiveBoxId,
+          beforeData: { standId: task.standId, status: "AT_STAND" },
+          afterData: { standId: null, status: "IN_TRANSIT" },
+          metaJson: {
+            ...standMeta,
+            boxId: effectiveBoxId,
+            source: "PICKUP_SCAN",
+          },
+        });
+      }
+      
+      // DROPPED_OFF: Place box at scanned stand
+      if (status === "DROPPED_OFF" && effectiveBoxId && scannedStandId) {
+        await db.update(boxes)
+          .set({ 
+            standId: scannedStandId, 
+            status: "AT_STAND",
+            lastSeenAt: now,
+            updatedAt: now 
+          })
+          .where(eq(boxes.id, effectiveBoxId));
+          
+        // Audit log for box placement at stand
+        const dropStandMeta = await buildStandContextMeta(scannedStandId);
+        await createAuditEvent({
+          taskId: updatedTask.id,
+          actorUserId: authUser.id,
+          action: "BOX_PLACED",
+          entityType: "box",
+          entityId: effectiveBoxId,
+          beforeData: { standId: null, status: "IN_TRANSIT" },
+          afterData: { standId: scannedStandId, status: "AT_STAND" },
+          metaJson: {
+            ...dropStandMeta,
+            boxId: effectiveBoxId,
+            source: "DROPOFF_SCAN",
+          },
+        });
+      }
+      
+      // DISPOSED or CANCELLED: Release box
       if (status === "DISPOSED" || status === "CANCELLED") {
-        if (task.boxId) {
+        if (effectiveBoxId) {
           await db.update(boxes)
             .set({ 
               currentTaskId: null, 
               status: status === "DISPOSED" ? "AT_WAREHOUSE" : "AT_STAND",
               updatedAt: now 
             })
-            .where(eq(boxes.id, task.boxId));
+            .where(eq(boxes.id, effectiveBoxId));
         }
       }
 

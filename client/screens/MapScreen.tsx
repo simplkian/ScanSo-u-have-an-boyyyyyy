@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   LayoutChangeEvent,
+  Modal,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { EmptyState } from "@/components/EmptyState";
@@ -53,6 +55,50 @@ interface MapData {
   stations: StationData[];
 }
 
+interface BoxDetail {
+  id: string;
+  serial: string;
+  qrCode: string;
+  status: string;
+  standId: string | null;
+}
+
+interface TaskDetail {
+  id: string;
+  status: string;
+  taskType: string;
+  createdAt: string;
+}
+
+interface MaterialDetail {
+  id: string;
+  name: string;
+  code: string;
+  hazardClass?: string;
+}
+
+interface StandDetail {
+  id: string;
+  identifier: string;
+  qrCode: string;
+  dailyFull: boolean;
+  materialId: string | null;
+  material: MaterialDetail | null;
+  boxes: BoxDetail[];
+  openTasks: TaskDetail[];
+}
+
+interface StationDetails {
+  id: string;
+  code: string;
+  name: string;
+  hallId: string;
+  hall: { id: string; name: string; code: string } | null;
+  stands: StandDetail[];
+  totalBoxes: number;
+  totalOpenTasks: number;
+}
+
 const hallFloorPlans: Record<string, any> = {
   K13: K13Map,
   K18: K18Map,
@@ -65,15 +111,38 @@ const MAP_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
 const MAP_ASPECT_RATIO = 1.2;
 const MAP_HEIGHT = MAP_WIDTH / MAP_ASPECT_RATIO;
 
+const BOX_STATUS_LABELS: Record<string, string> = {
+  AT_STAND: "Am Stellplatz",
+  IN_TRANSIT: "Unterwegs",
+  AT_WAREHOUSE: "Im Lager",
+  DISPOSED: "Entsorgt",
+};
+
+const TASK_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Offen",
+  PICKED_UP: "Abgeholt",
+  IN_TRANSIT: "Unterwegs",
+  DROPPED_OFF: "Abgestellt",
+  TAKEN_OVER: "Übernommen",
+  WEIGHED: "Gewogen",
+  DISPOSED: "Entsorgt",
+};
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const [selectedHall, setSelectedHall] = useState<HallData | null>(null);
+  const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
 
   const { data: mapData, isLoading, error } = useQuery<MapData>({
     queryKey: ["/api/factory/map-data"],
+  });
+
+  const { data: stationDetails, isLoading: loadingDetails } = useQuery<StationDetails>({
+    queryKey: [`/api/stations/${selectedStation?.id}/details`],
+    enabled: !!selectedStation,
   });
 
   const handleMapLayout = useCallback((event: LayoutChangeEvent) => {
@@ -89,11 +158,51 @@ export default function MapScreen() {
 
   const handleBackPress = () => {
     setSelectedHall(null);
+    setSelectedStation(null);
+  };
+
+  const handleStationPress = (station: StationData) => {
+    setSelectedStation(station);
+  };
+
+  const closeStationDrawer = () => {
+    setSelectedStation(null);
   };
 
   const stationsForHall = selectedHall
     ? mapData?.stations.filter((s) => s.hallId === selectedHall.id) || []
     : [];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "OPEN":
+        return theme.warning;
+      case "PICKED_UP":
+      case "IN_TRANSIT":
+        return theme.info;
+      case "DROPPED_OFF":
+      case "TAKEN_OVER":
+        return theme.accent;
+      case "WEIGHED":
+      case "DISPOSED":
+        return theme.success;
+      default:
+        return theme.textSecondary;
+    }
+  };
+
+  const getBoxStatusColor = (status: string) => {
+    switch (status) {
+      case "AT_STAND":
+        return theme.success;
+      case "IN_TRANSIT":
+        return theme.warning;
+      case "AT_WAREHOUSE":
+        return theme.info;
+      default:
+        return theme.textSecondary;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -154,16 +263,19 @@ export default function MapScreen() {
               stationsForHall.map((station) => {
                 if (!station.positionMeta) return null;
                 const { x, y } = station.positionMeta;
+                const isSelected = selectedStation?.id === station.id;
                 return (
                   <Pressable
                     key={station.id}
+                    onPress={() => handleStationPress(station)}
                     style={[
                       styles.marker,
                       styles.stationMarker,
                       {
                         left: x * mapDimensions.width - 16,
                         top: y * mapDimensions.height - 16,
-                        backgroundColor: theme.info,
+                        backgroundColor: isSelected ? theme.accent : theme.info,
+                        transform: [{ scale: isSelected ? 1.2 : 1 }],
                       },
                     ]}
                   >
@@ -201,17 +313,28 @@ export default function MapScreen() {
         {selectedHall ? (
           <View style={styles.legendSection}>
             <ThemedText style={styles.legendTitle}>Stationen in {selectedHall.code}</ThemedText>
+            <ThemedText style={styles.legendHint}>
+              Tippen Sie auf eine Station um Details anzuzeigen
+            </ThemedText>
             {stationsForHall.length === 0 ? (
               <ThemedText style={styles.legendItem}>Keine Stationen gefunden</ThemedText>
             ) : (
               stationsForHall.map((station) => (
-                <View key={station.id} style={styles.stationRow}>
-                  <View style={[styles.stationDot, { backgroundColor: theme.info }]} />
+                <Pressable 
+                  key={station.id} 
+                  style={[
+                    styles.stationRow, 
+                    { backgroundColor: selectedStation?.id === station.id ? theme.backgroundSecondary : 'transparent' }
+                  ]}
+                  onPress={() => handleStationPress(station)}
+                >
+                  <View style={[styles.stationDot, { backgroundColor: selectedStation?.id === station.id ? theme.accent : theme.info }]} />
                   <View style={styles.stationInfo}>
                     <ThemedText style={styles.stationCode}>{station.code}</ThemedText>
                     <ThemedText style={styles.stationName}>{station.name}</ThemedText>
                   </View>
-                </View>
+                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                </Pressable>
               ))
             )}
           </View>
@@ -238,6 +361,165 @@ export default function MapScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal 
+        visible={!!selectedStation} 
+        animationType="slide" 
+        transparent 
+        onRequestClose={closeStationDrawer}
+      >
+        <Pressable style={styles.drawerOverlay} onPress={closeStationDrawer}>
+          <Pressable 
+            style={[
+              styles.drawerContent, 
+              { 
+                backgroundColor: theme.backgroundRoot,
+                paddingBottom: insets.bottom + Spacing.lg 
+              }
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.drawerHandle, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerTitleContainer}>
+                <Feather name="map-pin" size={24} color={theme.accent} />
+                <View>
+                  <ThemedText style={styles.drawerTitle}>
+                    {selectedStation?.name}
+                  </ThemedText>
+                  <ThemedText style={[styles.drawerSubtitle, { color: theme.textSecondary }]}>
+                    {selectedStation?.code} - {stationDetails?.hall?.name || selectedHall?.name}
+                  </ThemedText>
+                </View>
+              </View>
+              <Pressable onPress={closeStationDrawer} style={styles.closeButton}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            {loadingDetails ? (
+              <View style={styles.drawerLoading}>
+                <ActivityIndicator size="small" color={theme.accent} />
+                <ThemedText style={{ color: theme.textSecondary }}>Laden...</ThemedText>
+              </View>
+            ) : stationDetails ? (
+              <ScrollView 
+                style={styles.drawerScrollView}
+                contentContainerStyle={styles.drawerScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.summaryRow}>
+                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                    <Feather name="target" size={20} color={theme.info} />
+                    <ThemedText style={styles.summaryNumber}>{stationDetails.stands.length}</ThemedText>
+                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Stellplätze</ThemedText>
+                  </View>
+                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                    <Feather name="package" size={20} color={theme.success} />
+                    <ThemedText style={styles.summaryNumber}>{stationDetails.totalBoxes}</ThemedText>
+                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Boxen</ThemedText>
+                  </View>
+                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                    <Feather name="clipboard" size={20} color={theme.warning} />
+                    <ThemedText style={styles.summaryNumber}>{stationDetails.totalOpenTasks}</ThemedText>
+                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Offene Tasks</ThemedText>
+                  </View>
+                </View>
+
+                {stationDetails.stands.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Feather name="inbox" size={32} color={theme.textTertiary} />
+                    <ThemedText style={{ color: theme.textSecondary }}>Keine Stellplätze vorhanden</ThemedText>
+                  </View>
+                ) : (
+                  stationDetails.stands.map((stand) => (
+                    <Card key={stand.id} style={styles.standCard}>
+                      <View style={styles.standHeader}>
+                        <View style={styles.standInfo}>
+                          <ThemedText style={styles.standIdentifier}>{stand.identifier}</ThemedText>
+                          {stand.material ? (
+                            <View style={styles.materialBadge}>
+                              <Feather name="box" size={12} color={theme.info} />
+                              <ThemedText style={[styles.materialName, { color: theme.info }]}>
+                                {stand.material.name}
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={styles.standBadges}>
+                          {stand.dailyFull ? (
+                            <View style={[styles.dailyBadge, { backgroundColor: theme.warning + '20' }]}>
+                              <Feather name="clock" size={12} color={theme.warning} />
+                              <ThemedText style={[styles.dailyText, { color: theme.warning }]}>Täglich</ThemedText>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+
+                      {stand.boxes.length > 0 ? (
+                        <View style={styles.boxesSection}>
+                          <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                            Boxen ({stand.boxes.length})
+                          </ThemedText>
+                          {stand.boxes.map((box) => (
+                            <View key={box.id} style={[styles.boxRow, { borderColor: theme.border }]}>
+                              <View style={styles.boxInfo}>
+                                <Feather name="package" size={14} color={getBoxStatusColor(box.status)} />
+                                <ThemedText style={styles.boxSerial}>{box.serial}</ThemedText>
+                              </View>
+                              <StatusBadge 
+                                status={box.status === "AT_STAND" ? "success" : box.status === "IN_TRANSIT" ? "warning" : "info"} 
+                                label={BOX_STATUS_LABELS[box.status] || box.status} 
+                                size="small" 
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.noBoxes}>
+                          <Feather name="package" size={14} color={theme.textTertiary} />
+                          <ThemedText style={[styles.noBoxesText, { color: theme.textTertiary }]}>
+                            Keine Boxen am Stellplatz
+                          </ThemedText>
+                        </View>
+                      )}
+
+                      {stand.openTasks.length > 0 ? (
+                        <View style={styles.tasksSection}>
+                          <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                            Offene Aufgaben ({stand.openTasks.length})
+                          </ThemedText>
+                          {stand.openTasks.map((task) => (
+                            <View key={task.id} style={[styles.taskRow, { borderColor: theme.border }]}>
+                              <View style={styles.taskInfo}>
+                                <View style={[styles.taskDot, { backgroundColor: getStatusColor(task.status) }]} />
+                                <ThemedText style={styles.taskType}>
+                                  {task.taskType === "DAILY_FULL" ? "Tagesabholung" : "Manuell"}
+                                </ThemedText>
+                              </View>
+                              <StatusBadge 
+                                status={task.status === "OPEN" ? "warning" : "info"} 
+                                label={TASK_STATUS_LABELS[task.status] || task.status} 
+                                size="small" 
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </Card>
+                  ))
+                )}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyState}>
+                <Feather name="alert-circle" size={32} color={theme.textTertiary} />
+                <ThemedText style={{ color: theme.textSecondary }}>Keine Daten verfügbar</ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -357,7 +639,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
     gap: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   stationDot: {
     width: 12,
@@ -373,5 +657,179 @@ const styles = StyleSheet.create({
   stationName: {
     ...Typography.caption,
     opacity: 0.7,
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  drawerContent: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "75%",
+    minHeight: 300,
+  },
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  drawerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  drawerTitle: {
+    ...Typography.h4,
+  },
+  drawerSubtitle: {
+    ...Typography.small,
+  },
+  closeButton: {
+    padding: Spacing.sm,
+  },
+  drawerLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing["3xl"],
+  },
+  drawerScrollView: {
+    flex: 1,
+  },
+  drawerScrollContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  summaryCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.xs,
+  },
+  summaryNumber: {
+    ...Typography.h3,
+  },
+  summaryLabel: {
+    ...Typography.caption,
+    textAlign: "center",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["3xl"],
+    gap: Spacing.md,
+  },
+  standCard: {
+    gap: Spacing.md,
+  },
+  standHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  standInfo: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  standIdentifier: {
+    ...Typography.h4,
+  },
+  materialBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  materialName: {
+    ...Typography.small,
+  },
+  standBadges: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  dailyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  dailyText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  sectionLabel: {
+    ...Typography.smallBold,
+    marginBottom: Spacing.xs,
+  },
+  boxesSection: {
+    gap: Spacing.xs,
+  },
+  boxRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+  },
+  boxInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  boxSerial: {
+    ...Typography.body,
+  },
+  noBoxes: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  noBoxesText: {
+    ...Typography.small,
+  },
+  tasksSection: {
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  taskRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+  },
+  taskInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  taskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  taskType: {
+    ...Typography.body,
   },
 });
