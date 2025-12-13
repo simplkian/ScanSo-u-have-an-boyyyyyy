@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -7,8 +7,14 @@ import {
   ScrollView,
   ActivityIndicator,
   LayoutChangeEvent,
-  Modal,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -107,10 +113,23 @@ const hallFloorPlans: Record<string, any> = {
   K25: K25Map,
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const MAP_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
 const MAP_ASPECT_RATIO = 1.2;
 const MAP_HEIGHT = MAP_WIDTH / MAP_ASPECT_RATIO;
+
+const SNAP_POINTS = {
+  CLOSED: SCREEN_HEIGHT,
+  COLLAPSED: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.25),
+  MEDIUM: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.50),
+  EXPANDED: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.85),
+};
+
+const SPRING_CONFIG = {
+  damping: 25,
+  stiffness: 300,
+  mass: 0.5,
+};
 
 const BOX_STATUS_LABELS: Record<string, string> = {
   AT_STAND: "Am Stellplatz",
@@ -136,6 +155,10 @@ export default function MapScreen() {
   const [selectedHall, setSelectedHall] = useState<HallData | null>(null);
   const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
+  const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
+
+  const translateY = useSharedValue(SNAP_POINTS.CLOSED);
+  const context = useSharedValue({ y: 0 });
 
   const { data: mapData, isLoading, error } = useQuery<MapData>({
     queryKey: ["/api/factory/map-data"],
@@ -145,6 +168,87 @@ export default function MapScreen() {
     queryKey: [`/api/stations/${selectedStation?.id}/details`],
     enabled: !!selectedStation,
   });
+
+  const openBottomSheet = useCallback(() => {
+    setIsBottomSheetVisible(true);
+    translateY.value = withSpring(SNAP_POINTS.COLLAPSED, SPRING_CONFIG);
+  }, [translateY]);
+
+  const closeBottomSheet = useCallback(() => {
+    translateY.value = withSpring(SNAP_POINTS.CLOSED, SPRING_CONFIG, (finished) => {
+      if (finished) {
+        runOnJS(setIsBottomSheetVisible)(false);
+        runOnJS(setSelectedStation)(null);
+      }
+    });
+  }, [translateY]);
+
+  useEffect(() => {
+    if (selectedStation) {
+      openBottomSheet();
+    }
+  }, [selectedStation, openBottomSheet]);
+
+  const snapToNearest = (velocity: number) => {
+    "worklet";
+    const currentY = translateY.value;
+    const snapPoints = [SNAP_POINTS.EXPANDED, SNAP_POINTS.MEDIUM, SNAP_POINTS.COLLAPSED, SNAP_POINTS.CLOSED];
+    
+    if (velocity > 500) {
+      const lowerSnaps = snapPoints.filter(p => p > currentY);
+      if (lowerSnaps.length > 0) {
+        return lowerSnaps[0];
+      }
+      return SNAP_POINTS.CLOSED;
+    } else if (velocity < -500) {
+      const higherSnaps = snapPoints.filter(p => p < currentY).reverse();
+      if (higherSnaps.length > 0) {
+        return higherSnaps[0];
+      }
+      return SNAP_POINTS.EXPANDED;
+    }
+    
+    let closest = snapPoints[0];
+    let minDistance = Math.abs(currentY - snapPoints[0]);
+    for (const point of snapPoints) {
+      const distance = Math.abs(currentY - point);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = point;
+      }
+    }
+    return closest;
+  };
+
+  const handleSheetClosed = useCallback(() => {
+    setIsBottomSheetVisible(false);
+    setSelectedStation(null);
+  }, []);
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = { y: translateY.value };
+    })
+    .onUpdate((event) => {
+      const newY = context.value.y + event.translationY;
+      translateY.value = Math.min(SNAP_POINTS.CLOSED, Math.max(SNAP_POINTS.EXPANDED, newY));
+    })
+    .onEnd((event) => {
+      const snapPoint = snapToNearest(event.velocityY);
+      translateY.value = withSpring(snapPoint, SPRING_CONFIG, (finished) => {
+        if (finished && snapPoint === SNAP_POINTS.CLOSED) {
+          runOnJS(handleSheetClosed)();
+        }
+      });
+    });
+
+  const bottomSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: 1 - (translateY.value - SNAP_POINTS.EXPANDED) / (SNAP_POINTS.CLOSED - SNAP_POINTS.EXPANDED),
+  }));
 
   const handleMapLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -167,7 +271,7 @@ export default function MapScreen() {
   };
 
   const closeStationDrawer = () => {
-    setSelectedStation(null);
+    closeBottomSheet();
   };
 
   const stationsForHall = selectedHall
@@ -363,25 +467,28 @@ export default function MapScreen() {
         )}
       </ScrollView>
 
-      <Modal 
-        visible={!!selectedStation} 
-        animationType="slide" 
-        transparent 
-        onRequestClose={closeStationDrawer}
-      >
-        <Pressable style={styles.drawerOverlay} onPress={closeStationDrawer}>
-          <Pressable 
-            style={[
-              styles.drawerContent, 
-              { 
-                backgroundColor: theme.backgroundRoot,
-                paddingBottom: insets.bottom + Spacing.lg 
-              }
-            ]}
-            onPress={(e) => e.stopPropagation()}
+      {isBottomSheetVisible ? (
+        <>
+          <Animated.View 
+            style={[styles.bottomSheetOverlay, overlayStyle]} 
+            pointerEvents={isBottomSheetVisible ? "auto" : "none"}
           >
-            <View style={[styles.drawerHandle, { backgroundColor: theme.border }]} />
-            
+            <Pressable style={styles.overlayPressable} onPress={closeStationDrawer} />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              { backgroundColor: theme.backgroundRoot },
+              bottomSheetStyle,
+            ]}
+          >
+            <GestureDetector gesture={panGesture}>
+              <View style={styles.bottomSheetHandleArea}>
+                <View style={[styles.drawerHandle, { backgroundColor: theme.border }]} />
+              </View>
+            </GestureDetector>
+
             <View style={styles.drawerHeader}>
               <View style={styles.drawerTitleContainer}>
                 <Feather name="map-pin" size={24} color={theme.accent} />
@@ -406,7 +513,7 @@ export default function MapScreen() {
               </View>
             ) : stationDetails ? (
               <ScrollView 
-                style={styles.drawerScrollView}
+                style={[styles.drawerScrollView, { paddingBottom: insets.bottom }]}
                 contentContainerStyle={styles.drawerScrollContent}
                 showsVerticalScrollIndicator={false}
               >
@@ -516,6 +623,7 @@ export default function MapScreen() {
                     </Card>
                   ))
                 )}
+                <View style={{ height: insets.bottom + Spacing.xl }} />
               </ScrollView>
             ) : (
               <View style={styles.emptyState}>
@@ -523,9 +631,9 @@ export default function MapScreen() {
                 <ThemedText style={{ color: theme.textSecondary }}>Keine Daten verfügbar</ThemedText>
               </View>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </Animated.View>
+        </>
+      ) : null}
     </ThemedView>
   );
 }
@@ -664,24 +772,36 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     opacity: 0.7,
   },
-  drawerOverlay: {
-    flex: 1,
+  bottomSheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
+    zIndex: 1,
   },
-  drawerContent: {
+  overlayPressable: {
+    flex: 1,
+  },
+  bottomSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
-    maxHeight: "75%",
-    minHeight: 300,
+    zIndex: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bottomSheetHandleArea: {
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
   },
   drawerHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    alignSelf: "center",
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   drawerHeader: {
     flexDirection: "row",
