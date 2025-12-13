@@ -188,11 +188,23 @@ export default function AdminDashboardScreen() {
         <View style={styles.actionsGrid}>
           <Button
             style={[styles.actionButton, { backgroundColor: theme.accent }]}
+            onPress={() => navigation.navigate("ManualTask")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
+              <ThemedText type="body" style={[styles.actionText, { color: theme.textOnAccent }]}>
+                Neue Aufgabe erstellen
+              </ThemedText>
+            </View>
+          </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("AutomotiveManagement")}
           >
             <View style={styles.actionContent}>
-              <Feather name="box" size={20} color={theme.textOnAccent} />
-              <ThemedText type="body" style={[styles.actionText, { color: theme.textOnAccent }]}>
+              <Feather name="box" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Automotive Fabrik
               </ThemedText>
             </View>

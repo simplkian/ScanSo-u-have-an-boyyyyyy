@@ -5122,6 +5122,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // ADMIN MANUAL TASK CREATION
+  // ============================================================================
+
+  /**
+   * GET /api/admin/stands-with-materials
+   * Returns stands with their material names joined for a given station
+   * Query params: stationId (required)
+   */
+  app.get("/api/admin/stands-with-materials", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { stationId } = req.query;
+      if (!stationId) {
+        return res.status(400).json({ error: "stationId required" });
+      }
+
+      const result = await db.select({
+        id: stands.id,
+        identifier: stands.identifier,
+        materialId: stands.materialId,
+        materialName: materials.name,
+        materialCode: materials.code,
+      })
+      .from(stands)
+      .leftJoin(materials, eq(stands.materialId, materials.id))
+      .where(and(eq(stands.stationId, stationId as string), eq(stands.isActive, true)));
+
+      res.json(result);
+    } catch (error) {
+      console.error("[Admin] Failed to fetch stands with materials:", error);
+      res.status(500).json({ error: "Failed to fetch stands" });
+    }
+  });
+
+  /**
+   * POST /api/admin/tasks
+   * Create a manual task for a specific stand
+   * Body: { hallId, stationId, standId, scheduledFor?: string }
+   */
+  app.post("/api/admin/tasks", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { hallId, stationId, standId, scheduledFor } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!hallId || !stationId || !standId) {
+        return res.status(400).json({ error: "hallId, stationId, and standId are required" });
+      }
+
+      // Validate station belongs to hall
+      const [station] = await db.select().from(stations).where(eq(stations.id, stationId));
+      if (!station) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+      if (station.hallId !== hallId) {
+        return res.status(400).json({ error: "Station does not belong to the specified hall" });
+      }
+
+      // Validate stand belongs to station
+      const [stand] = await db.select().from(stands).where(eq(stands.id, standId));
+      if (!stand) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+      if (stand.stationId !== stationId) {
+        return res.status(400).json({ error: "Stand does not belong to the specified station" });
+      }
+      if (!stand.isActive) {
+        return res.status(400).json({ error: "Stand is not active" });
+      }
+
+      // Check for existing OPEN tasks for this stand (warning only - still allow creation)
+      const [existingOpenTask] = await db.select().from(tasks).where(
+        and(
+          eq(tasks.standId, standId),
+          eq(tasks.status, "OPEN")
+        )
+      );
+      if (existingOpenTask) {
+        console.log(`[ManualTask] Warning: Creating new task for stand ${standId} which already has an OPEN task ${existingOpenTask.id}`);
+      }
+
+      // Create the task
+      const [newTask] = await db.insert(tasks).values({
+        title: `Manuelle Aufgabe - Stand ${stand.identifier}`,
+        description: null,
+        status: "OPEN",
+        source: "MANUAL",
+        taskType: "AUTOMOTIVE",
+        standId: standId,
+        materialType: stand.materialId,
+        scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+        dedupKey: null,
+        scheduleId: null,
+        priority: "normal",
+      }).returning();
+
+      // Create audit event
+      await createAuditEvent({
+        taskId: newTask.id,
+        actorUserId: authUser?.id,
+        action: "TASK_CREATED",
+        entityType: "task",
+        entityId: newTask.id,
+        afterData: newTask,
+        metaJson: {
+          hallId,
+          stationId,
+          standId,
+          materialId: stand.materialId || undefined,
+          source: "MANUAL",
+        },
+      });
+
+      console.log(`[Admin] Manual task created: ${newTask.id} for stand ${stand.identifier}`);
+      res.status(201).json(newTask);
+    } catch (error) {
+      console.error("[Admin] Failed to create manual task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // TASK SCHEDULERS
   // Daily scheduler: Runs at startup (5 second delay) and every hour
