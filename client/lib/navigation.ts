@@ -6,9 +6,13 @@ interface NavigationParams {
   label?: string;
 }
 
-export async function openMapsNavigation({ latitude, longitude, label = "Destination" }: NavigationParams): Promise<boolean> {
+export async function openMapsNavigation({
+  latitude,
+  longitude,
+  label = "Destination",
+}: NavigationParams): Promise<boolean> {
   const encodedLabel = encodeURIComponent(label);
-  
+
   if (Platform.OS === "web") {
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
     try {
@@ -53,12 +57,16 @@ export async function openMapsNavigation({ latitude, longitude, label = "Destina
     Alert.alert(
       "Navigation Error",
       "Unable to open maps application. Please ensure you have Google Maps or Apple Maps installed.",
-      [{ text: "OK" }]
+      [{ text: "OK" }],
     );
     return false;
   }
 }
 
-export function getMapsPreviewUrl(latitude: number, longitude: number, zoom: number = 15): string {
+export function getMapsPreviewUrl(
+  latitude: number,
+  longitude: number,
+  zoom: number = 15,
+): string {
   return `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=${zoom}&size=400x200&markers=color:red%7C${latitude},${longitude}`;
 }

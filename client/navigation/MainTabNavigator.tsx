@@ -66,7 +66,11 @@ export default function MainTabNavigator() {
         options={{
           title: "Scannen",
           tabBarIcon: ({ color }) => (
-            <Feather name="maximize" size={IndustrialDesign.iconSize} color={color} />
+            <Feather
+              name="maximize"
+              size={IndustrialDesign.iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -76,7 +80,11 @@ export default function MainTabNavigator() {
         options={{
           title: "Aufgaben",
           tabBarIcon: ({ color }) => (
-            <Feather name="list" size={IndustrialDesign.iconSize} color={color} />
+            <Feather
+              name="list"
+              size={IndustrialDesign.iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -86,7 +94,11 @@ export default function MainTabNavigator() {
         options={{
           title: "Lager",
           tabBarIcon: ({ color }) => (
-            <Feather name="package" size={IndustrialDesign.iconSize} color={color} />
+            <Feather
+              name="package"
+              size={IndustrialDesign.iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -96,7 +108,11 @@ export default function MainTabNavigator() {
         options={{
           title: "Werksplan",
           tabBarIcon: ({ color }) => (
-            <Feather name="map-pin" size={IndustrialDesign.iconSize} color={color} />
+            <Feather
+              name="map-pin"
+              size={IndustrialDesign.iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -106,7 +122,11 @@ export default function MainTabNavigator() {
         options={{
           title: isAdmin ? "Admin" : "Profil",
           tabBarIcon: ({ color }) => (
-            <Feather name={isAdmin ? "grid" : "user"} size={IndustrialDesign.iconSize} color={color} />
+            <Feather
+              name={isAdmin ? "grid" : "user"}
+              size={IndustrialDesign.iconSize}
+              color={color}
+            />
           ),
         }}
       />

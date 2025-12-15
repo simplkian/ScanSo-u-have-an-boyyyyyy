@@ -42,7 +42,7 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
 export async function setCachedData<T>(
   key: string,
   data: T,
-  duration: number = DEFAULT_CACHE_DURATION
+  duration: number = DEFAULT_CACHE_DURATION,
 ): Promise<void> {
   try {
     const cacheKey = CACHE_PREFIX + key;
@@ -77,7 +77,9 @@ export async function getPendingActions(): Promise<PendingAction[]> {
   }
 }
 
-export async function addPendingAction(action: Omit<PendingAction, "id" | "timestamp">): Promise<void> {
+export async function addPendingAction(
+  action: Omit<PendingAction, "id" | "timestamp">,
+): Promise<void> {
   try {
     const pending = await getPendingActions();
     const newAction: PendingAction = {
@@ -130,13 +132,13 @@ export async function setLastSyncTime(): Promise<void> {
 
 export function formatLastSync(timestamp: number | null): string {
   if (!timestamp) return "Never";
-  
+
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   if (diff < 60000) return "Just now";
   if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
-  
+
   return new Date(timestamp).toLocaleDateString();
 }

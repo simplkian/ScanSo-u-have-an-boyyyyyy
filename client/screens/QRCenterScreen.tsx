@@ -48,7 +48,10 @@ interface Entity {
   hasQr: boolean;
 }
 
-function mapApiEntityToEntity(apiEntity: QrEntityRow, type: EntityType): Entity {
+function mapApiEntityToEntity(
+  apiEntity: QrEntityRow,
+  type: EntityType,
+): Entity {
   return {
     id: apiEntity.id,
     name: apiEntity.title || "Unbekannt",
@@ -59,7 +62,11 @@ function mapApiEntityToEntity(apiEntity: QrEntityRow, type: EntityType): Entity 
   };
 }
 
-const ENTITY_TYPES: { key: EntityType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+const ENTITY_TYPES: {
+  key: EntityType;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}[] = [
   { key: "STATION", label: "Station", icon: "map-pin" },
   { key: "STAND", label: "Stellplatz", icon: "square" },
   { key: "BOX", label: "Box", icon: "box" },
@@ -83,11 +90,17 @@ export default function QRCenterScreen() {
     queryParams.query = searchQuery;
   }
 
-  const { data: apiEntities, isLoading, refetch, isRefetching } = useQuery<QrEntityRow[] | null>({
+  const {
+    data: apiEntities,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery<QrEntityRow[] | null>({
     queryKey: ["/api/qr/entities", queryParams],
   });
 
-  const entities = apiEntities?.map((e) => mapApiEntityToEntity(e, selectedType)) ?? [];
+  const entities =
+    apiEntities?.map((e) => mapApiEntityToEntity(e, selectedType)) ?? [];
 
   const handleTypeChange = useCallback((type: EntityType) => {
     setSelectedType(type);
@@ -107,7 +120,11 @@ export default function QRCenterScreen() {
 
   const regenerateMutation = useMutation({
     mutationFn: async ({ type, id }: { type: EntityType; id: string }) => {
-      const response = await apiRequest("POST", "/api/qr/regenerate", { type, id, confirm: true });
+      const response = await apiRequest("POST", "/api/qr/regenerate", {
+        type,
+        id,
+        confirm: true,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -193,7 +210,7 @@ export default function QRCenterScreen() {
             });
           },
         },
-      ]
+      ],
     );
   }, [selectedEntity, regenerateMutation]);
 
@@ -202,28 +219,48 @@ export default function QRCenterScreen() {
     return found?.label || type;
   };
 
-  const handleEnsureQr = useCallback((entity: Entity) => {
-    ensureMutation.mutate({ type: entity.type, id: entity.id });
-  }, [ensureMutation]);
+  const handleEnsureQr = useCallback(
+    (entity: Entity) => {
+      ensureMutation.mutate({ type: entity.type, id: entity.id });
+    },
+    [ensureMutation],
+  );
 
   const renderEntityItem = useCallback(
     ({ item }: { item: Entity }) => (
       <Card
         style={[styles.entityCard, { backgroundColor: theme.cardSurface }]}
-        onPress={() => item.hasQr ? handleEntityPress(item) : handleEnsureQr(item)}
+        onPress={() =>
+          item.hasQr ? handleEntityPress(item) : handleEnsureQr(item)
+        }
       >
         <View style={styles.entityRow}>
           <View style={styles.entityInfo}>
-            <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>
+            <ThemedText
+              type="bodyBold"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ color: theme.text }}
+            >
               {item.name}
             </ThemedText>
-            <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary }}>
+            <ThemedText
+              type="small"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ color: theme.textSecondary }}
+            >
               {item.subtitle || getEntityTypeLabel(item.type)}
             </ThemedText>
           </View>
           {item.hasQr && item.qrCode ? (
             <>
-              <View style={[styles.qrPreview, { backgroundColor: theme.backgroundDefault }]}>
+              <View
+                style={[
+                  styles.qrPreview,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
                 <QRCode
                   value={item.qrCode}
                   size={48}
@@ -231,17 +268,29 @@ export default function QRCenterScreen() {
                   color={theme.text}
                 />
               </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </>
           ) : (
             <>
-              <View style={[styles.noQrBadge, { backgroundColor: theme.warning + "20" }]}>
+              <View
+                style={[
+                  styles.noQrBadge,
+                  { backgroundColor: theme.warning + "20" },
+                ]}
+              >
                 <ThemedText type="small" style={{ color: theme.warning }}>
                   QR fehlt
                 </ThemedText>
               </View>
               <Pressable
-                style={[styles.generateButton, { backgroundColor: theme.primary }]}
+                style={[
+                  styles.generateButton,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={() => handleEnsureQr(item)}
               >
                 <Feather name="plus" size={14} color={theme.textOnPrimary} />
@@ -254,7 +303,7 @@ export default function QRCenterScreen() {
         </View>
       </Card>
     ),
-    [theme, handleEntityPress, handleEnsureQr]
+    [theme, handleEntityPress, handleEnsureQr],
   );
 
   const renderTypeSelector = () => (
@@ -272,7 +321,9 @@ export default function QRCenterScreen() {
             style={[
               styles.typeButton,
               {
-                backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                backgroundColor: isSelected
+                  ? theme.primary
+                  : theme.backgroundSecondary,
                 borderColor: isSelected ? theme.primary : theme.border,
               },
             ]}
@@ -305,7 +356,12 @@ export default function QRCenterScreen() {
       presentationStyle="pageSheet"
       onRequestClose={handleCloseModal}
     >
-      <ThemedView style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <ThemedView
+        style={[
+          styles.modalContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
         <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
           <ThemedText type="h4" style={{ color: theme.text }}>
             QR-Code Details
@@ -331,30 +387,50 @@ export default function QRCenterScreen() {
               >
                 <View style={styles.qrWrapper}>
                   <QRCode
-                    value={selectedEntity.qrCode || `${selectedEntity.type}:${selectedEntity.id}`}
+                    value={
+                      selectedEntity.qrCode ||
+                      `${selectedEntity.type}:${selectedEntity.id}`
+                    }
                     size={200}
                     backgroundColor="#FFFFFF"
                     color="#000000"
                   />
                 </View>
                 <View style={styles.qrLabel}>
-                  <ThemedText type="bodyBold" style={{ color: "#000000", textAlign: "center" }}>
+                  <ThemedText
+                    type="bodyBold"
+                    style={{ color: "#000000", textAlign: "center" }}
+                  >
                     {selectedEntity.name}
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: "#666666", textAlign: "center" }}>
+                  <ThemedText
+                    type="small"
+                    style={{ color: "#666666", textAlign: "center" }}
+                  >
                     {getEntityTypeLabel(selectedEntity.type)}
                   </ThemedText>
                 </View>
               </ViewShot>
 
-              <Card style={[styles.metadataCard, { backgroundColor: theme.cardSurface }]}>
-                <ThemedText type="h4" style={{ color: theme.primary, marginBottom: Spacing.sm }}>
+              <Card
+                style={[
+                  styles.metadataCard,
+                  { backgroundColor: theme.cardSurface },
+                ]}
+              >
+                <ThemedText
+                  type="h4"
+                  style={{ color: theme.primary, marginBottom: Spacing.sm }}
+                >
                   Informationen
                 </ThemedText>
                 <View style={styles.metadataRow}>
                   <Feather name="tag" size={18} color={theme.textSecondary} />
                   <View style={styles.metadataContent}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
                       Name
                     </ThemedText>
                     <ThemedText type="body" style={{ color: theme.text }}>
@@ -363,9 +439,16 @@ export default function QRCenterScreen() {
                   </View>
                 </View>
                 <View style={styles.metadataRow}>
-                  <Feather name="layers" size={18} color={theme.textSecondary} />
+                  <Feather
+                    name="layers"
+                    size={18}
+                    color={theme.textSecondary}
+                  />
                   <View style={styles.metadataContent}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
                       Typ
                     </ThemedText>
                     <ThemedText type="body" style={{ color: theme.text }}>
@@ -376,7 +459,10 @@ export default function QRCenterScreen() {
                 <View style={styles.metadataRow}>
                   <Feather name="hash" size={18} color={theme.textSecondary} />
                   <View style={styles.metadataContent}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
                       ID
                     </ThemedText>
                     <ThemedText type="body" style={{ color: theme.text }}>
@@ -423,11 +509,16 @@ export default function QRCenterScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <View
         style={[
           styles.header,
-          { paddingTop: headerHeight + Spacing.sm, backgroundColor: theme.backgroundRoot },
+          {
+            paddingTop: headerHeight + Spacing.sm,
+            backgroundColor: theme.backgroundRoot,
+          },
         ]}
       >
         {renderTypeSelector()}

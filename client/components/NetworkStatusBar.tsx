@@ -8,7 +8,13 @@ import { useNetwork } from "@/contexts/NetworkContext";
 
 export function NetworkStatusBar() {
   const { theme } = useTheme();
-  const { isOnline, pendingActionsCount, lastSyncText, syncPendingActions, isSyncing } = useNetwork();
+  const {
+    isOnline,
+    pendingActionsCount,
+    lastSyncText,
+    syncPendingActions,
+    isSyncing,
+  } = useNetwork();
 
   if (isOnline && pendingActionsCount === 0) {
     return null;
@@ -20,27 +26,40 @@ export function NetworkStatusBar() {
     <View style={[styles.container, { backgroundColor }]}>
       {!isOnline ? (
         <View style={styles.content}>
-          <Feather name="wifi-off" size={IndustrialDesign.iconSize} color={theme.textOnPrimary} />
-          <ThemedText type="small" style={[styles.text, { color: theme.textOnPrimary }]}>
+          <Feather
+            name="wifi-off"
+            size={IndustrialDesign.iconSize}
+            color={theme.textOnPrimary}
+          />
+          <ThemedText
+            type="small"
+            style={[styles.text, { color: theme.textOnPrimary }]}
+          >
             You're offline. Changes will sync when connected.
           </ThemedText>
         </View>
       ) : pendingActionsCount > 0 ? (
-        <Pressable 
-          style={[styles.content, styles.pressable]} 
-          onPress={syncPendingActions} 
+        <Pressable
+          style={[styles.content, styles.pressable]}
+          onPress={syncPendingActions}
           disabled={isSyncing}
         >
           {isSyncing ? (
             <ActivityIndicator size="small" color={theme.textOnPrimary} />
           ) : (
-            <Feather name="refresh-cw" size={IndustrialDesign.iconSize} color={theme.textOnPrimary} />
+            <Feather
+              name="refresh-cw"
+              size={IndustrialDesign.iconSize}
+              color={theme.textOnPrimary}
+            />
           )}
-          <ThemedText type="small" style={[styles.text, { color: theme.textOnPrimary }]}>
-            {isSyncing 
-              ? "Syncing..." 
-              : `${pendingActionsCount} pending ${pendingActionsCount === 1 ? "action" : "actions"}. Tap to sync.`
-            }
+          <ThemedText
+            type="small"
+            style={[styles.text, { color: theme.textOnPrimary }]}
+          >
+            {isSyncing
+              ? "Syncing..."
+              : `${pendingActionsCount} pending ${pendingActionsCount === 1 ? "action" : "actions"}. Tap to sync.`}
           </ThemedText>
         </Pressable>
       ) : null}

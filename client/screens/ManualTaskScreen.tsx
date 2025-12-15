@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -42,7 +49,9 @@ export default function ManualTaskScreen() {
   const queryClient = useQueryClient();
 
   const [selectedHallId, setSelectedHallId] = useState<string | null>(null);
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
   const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
 
@@ -50,21 +59,34 @@ export default function ManualTaskScreen() {
     queryKey: ["/api/halls"],
   });
 
-  const { data: stations = [], isLoading: stationsLoading } = useQuery<Station[]>({
+  const { data: stations = [], isLoading: stationsLoading } = useQuery<
+    Station[]
+  >({
     queryKey: ["/api/stations", { hallId: selectedHallId }],
     queryFn: async () => {
       if (!selectedHallId) return [];
-      const response = await apiRequest("GET", `/api/stations?hallId=${selectedHallId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/stations?hallId=${selectedHallId}`,
+      );
       return response.json();
     },
     enabled: !!selectedHallId,
   });
 
-  const { data: standsData = [], isLoading: standsLoading } = useQuery<StandWithMaterial[]>({
-    queryKey: ["/api/admin/stands-with-materials", { stationId: selectedStationId }],
+  const { data: standsData = [], isLoading: standsLoading } = useQuery<
+    StandWithMaterial[]
+  >({
+    queryKey: [
+      "/api/admin/stands-with-materials",
+      { stationId: selectedStationId },
+    ],
     queryFn: async () => {
       if (!selectedStationId) return [];
-      const response = await apiRequest("GET", `/api/admin/stands-with-materials?stationId=${selectedStationId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/admin/stands-with-materials?stationId=${selectedStationId}`,
+      );
       return response.json();
     },
     enabled: !!selectedStationId,
@@ -150,7 +172,9 @@ export default function ManualTaskScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -188,7 +212,13 @@ export default function ManualTaskScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.card, backgroundColor: theme.cardSurface, opacity: selectedHallId ? 1 : 0.5 }}>
+        <Card
+          style={{
+            ...styles.card,
+            backgroundColor: theme.cardSurface,
+            opacity: selectedHallId ? 1 : 0.5,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <Feather name="grid" size={20} color={theme.primary} />
             <ThemedText type="h4" style={{ color: theme.primary }}>
@@ -219,7 +249,13 @@ export default function ManualTaskScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.card, backgroundColor: theme.cardSurface, opacity: selectedStationId ? 1 : 0.5 }}>
+        <Card
+          style={{
+            ...styles.card,
+            backgroundColor: theme.cardSurface,
+            opacity: selectedStationId ? 1 : 0.5,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <Feather name="box" size={20} color={theme.primary} />
             <ThemedText type="h4" style={{ color: theme.primary }}>
@@ -251,7 +287,15 @@ export default function ManualTaskScreen() {
         </Card>
 
         {canSubmit ? (
-          <Card style={{ ...styles.summaryCard, backgroundColor: isDark ? theme.successLight : `${theme.success}10`, borderColor: theme.success }}>
+          <Card
+            style={{
+              ...styles.summaryCard,
+              backgroundColor: isDark
+                ? theme.successLight
+                : `${theme.success}10`,
+              borderColor: theme.success,
+            }}
+          >
             <View style={styles.summaryHeader}>
               <Feather name="check-circle" size={20} color={theme.success} />
               <ThemedText type="bodyBold" style={{ color: theme.success }}>
@@ -267,7 +311,9 @@ export default function ManualTaskScreen() {
               </ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Stand: {selectedStand?.identifier}
-                {selectedStand?.materialName ? ` (${selectedStand.materialName})` : ""}
+                {selectedStand?.materialName
+                  ? ` (${selectedStand.materialName})`
+                  : ""}
               </ThemedText>
             </View>
           </Card>
@@ -277,7 +323,9 @@ export default function ManualTaskScreen() {
           style={[
             styles.submitButton,
             {
-              backgroundColor: canSubmit ? theme.accent : theme.backgroundTertiary,
+              backgroundColor: canSubmit
+                ? theme.accent
+                : theme.backgroundTertiary,
               opacity: canSubmit ? 1 : 0.5,
             },
           ]}
@@ -288,7 +336,11 @@ export default function ManualTaskScreen() {
             <ActivityIndicator color={theme.textOnAccent} />
           ) : (
             <View style={styles.buttonContent}>
-              <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
+              <Feather
+                name="plus-circle"
+                size={20}
+                color={theme.textOnAccent}
+              />
               <ThemedText type="bodyBold" style={{ color: theme.textOnAccent }}>
                 Aufgabe erstellen
               </ThemedText>

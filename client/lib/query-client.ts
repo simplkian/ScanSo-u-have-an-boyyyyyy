@@ -29,7 +29,7 @@ export function getApiUrl(): string {
   if (!host) {
     console.warn(
       "[API CONFIG] EXPO_PUBLIC_DOMAIN is not set. Network requests will fail. " +
-      "Set this environment variable to your API domain (e.g., 'your-domain.replit.dev:5000')"
+        "Set this environment variable to your API domain (e.g., 'your-domain.replit.dev:5000')",
     );
     return "http://localhost:5000";
   }
@@ -37,13 +37,13 @@ export function getApiUrl(): string {
   // Determine protocol based on host
   const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
   const protocol = isLocalhost ? "http" : "https";
-  
+
   const url = `${protocol}://${host}`;
-  
+
   if (DEBUG_API) {
     console.log(`[API CONFIG] Base URL: ${url}`);
   }
-  
+
   return url;
 }
 
@@ -68,7 +68,7 @@ export class ApiError extends Error {
   url: string;
   isHtmlResponse: boolean;
   isNetworkError: boolean;
-  
+
   constructor(options: {
     message: string;
     status?: number;
@@ -85,7 +85,7 @@ export class ApiError extends Error {
     this.isHtmlResponse = options.isHtmlResponse || false;
     this.isNetworkError = options.isNetworkError || false;
   }
-  
+
   toUserMessage(): string {
     if (this.isNetworkError) {
       return `Netzwerkfehler: Server nicht erreichbar. Bitte Internetverbindung prüfen.`;
@@ -110,9 +110,13 @@ export class ApiError extends Error {
 }
 
 // Parse response and throw detailed errors
-async function handleResponse(res: Response, url: string, method: string): Promise<void> {
+async function handleResponse(
+  res: Response,
+  url: string,
+  method: string,
+): Promise<void> {
   const contentType = res.headers.get("content-type") || "";
-  
+
   // Detect HTML response (misconfiguration - hitting wrong server)
   if (contentType.includes("text/html")) {
     const snippet = (await res.text()).substring(0, 100);
@@ -125,15 +129,19 @@ async function handleResponse(res: Response, url: string, method: string): Promi
       isHtmlResponse: true,
     });
   }
-  
+
   if (!res.ok) {
     let errorMessage = res.statusText;
-    
+
     // Try to extract error message from JSON response
     if (contentType.includes("application/json")) {
       try {
         const errorData = await res.json();
-        errorMessage = errorData.error || errorData.message || errorData.details || res.statusText;
+        errorMessage =
+          errorData.error ||
+          errorData.message ||
+          errorData.details ||
+          res.statusText;
       } catch {
         // Failed to parse JSON, use status text
       }
@@ -148,7 +156,7 @@ async function handleResponse(res: Response, url: string, method: string): Promi
         // Ignore
       }
     }
-    
+
     logApi(method, url, res.status, errorMessage);
     throw new ApiError({
       message: `${res.status}: ${errorMessage}`,
@@ -157,7 +165,7 @@ async function handleResponse(res: Response, url: string, method: string): Promi
       url,
     });
   }
-  
+
   logApi(method, url, res.status);
 }
 
@@ -177,7 +185,7 @@ export async function apiRequest(
   if (data) {
     headers["Content-Type"] = "application/json";
   }
-  
+
   // Include user ID for authentication on protected routes
   const userId = await getStoredUserId();
   if (userId) {
@@ -194,7 +202,8 @@ export async function apiRequest(
     });
   } catch (error) {
     // Network error - fetch itself failed
-    const errorMsg = error instanceof Error ? error.message : "Unknown network error";
+    const errorMsg =
+      error instanceof Error ? error.message : "Unknown network error";
     logApi(method, urlString, undefined, `Network error: ${errorMsg}`);
     throw new ApiError({
       message: `Network error: ${errorMsg}. URL: ${urlString}`,
@@ -205,7 +214,7 @@ export async function apiRequest(
 
   // Check for errors (HTML response, HTTP errors)
   await handleResponse(res, urlString, method);
-  
+
   return res;
 }
 
@@ -220,7 +229,7 @@ export const getQueryFn: <T>(options: {
 
     if (queryKey.length > 1 && queryKey[1]) {
       const params = queryKey[1] as Record<string, string>;
-      Object.keys(params).forEach(key => {
+      Object.keys(params).forEach((key) => {
         if (params[key] !== undefined) {
           url.searchParams.append(key, params[key]);
         }
@@ -245,7 +254,8 @@ export const getQueryFn: <T>(options: {
       });
     } catch (error) {
       // Network error
-      const errorMsg = error instanceof Error ? error.message : "Unknown network error";
+      const errorMsg =
+        error instanceof Error ? error.message : "Unknown network error";
       logApi("GET", urlString, undefined, `Network error: ${errorMsg}`);
       throw new ApiError({
         message: `Network error: ${errorMsg}. URL: ${urlString}`,
@@ -264,7 +274,12 @@ export const getQueryFn: <T>(options: {
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
       const snippet = (await res.text()).substring(0, 100);
-      logApi("GET", urlString, res.status, `Got HTML instead of JSON: ${snippet}...`);
+      logApi(
+        "GET",
+        urlString,
+        res.status,
+        `Got HTML instead of JSON: ${snippet}...`,
+      );
       throw new ApiError({
         message: `API misconfigured: received HTML instead of JSON. URL: ${urlString}`,
         status: res.status,

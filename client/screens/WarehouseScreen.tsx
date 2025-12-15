@@ -1,5 +1,13 @@
 import React from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Alert, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+  Alert,
+  Platform,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,21 +29,34 @@ export default function WarehouseScreen() {
   const { theme, isDark } = useTheme();
   const queryClient = useQueryClient();
 
-  const { data: containers = [], isLoading, refetch, isRefetching } = useQuery<WarehouseContainer[]>({
+  const {
+    data: containers = [],
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery<WarehouseContainer[]>({
     queryKey: ["/api/containers/warehouse"],
   });
 
   const emptyMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/warehouse-containers/${id}/empty`);
+      const res = await apiRequest(
+        "POST",
+        `/api/warehouse-containers/${id}/empty`,
+      );
       return res.json();
     },
     onSuccess: () => {
       Alert.alert("Erfolg", "Container wurde geleert");
-      queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/containers/warehouse"],
+      });
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Container konnte nicht geleert werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Container konnte nicht geleert werden",
+      );
     },
   });
 
@@ -50,8 +71,12 @@ export default function WarehouseScreen() {
         `Container "${container.materialType}" wirklich leeren? Aktuelle Menge: ${container.currentAmount.toFixed(0)} ${container.quantityUnit}`,
         [
           { text: "Abbrechen", style: "cancel" },
-          { text: "Leeren", style: "destructive", onPress: () => emptyMutation.mutate(container.id) },
-        ]
+          {
+            text: "Leeren",
+            style: "destructive",
+            onPress: () => emptyMutation.mutate(container.id),
+          },
+        ],
       );
     }
   };
@@ -61,7 +86,9 @@ export default function WarehouseScreen() {
     return Math.round((container.currentAmount / container.maxCapacity) * 100);
   };
 
-  const getFillStatus = (percentage: number): "success" | "warning" | "critical" => {
+  const getFillStatus = (
+    percentage: number,
+  ): "success" | "warning" | "critical" => {
     if (percentage >= 90) return "critical";
     if (percentage >= 70) return "warning";
     return "success";
@@ -78,19 +105,31 @@ export default function WarehouseScreen() {
     const fillColor = getFillColor(fillPercentage);
 
     return (
-      <Card style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+      <Card
+        style={{
+          backgroundColor: theme.cardSurface,
+          borderColor: theme.cardBorder,
+        }}
+      >
         <View style={styles.containerRow}>
-          <View style={[styles.fillIndicator, { backgroundColor: fillColor }]} />
+          <View
+            style={[styles.fillIndicator, { backgroundColor: fillColor }]}
+          />
           <View style={styles.containerContent}>
             <View style={styles.containerHeader}>
               <View style={styles.containerTitleRow}>
                 <Feather name="archive" size={20} color={theme.primary} />
-                <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+                <ThemedText
+                  type="bodyBold"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}
+                >
                   {item.materialType}
                 </ThemedText>
               </View>
-              <StatusBadge 
-                status={getFillStatus(fillPercentage)} 
+              <StatusBadge
+                status={getFillStatus(fillPercentage)}
                 size="small"
                 label={`${fillPercentage}%`}
               />
@@ -99,14 +138,32 @@ export default function WarehouseScreen() {
             <View style={styles.containerDetails}>
               <View style={styles.detailRow}>
                 <Feather name="map-pin" size={14} color={theme.textSecondary} />
-                <ThemedText type="small" numberOfLines={2} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                <ThemedText
+                  type="small"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  style={{
+                    color: theme.textSecondary,
+                    marginLeft: Spacing.xs,
+                    flex: 1,
+                  }}
+                >
                   {item.location}
                 </ThemedText>
               </View>
               {item.warehouseZone ? (
                 <View style={styles.detailRow}>
                   <Feather name="grid" size={14} color={theme.textSecondary} />
-                  <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                  <ThemedText
+                    type="small"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{
+                      color: theme.textSecondary,
+                      marginLeft: Spacing.xs,
+                      flex: 1,
+                    }}
+                  >
                     Zone: {item.warehouseZone}
                   </ThemedText>
                 </View>
@@ -114,29 +171,48 @@ export default function WarehouseScreen() {
             </View>
 
             <View style={styles.capacitySection}>
-              <View style={[styles.capacityBar, { backgroundColor: theme.backgroundSecondary }]}>
-                <View 
+              <View
+                style={[
+                  styles.capacityBar,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
+              >
+                <View
                   style={[
-                    styles.capacityFill, 
-                    { 
+                    styles.capacityFill,
+                    {
                       backgroundColor: fillColor,
                       width: `${Math.min(fillPercentage, 100)}%`,
-                    }
-                  ]} 
+                    },
+                  ]}
                 />
               </View>
               <View style={styles.capacityRow}>
-                <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-                  {item.currentAmount.toFixed(0)} / {item.maxCapacity} {item.quantityUnit}
+                <ThemedText
+                  type="small"
+                  style={{ color: theme.textSecondary, flex: 1 }}
+                >
+                  {item.currentAmount.toFixed(0)} / {item.maxCapacity}{" "}
+                  {item.quantityUnit}
                 </ThemedText>
                 {item.currentAmount > 0 ? (
                   <Pressable
-                    style={[styles.emptyButton, { backgroundColor: isDark ? theme.errorLight : `${theme.error}15` }]}
+                    style={[
+                      styles.emptyButton,
+                      {
+                        backgroundColor: isDark
+                          ? theme.errorLight
+                          : `${theme.error}15`,
+                      },
+                    ]}
                     onPress={() => handleEmpty(item)}
                     disabled={emptyMutation.isPending}
                   >
                     <Feather name="trash-2" size={14} color={theme.error} />
-                    <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.xs }}>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.error, marginLeft: Spacing.xs }}
+                    >
                       {emptyMutation.isPending ? "..." : "Leeren"}
                     </ThemedText>
                   </Pressable>
@@ -158,9 +234,14 @@ export default function WarehouseScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       {isLoading ? (
-        <LoadingScreen fullScreen={false} message="Lagercontainer werden geladen..." />
+        <LoadingScreen
+          fullScreen={false}
+          message="Lagercontainer werden geladen..."
+        />
       ) : (
         <FlatList
           data={containers}
@@ -168,7 +249,10 @@ export default function WarehouseScreen() {
           renderItem={renderContainer}
           contentContainerStyle={[
             styles.listContent,
-            { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl },
+            {
+              paddingTop: headerHeight + Spacing.lg,
+              paddingBottom: tabBarHeight + Spacing.xl,
+            },
           ]}
           ListEmptyComponent={renderEmptyState}
           refreshControl={

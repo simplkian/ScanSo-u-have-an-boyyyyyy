@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
-import Animated, { 
-  useAnimatedStyle, 
+import Animated, {
+  useAnimatedStyle,
   withSpring,
   interpolateColor,
   useDerivedValue,
@@ -32,7 +32,7 @@ export function ProgressBar({
   const getFillColor = () => {
     if (color) return color;
     if (!showFillColor) return theme.accent;
-    
+
     if (clampedProgress <= 0.5) return theme.fillLow;
     if (clampedProgress <= 0.79) return theme.fillMedium;
     return theme.fillHigh;
@@ -47,18 +47,21 @@ export function ProgressBar({
   }));
 
   return (
-    <View 
+    <View
       style={[
-        styles.container, 
-        { backgroundColor: backgroundColor || theme.backgroundTertiary, height }, 
-        style
+        styles.container,
+        {
+          backgroundColor: backgroundColor || theme.backgroundTertiary,
+          height,
+        },
+        style,
       ]}
     >
       <Animated.View
         style={[
-          styles.fill, 
-          { backgroundColor: getFillColor(), height }, 
-          animatedStyle
+          styles.fill,
+          { backgroundColor: getFillColor(), height },
+          animatedStyle,
         ]}
       />
     </View>

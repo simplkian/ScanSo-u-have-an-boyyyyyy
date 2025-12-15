@@ -6,7 +6,18 @@ import { Typography } from "@/constants/theme";
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: "h1" | "h2" | "h3" | "h4" | "body" | "bodyBold" | "small" | "smallBold" | "caption" | "captionBold" | "link";
+  type?:
+    | "h1"
+    | "h2"
+    | "h3"
+    | "h4"
+    | "body"
+    | "bodyBold"
+    | "small"
+    | "smallBold"
+    | "caption"
+    | "captionBold"
+    | "link";
   truncate?: boolean;
   maxLines?: number;
 };

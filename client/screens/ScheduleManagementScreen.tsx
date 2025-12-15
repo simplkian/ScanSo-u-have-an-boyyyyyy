@@ -63,7 +63,15 @@ interface PreviewDate {
 }
 
 const WEEKDAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const WEEKDAY_FULL = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const WEEKDAY_FULL = [
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+  "Sonntag",
+];
 
 export default function ScheduleManagementScreen() {
   const headerHeight = useHeaderHeight();
@@ -74,8 +82,12 @@ export default function ScheduleManagementScreen() {
   const [showModal, setShowModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<TaskSchedule | null>(null);
-  const [previewScheduleId, setPreviewScheduleId] = useState<string | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<TaskSchedule | null>(
+    null,
+  );
+  const [previewScheduleId, setPreviewScheduleId] = useState<string | null>(
+    null,
+  );
 
   const [formData, setFormData] = useState({
     name: "",
@@ -96,7 +108,12 @@ export default function ScheduleManagementScreen() {
     scheduledFor: "",
   });
 
-  const { data: schedules = [], isLoading, refetch, isRefetching } = useQuery<TaskSchedule[]>({
+  const {
+    data: schedules = [],
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery<TaskSchedule[]>({
     queryKey: ["/api/admin/schedules"],
   });
 
@@ -104,11 +121,16 @@ export default function ScheduleManagementScreen() {
     queryKey: ["/api/automotive/stands"],
   });
 
-  const { data: previewDates, isLoading: isLoadingPreview } = useQuery<PreviewDate[]>({
+  const { data: previewDates, isLoading: isLoadingPreview } = useQuery<
+    PreviewDate[]
+  >({
     queryKey: ["/api/admin/schedules", previewScheduleId, "preview"],
     enabled: !!previewScheduleId,
     queryFn: async () => {
-      const url = new URL(`/api/admin/schedules/${previewScheduleId}/preview?days=14`, getApiUrl());
+      const url = new URL(
+        `/api/admin/schedules/${previewScheduleId}/preview?days=14`,
+        getApiUrl(),
+      );
       const response = await fetch(url.toString(), { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch preview");
       return response.json();
@@ -126,12 +148,21 @@ export default function ScheduleManagementScreen() {
       resetForm();
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Zeitplan konnte nicht erstellt werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Zeitplan konnte nicht erstellt werden",
+      );
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof formData> }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<typeof formData>;
+    }) => {
       const res = await apiRequest("PATCH", `/api/admin/schedules/${id}`, data);
       return res.json();
     },
@@ -142,7 +173,10 @@ export default function ScheduleManagementScreen() {
       resetForm();
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Zeitplan konnte nicht aktualisiert werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Zeitplan konnte nicht aktualisiert werden",
+      );
     },
   });
 
@@ -155,7 +189,10 @@ export default function ScheduleManagementScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedules"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Zeitplan konnte nicht gelöscht werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Zeitplan konnte nicht gelöscht werden",
+      );
     },
   });
 
@@ -169,7 +206,10 @@ export default function ScheduleManagementScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedules"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Zeitplan konnte nicht ausgeführt werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Zeitplan konnte nicht ausgeführt werden",
+      );
     },
   });
 
@@ -191,7 +231,10 @@ export default function ScheduleManagementScreen() {
       resetTaskForm();
     },
     onError: (error: Error) => {
-      Alert.alert("Fehler", error.message || "Aufgabe konnte nicht erstellt werden");
+      Alert.alert(
+        "Fehler",
+        error.message || "Aufgabe konnte nicht erstellt werden",
+      );
     },
   });
 
@@ -237,11 +280,16 @@ export default function ScheduleManagementScreen() {
 
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
-      case "LOW": return "Niedrig";
-      case "NORMAL": return "Normal";
-      case "HIGH": return "Hoch";
-      case "URGENT": return "Dringend";
-      default: return priority;
+      case "LOW":
+        return "Niedrig";
+      case "NORMAL":
+        return "Normal";
+      case "HIGH":
+        return "Hoch";
+      case "URGENT":
+        return "Dringend";
+      default:
+        return priority;
     }
   };
 
@@ -303,8 +351,12 @@ export default function ScheduleManagementScreen() {
         `Zeitplan "${schedule.name}" wirklich löschen?`,
         [
           { text: "Abbrechen", style: "cancel" },
-          { text: "Löschen", style: "destructive", onPress: () => deleteMutation.mutate(schedule.id) },
-        ]
+          {
+            text: "Löschen",
+            style: "destructive",
+            onPress: () => deleteMutation.mutate(schedule.id),
+          },
+        ],
       );
     }
   };
@@ -321,26 +373,30 @@ export default function ScheduleManagementScreen() {
         [
           { text: "Abbrechen", style: "cancel" },
           { text: "Ausführen", onPress: () => runMutation.mutate(schedule.id) },
-        ]
+        ],
       );
     }
   };
 
   const toggleWeekday = (day: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       weekdays: prev.weekdays.includes(day)
-        ? prev.weekdays.filter(d => d !== day)
+        ? prev.weekdays.filter((d) => d !== day)
         : [...prev.weekdays, day].sort(),
     }));
   };
 
   const getRuleTypeLabel = (ruleType: string) => {
     switch (ruleType) {
-      case "DAILY": return "Täglich";
-      case "WEEKLY": return "Wöchentlich";
-      case "INTERVAL": return "Intervall";
-      default: return ruleType;
+      case "DAILY":
+        return "Täglich";
+      case "WEEKLY":
+        return "Wöchentlich";
+      case "INTERVAL":
+        return "Intervall";
+      default:
+        return ruleType;
     }
   };
 
@@ -349,7 +405,9 @@ export default function ScheduleManagementScreen() {
       case "DAILY":
         return `Täglich um ${schedule.timeLocal}`;
       case "WEEKLY":
-        const days = (schedule.weekdays || []).map(d => WEEKDAY_NAMES[d - 1]).join(", ");
+        const days = (schedule.weekdays || [])
+          .map((d) => WEEKDAY_NAMES[d - 1])
+          .join(", ");
         return `${days} um ${schedule.timeLocal}`;
       case "INTERVAL":
         return `Alle ${schedule.everyNDays} Tage um ${schedule.timeLocal}`;
@@ -359,11 +417,21 @@ export default function ScheduleManagementScreen() {
   };
 
   const renderScheduleItem = ({ item }: { item: TaskSchedule }) => (
-    <Card style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+    <Card
+      style={{
+        backgroundColor: theme.cardSurface,
+        borderColor: theme.cardBorder,
+      }}
+    >
       <View style={styles.scheduleHeader}>
         <View style={styles.scheduleTitleRow}>
           <Feather name="clock" size={20} color={theme.primary} />
-          <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+          <ThemedText
+            type="bodyBold"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}
+          >
             {item.name}
           </ThemedText>
           <StatusBadge
@@ -377,51 +445,97 @@ export default function ScheduleManagementScreen() {
       <View style={styles.scheduleDetails}>
         <View style={styles.detailRow}>
           <Feather name="calendar" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+          <ThemedText
+            type="small"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{
+              color: theme.textSecondary,
+              marginLeft: Spacing.xs,
+              flex: 1,
+            }}
+          >
             {getScheduleDescription(item)}
           </ThemedText>
         </View>
         <View style={styles.detailRow}>
           <Feather name="map-pin" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+          <ThemedText
+            type="small"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{
+              color: theme.textSecondary,
+              marginLeft: Spacing.xs,
+              flex: 1,
+            }}
+          >
             Stand: {item.stand?.identifier || item.standId}
           </ThemedText>
         </View>
         <View style={styles.detailRow}>
           <Feather name="layers" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            {getRuleTypeLabel(item.ruleType)} | {item.createDaysAhead} Tage im Voraus
+          <ThemedText
+            type="small"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{
+              color: theme.textSecondary,
+              marginLeft: Spacing.xs,
+              flex: 1,
+            }}
+          >
+            {getRuleTypeLabel(item.ruleType)} | {item.createDaysAhead} Tage im
+            Voraus
           </ThemedText>
         </View>
       </View>
 
       <View style={styles.scheduleActions}>
         <Pressable
-          style={[styles.actionButton, { backgroundColor: theme.backgroundSecondary }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
           onPress={() => openPreview(item.id)}
         >
           <Feather name="eye" size={16} color={theme.primary} />
-          <ThemedText type="small" style={{ color: theme.primary, marginLeft: Spacing.xs }}>
+          <ThemedText
+            type="small"
+            style={{ color: theme.primary, marginLeft: Spacing.xs }}
+          >
             Vorschau
           </ThemedText>
         </Pressable>
         <Pressable
-          style={[styles.actionButton, { backgroundColor: theme.backgroundSecondary }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
           onPress={() => handleRun(item)}
         >
           <Feather name="play" size={16} color={theme.success} />
-          <ThemedText type="small" style={{ color: theme.success, marginLeft: Spacing.xs }}>
+          <ThemedText
+            type="small"
+            style={{ color: theme.success, marginLeft: Spacing.xs }}
+          >
             Ausführen
           </ThemedText>
         </Pressable>
         <Pressable
-          style={[styles.actionButton, { backgroundColor: theme.backgroundSecondary }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
           onPress={() => openEditModal(item)}
         >
           <Feather name="edit-2" size={16} color={theme.primary} />
         </Pressable>
         <Pressable
-          style={[styles.actionButton, { backgroundColor: isDark ? theme.errorLight : `${theme.error}15` }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: isDark ? theme.errorLight : `${theme.error}15` },
+          ]}
           onPress={() => handleDelete(item)}
         >
           <Feather name="trash-2" size={16} color={theme.error} />
@@ -439,18 +553,25 @@ export default function ScheduleManagementScreen() {
   );
 
   if (isLoading) {
-    return <LoadingScreen fullScreen={false} message="Zeitpläne werden geladen..." />;
+    return (
+      <LoadingScreen fullScreen={false} message="Zeitpläne werden geladen..." />
+    );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <FlatList
         data={schedules}
         keyExtractor={(item) => item.id}
         renderItem={renderScheduleItem}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl + 80 },
+          {
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: tabBarHeight + Spacing.xl + 80,
+          },
         ]}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
@@ -463,7 +584,9 @@ export default function ScheduleManagementScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.fabContainer, { bottom: tabBarHeight + Spacing.lg }]}>
+      <View
+        style={[styles.fabContainer, { bottom: tabBarHeight + Spacing.lg }]}
+      >
         <Pressable
           style={[styles.fabSecondary, { backgroundColor: theme.primary }]}
           onPress={openTaskModal}
@@ -484,55 +607,101 @@ export default function ScheduleManagementScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowModal(false)}
       >
-        <ThemedView style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+        <ThemedView
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.backgroundRoot },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+          >
             <Pressable onPress={() => setShowModal(false)}>
-              <ThemedText type="body" style={{ color: theme.primary }}>Abbrechen</ThemedText>
+              <ThemedText type="body" style={{ color: theme.primary }}>
+                Abbrechen
+              </ThemedText>
             </Pressable>
             <ThemedText type="h4" style={{ color: theme.text }}>
               {editingSchedule ? "Zeitplan bearbeiten" : "Neuer Zeitplan"}
             </ThemedText>
-            <Pressable onPress={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+            <Pressable
+              onPress={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
               <ThemedText type="bodyBold" style={{ color: theme.accent }}>
-                {createMutation.isPending || updateMutation.isPending ? "..." : "Speichern"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? "..."
+                  : "Speichern"}
               </ThemedText>
             </Pressable>
           </View>
 
           <KeyboardAwareScrollViewCompat style={styles.modalContent}>
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Name
               </ThemedText>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={formData.name}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, name: text }))
+                }
                 placeholder="z.B. Morgenschicht Station A"
                 placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Stand
               </ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.standPicker}>
-                {stands.map(stand => (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.standPicker}
+              >
+                {stands.map((stand) => (
                   <Pressable
                     key={stand.id}
                     style={[
                       styles.standOption,
                       {
-                        backgroundColor: formData.standId === stand.id ? theme.accent : theme.backgroundSecondary,
-                        borderColor: formData.standId === stand.id ? theme.accent : theme.border,
+                        backgroundColor:
+                          formData.standId === stand.id
+                            ? theme.accent
+                            : theme.backgroundSecondary,
+                        borderColor:
+                          formData.standId === stand.id
+                            ? theme.accent
+                            : theme.border,
                       },
                     ]}
-                    onPress={() => setFormData(prev => ({ ...prev, standId: stand.id }))}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, standId: stand.id }))
+                    }
                   >
                     <ThemedText
                       type="small"
-                      style={{ color: formData.standId === stand.id ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color:
+                          formData.standId === stand.id
+                            ? theme.textOnAccent
+                            : theme.text,
+                      }}
                     >
                       {stand.identifier}
                     </ThemedText>
@@ -542,25 +711,41 @@ export default function ScheduleManagementScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Regeltyp
               </ThemedText>
               <View style={styles.ruleTypePicker}>
-                {(["DAILY", "WEEKLY", "INTERVAL"] as const).map(type => (
+                {(["DAILY", "WEEKLY", "INTERVAL"] as const).map((type) => (
                   <Pressable
                     key={type}
                     style={[
                       styles.ruleTypeOption,
                       {
-                        backgroundColor: formData.ruleType === type ? theme.accent : theme.backgroundSecondary,
-                        borderColor: formData.ruleType === type ? theme.accent : theme.border,
+                        backgroundColor:
+                          formData.ruleType === type
+                            ? theme.accent
+                            : theme.backgroundSecondary,
+                        borderColor:
+                          formData.ruleType === type
+                            ? theme.accent
+                            : theme.border,
                       },
                     ]}
-                    onPress={() => setFormData(prev => ({ ...prev, ruleType: type }))}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, ruleType: type }))
+                    }
                   >
                     <ThemedText
                       type="small"
-                      style={{ color: formData.ruleType === type ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color:
+                          formData.ruleType === type
+                            ? theme.textOnAccent
+                            : theme.text,
+                      }}
                     >
                       {getRuleTypeLabel(type)}
                     </ThemedText>
@@ -571,7 +756,10 @@ export default function ScheduleManagementScreen() {
 
             {formData.ruleType === "WEEKLY" ? (
               <View style={styles.formGroup}>
-                <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.label, { color: theme.textSecondary }]}
+                >
                   Wochentage
                 </ThemedText>
                 <View style={styles.weekdayPicker}>
@@ -581,15 +769,23 @@ export default function ScheduleManagementScreen() {
                       style={[
                         styles.weekdayOption,
                         {
-                          backgroundColor: formData.weekdays.includes(index + 1) ? theme.accent : theme.backgroundSecondary,
-                          borderColor: formData.weekdays.includes(index + 1) ? theme.accent : theme.border,
+                          backgroundColor: formData.weekdays.includes(index + 1)
+                            ? theme.accent
+                            : theme.backgroundSecondary,
+                          borderColor: formData.weekdays.includes(index + 1)
+                            ? theme.accent
+                            : theme.border,
                         },
                       ]}
                       onPress={() => toggleWeekday(index + 1)}
                     >
                       <ThemedText
                         type="small"
-                        style={{ color: formData.weekdays.includes(index + 1) ? theme.textOnAccent : theme.text }}
+                        style={{
+                          color: formData.weekdays.includes(index + 1)
+                            ? theme.textOnAccent
+                            : theme.text,
+                        }}
                       >
                         {name}
                       </ThemedText>
@@ -602,26 +798,53 @@ export default function ScheduleManagementScreen() {
             {formData.ruleType === "INTERVAL" ? (
               <>
                 <View style={styles.formGroup}>
-                  <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.label, { color: theme.textSecondary }]}
+                  >
                     Alle X Tage
                   </ThemedText>
                   <TextInput
-                    style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderColor: theme.border,
+                      },
+                    ]}
                     value={String(formData.everyNDays)}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, everyNDays: parseInt(text) || 1 }))}
+                    onChangeText={(text) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        everyNDays: parseInt(text) || 1,
+                      }))
+                    }
                     keyboardType="number-pad"
                     placeholder="7"
                     placeholderTextColor={theme.textSecondary}
                   />
                 </View>
                 <View style={styles.formGroup}>
-                  <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.label, { color: theme.textSecondary }]}
+                  >
                     Startdatum (YYYY-MM-DD)
                   </ThemedText>
                   <TextInput
-                    style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderColor: theme.border,
+                      },
+                    ]}
                     value={formData.startDate}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, startDate: text }))}
+                    onChangeText={(text) =>
+                      setFormData((prev) => ({ ...prev, startDate: text }))
+                    }
                     placeholder="z.B. 2024-12-15"
                     placeholderTextColor={theme.textSecondary}
                   />
@@ -630,26 +853,53 @@ export default function ScheduleManagementScreen() {
             ) : null}
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Uhrzeit (HH:MM)
               </ThemedText>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={formData.timeLocal}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, timeLocal: text }))}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, timeLocal: text }))
+                }
                 placeholder="06:00"
                 placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Tage im Voraus erstellen
               </ThemedText>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={String(formData.createDaysAhead)}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, createDaysAhead: parseInt(text) || 7 }))}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    createDaysAhead: parseInt(text) || 7,
+                  }))
+                }
                 keyboardType="number-pad"
                 placeholder="7"
                 placeholderTextColor={theme.textSecondary}
@@ -670,31 +920,59 @@ export default function ScheduleManagementScreen() {
           setPreviewScheduleId(null);
         }}
       >
-        <ThemedView style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-            <Pressable onPress={() => {
-              setShowPreviewModal(false);
-              setPreviewScheduleId(null);
-            }}>
-              <ThemedText type="body" style={{ color: theme.primary }}>Schließen</ThemedText>
+        <ThemedView
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.backgroundRoot },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+          >
+            <Pressable
+              onPress={() => {
+                setShowPreviewModal(false);
+                setPreviewScheduleId(null);
+              }}
+            >
+              <ThemedText type="body" style={{ color: theme.primary }}>
+                Schließen
+              </ThemedText>
             </Pressable>
-            <ThemedText type="h4" style={{ color: theme.text }}>Vorschau (14 Tage)</ThemedText>
+            <ThemedText type="h4" style={{ color: theme.text }}>
+              Vorschau (14 Tage)
+            </ThemedText>
             <View style={{ width: 60 }} />
           </View>
 
-          <ScrollView style={styles.modalContent} contentContainerStyle={styles.previewContent}>
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.previewContent}
+          >
             {isLoadingPreview ? (
-              <LoadingScreen fullScreen={false} message="Vorschau wird geladen..." />
+              <LoadingScreen
+                fullScreen={false}
+                message="Vorschau wird geladen..."
+              />
             ) : previewDates && previewDates.length > 0 ? (
               previewDates.map((date, index) => (
-                <Card key={index} style={{ backgroundColor: theme.cardSurface, marginBottom: Spacing.sm }}>
+                <Card
+                  key={index}
+                  style={{
+                    backgroundColor: theme.cardSurface,
+                    marginBottom: Spacing.sm,
+                  }}
+                >
                   <View style={styles.previewRow}>
                     <Feather name="calendar" size={16} color={theme.primary} />
                     <View style={{ marginLeft: Spacing.md }}>
                       <ThemedText type="bodyBold" style={{ color: theme.text }}>
                         {date.formattedDate}
                       </ThemedText>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                      <ThemedText
+                        type="small"
+                        style={{ color: theme.textSecondary }}
+                      >
                         {date.dayOfWeek}
                       </ThemedText>
                     </View>
@@ -718,15 +996,27 @@ export default function ScheduleManagementScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowTaskModal(false)}
       >
-        <ThemedView style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+        <ThemedView
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.backgroundRoot },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+          >
             <Pressable onPress={() => setShowTaskModal(false)}>
-              <ThemedText type="body" style={{ color: theme.primary }}>Abbrechen</ThemedText>
+              <ThemedText type="body" style={{ color: theme.primary }}>
+                Abbrechen
+              </ThemedText>
             </Pressable>
             <ThemedText type="h4" style={{ color: theme.text }}>
               Neue Aufgabe
             </ThemedText>
-            <Pressable onPress={handleTaskSubmit} disabled={createTaskMutation.isPending}>
+            <Pressable
+              onPress={handleTaskSubmit}
+              disabled={createTaskMutation.isPending}
+            >
               <ThemedText type="bodyBold" style={{ color: theme.accent }}>
                 {createTaskMutation.isPending ? "..." : "Erstellen"}
               </ThemedText>
@@ -735,38 +1025,73 @@ export default function ScheduleManagementScreen() {
 
           <KeyboardAwareScrollViewCompat style={styles.modalContent}>
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Titel
               </ThemedText>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={taskFormData.title}
-                onChangeText={(text) => setTaskFormData(prev => ({ ...prev, title: text }))}
+                onChangeText={(text) =>
+                  setTaskFormData((prev) => ({ ...prev, title: text }))
+                }
                 placeholder="z.B. Abholung Stand A1"
                 placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Stand
               </ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.standPicker}>
-                {stands.map(stand => (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.standPicker}
+              >
+                {stands.map((stand) => (
                   <Pressable
                     key={stand.id}
                     style={[
                       styles.standOption,
                       {
-                        backgroundColor: taskFormData.standId === stand.id ? theme.accent : theme.backgroundSecondary,
-                        borderColor: taskFormData.standId === stand.id ? theme.accent : theme.border,
+                        backgroundColor:
+                          taskFormData.standId === stand.id
+                            ? theme.accent
+                            : theme.backgroundSecondary,
+                        borderColor:
+                          taskFormData.standId === stand.id
+                            ? theme.accent
+                            : theme.border,
                       },
                     ]}
-                    onPress={() => setTaskFormData(prev => ({ ...prev, standId: stand.id }))}
+                    onPress={() =>
+                      setTaskFormData((prev) => ({
+                        ...prev,
+                        standId: stand.id,
+                      }))
+                    }
                   >
                     <ThemedText
                       type="small"
-                      style={{ color: taskFormData.standId === stand.id ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color:
+                          taskFormData.standId === stand.id
+                            ? theme.textOnAccent
+                            : theme.text,
+                      }}
                     >
                       {stand.identifier}
                     </ThemedText>
@@ -776,13 +1101,26 @@ export default function ScheduleManagementScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Beschreibung (optional)
               </ThemedText>
               <TextInput
-                style={[styles.input, styles.textArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={taskFormData.description}
-                onChangeText={(text) => setTaskFormData(prev => ({ ...prev, description: text }))}
+                onChangeText={(text) =>
+                  setTaskFormData((prev) => ({ ...prev, description: text }))
+                }
                 placeholder="Zusätzliche Hinweise..."
                 placeholderTextColor={theme.textSecondary}
                 multiline
@@ -791,41 +1129,71 @@ export default function ScheduleManagementScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Priorität
               </ThemedText>
               <View style={styles.ruleTypePicker}>
-                {(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map(priority => (
-                  <Pressable
-                    key={priority}
-                    style={[
-                      styles.ruleTypeOption,
-                      {
-                        backgroundColor: taskFormData.priority === priority ? theme.accent : theme.backgroundSecondary,
-                        borderColor: taskFormData.priority === priority ? theme.accent : theme.border,
-                      },
-                    ]}
-                    onPress={() => setTaskFormData(prev => ({ ...prev, priority }))}
-                  >
-                    <ThemedText
-                      type="small"
-                      style={{ color: taskFormData.priority === priority ? theme.textOnAccent : theme.text }}
+                {(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map(
+                  (priority) => (
+                    <Pressable
+                      key={priority}
+                      style={[
+                        styles.ruleTypeOption,
+                        {
+                          backgroundColor:
+                            taskFormData.priority === priority
+                              ? theme.accent
+                              : theme.backgroundSecondary,
+                          borderColor:
+                            taskFormData.priority === priority
+                              ? theme.accent
+                              : theme.border,
+                        },
+                      ]}
+                      onPress={() =>
+                        setTaskFormData((prev) => ({ ...prev, priority }))
+                      }
                     >
-                      {getPriorityLabel(priority)}
-                    </ThemedText>
-                  </Pressable>
-                ))}
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color:
+                            taskFormData.priority === priority
+                              ? theme.textOnAccent
+                              : theme.text,
+                        }}
+                      >
+                        {getPriorityLabel(priority)}
+                      </ThemedText>
+                    </Pressable>
+                  ),
+                )}
               </View>
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.label, { color: theme.textSecondary }]}
+              >
                 Geplant für (optional, YYYY-MM-DD)
               </ThemedText>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
                 value={taskFormData.scheduledFor}
-                onChangeText={(text) => setTaskFormData(prev => ({ ...prev, scheduledFor: text }))}
+                onChangeText={(text) =>
+                  setTaskFormData((prev) => ({ ...prev, scheduledFor: text }))
+                }
                 placeholder="z.B. 2024-12-15"
                 placeholderTextColor={theme.textSecondary}
               />

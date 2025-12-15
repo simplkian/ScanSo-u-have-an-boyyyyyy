@@ -90,12 +90,8 @@
           "name": "activity_logs_user_id_users_id_fk",
           "tableFrom": "activity_logs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -103,12 +99,8 @@
           "name": "activity_logs_task_id_tasks_id_fk",
           "tableFrom": "activity_logs",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -116,12 +108,8 @@
           "name": "activity_logs_scan_event_id_scan_events_id_fk",
           "tableFrom": "activity_logs",
           "tableTo": "scan_events",
-          "columnsFrom": [
-            "scan_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scan_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -231,12 +219,8 @@
           "name": "customer_containers_customer_id_customers_id_fk",
           "tableFrom": "customer_containers",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["customer_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -246,9 +230,7 @@
         "customer_containers_qr_code_unique": {
           "name": "customer_containers_qr_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "qr_code"
-          ]
+          "columns": ["qr_code"]
         }
       },
       "policies": {},
@@ -388,12 +370,8 @@
           "name": "fill_history_warehouse_container_id_warehouse_containers_id_fk",
           "tableFrom": "fill_history",
           "tableTo": "warehouse_containers",
-          "columnsFrom": [
-            "warehouse_container_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["warehouse_container_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -401,12 +379,8 @@
           "name": "fill_history_task_id_tasks_id_fk",
           "tableFrom": "fill_history",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -414,12 +388,8 @@
           "name": "fill_history_recorded_by_user_id_users_id_fk",
           "tableFrom": "fill_history",
           "tableTo": "users",
-          "columnsFrom": [
-            "recorded_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recorded_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -529,12 +499,8 @@
           "name": "scan_events_task_id_tasks_id_fk",
           "tableFrom": "scan_events",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -542,12 +508,8 @@
           "name": "scan_events_scanned_by_user_id_users_id_fk",
           "tableFrom": "scan_events",
           "tableTo": "users",
-          "columnsFrom": [
-            "scanned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scanned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -756,12 +718,8 @@
           "name": "tasks_container_id_customer_containers_id_fk",
           "tableFrom": "tasks",
           "tableTo": "customer_containers",
-          "columnsFrom": [
-            "container_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["container_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -769,12 +727,8 @@
           "name": "tasks_delivery_container_id_warehouse_containers_id_fk",
           "tableFrom": "tasks",
           "tableTo": "warehouse_containers",
-          "columnsFrom": [
-            "delivery_container_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["delivery_container_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -782,12 +736,8 @@
           "name": "tasks_created_by_users_id_fk",
           "tableFrom": "tasks",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -795,12 +745,8 @@
           "name": "tasks_assigned_to_users_id_fk",
           "tableFrom": "tasks",
           "tableTo": "users",
-          "columnsFrom": [
-            "assigned_to"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_to"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -882,9 +828,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -993,9 +937,7 @@
         "warehouse_containers_qr_code_unique": {
           "name": "warehouse_containers_qr_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "qr_code"
-          ]
+          "columns": ["qr_code"]
         }
       },
       "policies": {},
@@ -1027,40 +969,22 @@
     "public.container_status": {
       "name": "container_status",
       "schema": "public",
-      "values": [
-        "AT_WAREHOUSE",
-        "AT_CUSTOMER",
-        "IN_TRANSIT",
-        "OUT_OF_SERVICE"
-      ]
+      "values": ["AT_WAREHOUSE", "AT_CUSTOMER", "IN_TRANSIT", "OUT_OF_SERVICE"]
     },
     "public.location_type": {
       "name": "location_type",
       "schema": "public",
-      "values": [
-        "WAREHOUSE",
-        "CUSTOMER",
-        "OTHER"
-      ]
+      "values": ["WAREHOUSE", "CUSTOMER", "OTHER"]
     },
     "public.priority": {
       "name": "priority",
       "schema": "public",
-      "values": [
-        "normal",
-        "high",
-        "urgent"
-      ]
+      "values": ["normal", "high", "urgent"]
     },
     "public.quantity_unit": {
       "name": "quantity_unit",
       "schema": "public",
-      "values": [
-        "kg",
-        "t",
-        "m3",
-        "pcs"
-      ]
+      "values": ["kg", "t", "m3", "pcs"]
     },
     "public.scan_context": {
       "name": "scan_context",
@@ -1092,10 +1016,7 @@
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
-      "values": [
-        "ADMIN",
-        "DRIVER"
-      ]
+      "values": ["ADMIN", "DRIVER"]
     }
   },
   "schemas": {},

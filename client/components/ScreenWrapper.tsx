@@ -169,7 +169,9 @@ export function SectionHeader({
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderLeft}>
         <View style={styles.sectionTitleRow}>
-          <View style={[styles.sectionAccent, { backgroundColor: theme.accent }]} />
+          <View
+            style={[styles.sectionAccent, { backgroundColor: theme.accent }]}
+          />
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={styles.sectionTitleText}>
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -192,7 +194,9 @@ export function SectionHeader({
           </View>
         </View>
       </View>
-      {rightElement ? <View style={styles.sectionHeaderRight}>{rightElement}</View> : null}
+      {rightElement ? (
+        <View style={styles.sectionHeaderRight}>{rightElement}</View>
+      ) : null}
     </View>
   );
 }

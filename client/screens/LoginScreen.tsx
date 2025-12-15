@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, Image } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  Image,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { ThemedText } from "@/components/ThemedText";
@@ -48,35 +54,66 @@ export default function LoginScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <KeyboardAwareScrollViewCompat
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing["5xl"], paddingBottom: insets.bottom + Spacing["3xl"] },
+          {
+            paddingTop: insets.top + Spacing["5xl"],
+            paddingBottom: insets.bottom + Spacing["3xl"],
+          },
         ]}
       >
-        <Animated.View 
+        <Animated.View
           entering={FadeInDown.duration(600).delay(100)}
           style={styles.logoContainer}
         >
-          <View style={[styles.iconContainer, { backgroundColor: theme.primary }]}>
-            <View style={[styles.iconInner, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.15)' }]}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: theme.primary }]}
+          >
+            <View
+              style={[
+                styles.iconInner,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255, 255, 255, 0.1)"
+                    : "rgba(255, 255, 255, 0.15)",
+                },
+              ]}
+            >
               <Feather name="package" size={44} color={theme.accent} />
             </View>
           </View>
-          <ThemedText type="h1" style={[styles.title, { color: theme.primary }]}>
+          <ThemedText
+            type="h1"
+            style={[styles.title, { color: theme.primary }]}
+          >
             ContainerFlow
           </ThemedText>
-          <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
             Professionelles Containermanagement
           </ThemedText>
         </Animated.View>
 
-        <Animated.View 
+        <Animated.View
           entering={FadeInDown.duration(600).delay(300)}
-          style={[styles.formCard, { backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }]}
+          style={[
+            styles.formCard,
+            {
+              backgroundColor: theme.cardSurface,
+              borderColor: theme.cardBorder,
+            },
+          ]}
         >
-          <ThemedText type="h4" style={[styles.formTitle, { color: theme.text }]}>
+          <ThemedText
+            type="h4"
+            style={[styles.formTitle, { color: theme.text }]}
+          >
             Anmeldung
           </ThemedText>
 
@@ -101,7 +138,10 @@ export default function LoginScreen() {
                 autoComplete="password"
               />
               <Pressable
-                style={[styles.eyeButton, { backgroundColor: theme.backgroundSecondary }]}
+                style={[
+                  styles.eyeButton,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -114,11 +154,28 @@ export default function LoginScreen() {
             </View>
 
             {error ? (
-              <View style={[styles.errorContainer, { backgroundColor: theme.errorLight }]}>
-                <View style={[styles.errorIconContainer, { backgroundColor: theme.error }]}>
-                  <Feather name="alert-circle" size={14} color={theme.textOnPrimary} />
+              <View
+                style={[
+                  styles.errorContainer,
+                  { backgroundColor: theme.errorLight },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.errorIconContainer,
+                    { backgroundColor: theme.error },
+                  ]}
+                >
+                  <Feather
+                    name="alert-circle"
+                    size={14}
+                    color={theme.textOnPrimary}
+                  />
                 </View>
-                <ThemedText type="small" style={[styles.errorText, { color: theme.error }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.errorText, { color: theme.error }]}
+                >
                   {error}
                 </ThemedText>
               </View>
@@ -139,15 +196,24 @@ export default function LoginScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View 
+        <Animated.View
           entering={FadeInDown.duration(600).delay(500)}
-          style={[styles.infoContainer, { backgroundColor: theme.backgroundSecondary }]}
+          style={[
+            styles.infoContainer,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
         >
-          <View style={[styles.infoIconContainer, { backgroundColor: theme.info }]}>
+          <View
+            style={[styles.infoIconContainer, { backgroundColor: theme.info }]}
+          >
             <Feather name="info" size={14} color={theme.textOnPrimary} />
           </View>
-          <ThemedText type="small" style={[styles.infoText, { color: theme.textSecondary }]}>
-            Sie haben noch kein Konto? Bitte kontaktieren Sie Ihren Administrator oder Manager.
+          <ThemedText
+            type="small"
+            style={[styles.infoText, { color: theme.textSecondary }]}
+          >
+            Sie haben noch kein Konto? Bitte kontaktieren Sie Ihren
+            Administrator oder Manager.
           </ThemedText>
         </Animated.View>
       </KeyboardAwareScrollViewCompat>

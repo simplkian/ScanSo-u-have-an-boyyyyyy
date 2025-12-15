@@ -1,7 +1,20 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Platform, ScrollView, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Modal,
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
+import {
+  CameraView,
+  useCameraPermissions,
+  BarcodeScanningResult,
+} from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
@@ -14,9 +27,16 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  Box, Stand, Station, Hall, Material, WarehouseContainer, Task,
-  AUTOMOTIVE_TASK_STATUS_LABELS, BOX_STATUS_LABELS
+import {
+  Box,
+  Stand,
+  Station,
+  Hall,
+  Material,
+  WarehouseContainer,
+  Task,
+  AUTOMOTIVE_TASK_STATUS_LABELS,
+  BOX_STATUS_LABELS,
 } from "@shared/schema";
 
 type ScanType = "box" | "stand" | "warehouse" | null;
@@ -44,18 +64,36 @@ interface WarehouseScanResult {
 
 type ScanResult = BoxScanResult | StandScanResult | WarehouseScanResult;
 
-const AUTOMOTIVE_STATUS_FLOW = ["OPEN", "PICKED_UP", "IN_TRANSIT", "DROPPED_OFF", "TAKEN_OVER", "WEIGHED", "DISPOSED"];
+const AUTOMOTIVE_STATUS_FLOW = [
+  "OPEN",
+  "PICKED_UP",
+  "IN_TRANSIT",
+  "DROPPED_OFF",
+  "TAKEN_OVER",
+  "WEIGHED",
+  "DISPOSED",
+];
 
-const getNextAction = (status: string): { nextStatus: string; label: string; icon: string } | null => {
+const getNextAction = (
+  status: string,
+): { nextStatus: string; label: string; icon: string } | null => {
   switch (status) {
     case "OPEN":
       return { nextStatus: "PICKED_UP", label: "Abholen", icon: "package" };
     case "PICKED_UP":
-      return { nextStatus: "IN_TRANSIT", label: "Transport starten", icon: "truck" };
+      return {
+        nextStatus: "IN_TRANSIT",
+        label: "Transport starten",
+        icon: "truck",
+      };
     case "IN_TRANSIT":
       return { nextStatus: "DROPPED_OFF", label: "Absetzen", icon: "log-out" };
     case "DROPPED_OFF":
-      return { nextStatus: "TAKEN_OVER", label: "Übernehmen", icon: "check-square" };
+      return {
+        nextStatus: "TAKEN_OVER",
+        label: "Übernehmen",
+        icon: "check-square",
+      };
     case "TAKEN_OVER":
       return { nextStatus: "WEIGHED", label: "Wiegen", icon: "activity" };
     case "WEIGHED":
@@ -78,7 +116,8 @@ export default function ScannerScreen() {
   const [success, setSuccess] = useState<string | null>(null);
   const [weightInput, setWeightInput] = useState("");
   const [weightError, setWeightError] = useState<string | null>(null);
-  const [pendingStandForPlacement, setPendingStandForPlacement] = useState<StandScanResult | null>(null);
+  const [pendingStandForPlacement, setPendingStandForPlacement] =
+    useState<StandScanResult | null>(null);
   const scanLock = useRef(false);
 
   const parseQRCode = (rawData: string): string => {
@@ -96,7 +135,10 @@ export default function ScannerScreen() {
   const fetchTaskForBox = async (box: Box): Promise<Task | null> => {
     if (!box.currentTaskId) return null;
     try {
-      const response = await apiRequest("GET", `/api/automotive/tasks/${box.currentTaskId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/automotive/tasks/${box.currentTaskId}`,
+      );
       if (response.ok) {
         return await response.json();
       }
@@ -109,7 +151,10 @@ export default function ScannerScreen() {
   const fetchStandForBox = async (box: Box): Promise<Stand | null> => {
     if (!box.standId) return null;
     try {
-      const response = await apiRequest("GET", `/api/automotive/stands/${box.standId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/automotive/stands/${box.standId}`,
+      );
       if (response.ok) {
         return await response.json();
       }
@@ -130,14 +175,21 @@ export default function ScannerScreen() {
     try {
       // If in placement mode, check if this is a box to place at the pending stand
       if (pendingStandForPlacement) {
-        let response = await apiRequest("GET", `/api/boxes/qr/${encodeURIComponent(qrCode)}`);
+        let response = await apiRequest(
+          "GET",
+          `/api/boxes/qr/${encodeURIComponent(qrCode)}`,
+        );
         if (response.ok) {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
           // Place the box at the pending stand
           await placeBox(pendingStandForPlacement.stand.qrCode, qrCode);
           return;
         } else {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Error,
+          );
           setError("Bitte scannen Sie einen gültigen Box QR-Code.");
           scanLock.current = false;
           setIsProcessing(false);
@@ -145,43 +197,60 @@ export default function ScannerScreen() {
         }
       }
 
-      let response = await apiRequest("GET", `/api/boxes/qr/${encodeURIComponent(qrCode)}`);
+      let response = await apiRequest(
+        "GET",
+        `/api/boxes/qr/${encodeURIComponent(qrCode)}`,
+      );
       if (response.ok) {
         const box: Box = await response.json();
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
         const [task, stand] = await Promise.all([
           fetchTaskForBox(box),
-          fetchStandForBox(box)
+          fetchStandForBox(box),
         ]);
         setScanResult({ type: "box", box, task, stand });
         return;
       }
 
-      response = await apiRequest("GET", `/api/stands/qr/${encodeURIComponent(qrCode)}`);
+      response = await apiRequest(
+        "GET",
+        `/api/stands/qr/${encodeURIComponent(qrCode)}`,
+      );
       if (response.ok) {
         const data = await response.json();
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setScanResult({ 
-          type: "stand", 
-          stand: data.stand, 
-          station: data.station, 
-          hall: data.hall, 
-          material: data.material, 
-          boxes: data.boxes || [] 
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
+        setScanResult({
+          type: "stand",
+          stand: data.stand,
+          station: data.station,
+          hall: data.hall,
+          material: data.material,
+          boxes: data.boxes || [],
         });
         return;
       }
 
-      response = await apiRequest("GET", `/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`);
+      response = await apiRequest(
+        "GET",
+        `/api/containers/warehouse/qr/${encodeURIComponent(qrCode)}`,
+      );
       if (response.ok) {
         const container: WarehouseContainer = await response.json();
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
         setScanResult({ type: "warehouse", container });
         return;
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError("QR-Code nicht erkannt. Bitte scannen Sie eine Box, einen Stellplatz oder einen Lagercontainer.");
+      setError(
+        "QR-Code nicht erkannt. Bitte scannen Sie eine Box, einen Stellplatz oder einen Lagercontainer.",
+      );
       scanLock.current = false;
     } catch (err) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -192,7 +261,11 @@ export default function ScannerScreen() {
     }
   };
 
-  const updateTaskStatus = async (taskId: string, newStatus: string, weightKg?: number) => {
+  const updateTaskStatus = async (
+    taskId: string,
+    newStatus: string,
+    weightKg?: number,
+  ) => {
     setIsProcessing(true);
     setError(null);
 
@@ -202,7 +275,11 @@ export default function ScannerScreen() {
         body.weightKg = weightKg;
       }
 
-      const response = await apiRequest("PUT", `/api/automotive/tasks/${taskId}/status`, body);
+      const response = await apiRequest(
+        "PUT",
+        `/api/automotive/tasks/${taskId}/status`,
+        body,
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -212,12 +289,16 @@ export default function ScannerScreen() {
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSuccess(`Status geändert: ${AUTOMOTIVE_TASK_STATUS_LABELS[newStatus] || newStatus}`);
-      
+      setSuccess(
+        `Status geändert: ${AUTOMOTIVE_TASK_STATUS_LABELS[newStatus] || newStatus}`,
+      );
+
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/containers/warehouse"],
+      });
 
       setTimeout(() => {
         closeModal();
@@ -263,7 +344,7 @@ export default function ScannerScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSuccess("Aufgabe erfolgreich erstellt!");
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
 
@@ -292,7 +373,9 @@ export default function ScannerScreen() {
     setError(null);
 
     try {
-      const response = await apiRequest("POST", "/api/scan/pickup-box", { boxQr });
+      const response = await apiRequest("POST", "/api/scan/pickup-box", {
+        boxQr,
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -304,7 +387,7 @@ export default function ScannerScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSuccess("Box erfolgreich abgeholt!");
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -325,7 +408,10 @@ export default function ScannerScreen() {
     setError(null);
 
     try {
-      const response = await apiRequest("POST", "/api/scan/place-box", { standQr, boxQr });
+      const response = await apiRequest("POST", "/api/scan/place-box", {
+        standQr,
+        boxQr,
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -338,7 +424,7 @@ export default function ScannerScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSuccess("Box erfolgreich am Stellplatz platziert!");
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -375,7 +461,12 @@ export default function ScannerScreen() {
           </Pressable>
         </View>
 
-        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+        <Card
+          style={{
+            ...styles.infoCard,
+            backgroundColor: theme.backgroundSecondary,
+          }}
+        >
           <View style={styles.cardHeader}>
             <Feather name="box" size={28} color={theme.primary} />
             <View style={{ flex: 1 }}>
@@ -384,27 +475,39 @@ export default function ScannerScreen() {
                 {BOX_STATUS_LABELS[box.status] || box.status}
               </ThemedText>
             </View>
-            <StatusBadge 
-              status={box.status === "AT_STAND" ? "success" : box.status === "IN_TRANSIT" ? "warning" : "info"} 
+            <StatusBadge
+              status={
+                box.status === "AT_STAND"
+                  ? "success"
+                  : box.status === "IN_TRANSIT"
+                    ? "warning"
+                    : "info"
+              }
               size="small"
               label={BOX_STATUS_LABELS[box.status] || box.status}
             />
           </View>
 
           {stand ? (
-            <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+            <View
+              style={[styles.divider, { backgroundColor: theme.divider }]}
+            />
           ) : null}
 
           {stand ? (
             <View style={styles.infoRow}>
               <Feather name="map-pin" size={16} color={theme.textSecondary} />
-              <ThemedText type="body">Stellplatz: {stand.identifier}</ThemedText>
+              <ThemedText type="body">
+                Stellplatz: {stand.identifier}
+              </ThemedText>
             </View>
           ) : null}
         </Card>
 
         {task ? (
-          <Card style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}>
+          <Card
+            style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}
+          >
             <View style={styles.cardHeader}>
               <Feather name="clipboard" size={24} color={theme.info} />
               <View style={{ flex: 1 }}>
@@ -412,13 +515,16 @@ export default function ScannerScreen() {
                   Aktive Aufgabe
                 </ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Status: {AUTOMOTIVE_TASK_STATUS_LABELS[task.status] || task.status}
+                  Status:{" "}
+                  {AUTOMOTIVE_TASK_STATUS_LABELS[task.status] || task.status}
                 </ThemedText>
               </View>
             </View>
           </Card>
         ) : (
-          <Card style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}>
+          <Card
+            style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}
+          >
             <View style={styles.cardHeader}>
               <Feather name="alert-circle" size={24} color={theme.warning} />
               <ThemedText type="body" style={{ color: theme.warning }}>
@@ -429,7 +535,12 @@ export default function ScannerScreen() {
         )}
 
         {success ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.successLight },
+            ]}
+          >
             <Feather name="check-circle" size={20} color={theme.success} />
             <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
               {success}
@@ -438,7 +549,12 @@ export default function ScannerScreen() {
         ) : null}
 
         {error ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.errorLight },
+            ]}
+          >
             <Feather name="alert-circle" size={20} color={theme.error} />
             <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
               {error}
@@ -447,11 +563,21 @@ export default function ScannerScreen() {
         ) : null}
 
         {task && nextAction && requiresWeight ? (
-          <Card style={[styles.weightCard, { backgroundColor: theme.cardSurface }]}>
+          <Card
+            style={[styles.weightCard, { backgroundColor: theme.cardSurface }]}
+          >
             <ThemedText type="bodyBold" style={{ marginBottom: Spacing.sm }}>
               Gewicht eingeben
             </ThemedText>
-            <View style={[styles.weightInputContainer, { backgroundColor: theme.backgroundSecondary, borderColor: weightError ? theme.error : theme.border }]}>
+            <View
+              style={[
+                styles.weightInputContainer,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: weightError ? theme.error : theme.border,
+                },
+              ]}
+            >
               <Feather name="activity" size={20} color={theme.textSecondary} />
               <TextInput
                 style={[styles.weightInput, { color: theme.text }]}
@@ -464,10 +590,15 @@ export default function ScannerScreen() {
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="numeric"
               />
-              <ThemedText type="body" style={{ color: theme.textSecondary }}>kg</ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                kg
+              </ThemedText>
             </View>
             {weightError ? (
-              <ThemedText type="small" style={{ color: theme.error, marginTop: Spacing.xs }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.error, marginTop: Spacing.xs }}
+              >
                 {weightError}
               </ThemedText>
             ) : null}
@@ -475,7 +606,13 @@ export default function ScannerScreen() {
         ) : null}
 
         <View style={styles.modalActions}>
-          <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
+          <Button
+            onPress={closeModal}
+            style={[
+              styles.cancelButton,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             Schließen
           </Button>
           {box.status === "AT_STAND" && box.qrCode ? (
@@ -488,8 +625,16 @@ export default function ScannerScreen() {
                 <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
                 <>
-                  <Feather name="log-out" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
-                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                  <Feather
+                    name="log-out"
+                    size={18}
+                    color={theme.textOnPrimary}
+                    style={{ marginRight: Spacing.sm }}
+                  />
+                  <ThemedText
+                    type="bodyBold"
+                    style={{ color: theme.textOnPrimary }}
+                  >
                     Box abholen
                   </ThemedText>
                 </>
@@ -506,8 +651,16 @@ export default function ScannerScreen() {
                 <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
                 <>
-                  <Feather name={nextAction.icon as any} size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
-                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                  <Feather
+                    name={nextAction.icon as any}
+                    size={18}
+                    color={theme.textOnPrimary}
+                    style={{ marginRight: Spacing.sm }}
+                  />
+                  <ThemedText
+                    type="bodyBold"
+                    style={{ color: theme.textOnPrimary }}
+                  >
                     {nextAction.label}
                   </ThemedText>
                 </>
@@ -521,8 +674,10 @@ export default function ScannerScreen() {
 
   const renderStandContent = (result: StandScanResult) => {
     const { stand, station, hall, material, boxes: standBoxes } = result;
-    const boxAtStand = standBoxes.find(b => b.status === "AT_STAND" && !b.currentTaskId);
-    const boxWithTask = standBoxes.find(b => b.currentTaskId);
+    const boxAtStand = standBoxes.find(
+      (b) => b.status === "AT_STAND" && !b.currentTaskId,
+    );
+    const boxWithTask = standBoxes.find((b) => b.currentTaskId);
 
     return (
       <>
@@ -533,7 +688,12 @@ export default function ScannerScreen() {
           </Pressable>
         </View>
 
-        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+        <Card
+          style={{
+            ...styles.infoCard,
+            backgroundColor: theme.backgroundSecondary,
+          }}
+        >
           <View style={styles.cardHeader}>
             <Feather name="map-pin" size={28} color={theme.primary} />
             <View style={{ flex: 1 }}>
@@ -556,13 +716,16 @@ export default function ScannerScreen() {
           <View style={styles.infoRow}>
             <Feather name="box" size={16} color={theme.textSecondary} />
             <ThemedText type="body">
-              Boxen am Platz: {standBoxes.filter(b => b.status === "AT_STAND").length}
+              Boxen am Platz:{" "}
+              {standBoxes.filter((b) => b.status === "AT_STAND").length}
             </ThemedText>
           </View>
         </Card>
 
         {boxWithTask ? (
-          <Card style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}>
+          <Card
+            style={{ ...styles.infoCard, backgroundColor: theme.infoLight }}
+          >
             <View style={styles.cardHeader}>
               <Feather name="box" size={24} color={theme.info} />
               <View style={{ flex: 1 }}>
@@ -576,7 +739,9 @@ export default function ScannerScreen() {
             </View>
           </Card>
         ) : boxAtStand ? (
-          <Card style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}>
+          <Card
+            style={{ ...styles.infoCard, backgroundColor: theme.warningLight }}
+          >
             <View style={styles.cardHeader}>
               <Feather name="box" size={24} color={theme.warning} />
               <View style={{ flex: 1 }}>
@@ -587,7 +752,9 @@ export default function ScannerScreen() {
             </View>
           </Card>
         ) : (
-          <Card style={{ ...styles.infoCard, backgroundColor: theme.successLight }}>
+          <Card
+            style={{ ...styles.infoCard, backgroundColor: theme.successLight }}
+          >
             <View style={styles.cardHeader}>
               <Feather name="check-circle" size={24} color={theme.success} />
               <ThemedText type="body" style={{ color: theme.success }}>
@@ -598,7 +765,12 @@ export default function ScannerScreen() {
         )}
 
         {success ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.successLight },
+            ]}
+          >
             <Feather name="check-circle" size={20} color={theme.success} />
             <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
               {success}
@@ -607,7 +779,12 @@ export default function ScannerScreen() {
         ) : null}
 
         {error ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.errorLight },
+            ]}
+          >
             <Feather name="alert-circle" size={20} color={theme.error} />
             <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
               {error}
@@ -616,7 +793,13 @@ export default function ScannerScreen() {
         ) : null}
 
         <View style={styles.modalActions}>
-          <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
+          <Button
+            onPress={closeModal}
+            style={[
+              styles.cancelButton,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             Schließen
           </Button>
           <Button
@@ -624,7 +807,12 @@ export default function ScannerScreen() {
             disabled={isProcessing}
             style={[styles.actionButton, { backgroundColor: theme.primary }]}
           >
-            <Feather name="log-in" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
+            <Feather
+              name="log-in"
+              size={18}
+              color={theme.textOnPrimary}
+              style={{ marginRight: Spacing.sm }}
+            />
             <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
               Box hier platzieren
             </ThemedText>
@@ -639,8 +827,16 @@ export default function ScannerScreen() {
                 <ActivityIndicator size="small" color={theme.textOnPrimary} />
               ) : (
                 <>
-                  <Feather name="plus" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
-                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                  <Feather
+                    name="plus"
+                    size={18}
+                    color={theme.textOnPrimary}
+                    style={{ marginRight: Spacing.sm }}
+                  />
+                  <ThemedText
+                    type="bodyBold"
+                    style={{ color: theme.textOnPrimary }}
+                  >
                     Aufgabe erstellen
                   </ThemedText>
                 </>
@@ -654,9 +850,10 @@ export default function ScannerScreen() {
 
   const renderWarehouseContent = (result: WarehouseScanResult) => {
     const { container } = result;
-    const fillPercentage = container.maxCapacity > 0 
-      ? Math.round((container.currentAmount / container.maxCapacity) * 100) 
-      : 0;
+    const fillPercentage =
+      container.maxCapacity > 0
+        ? Math.round((container.currentAmount / container.maxCapacity) * 100)
+        : 0;
 
     return (
       <>
@@ -667,7 +864,12 @@ export default function ScannerScreen() {
           </Pressable>
         </View>
 
-        <Card style={{ ...styles.infoCard, backgroundColor: theme.backgroundSecondary }}>
+        <Card
+          style={{
+            ...styles.infoCard,
+            backgroundColor: theme.backgroundSecondary,
+          }}
+        >
           <View style={styles.cardHeader}>
             <Feather name="archive" size={28} color={theme.primary} />
             <View style={{ flex: 1 }}>
@@ -676,8 +878,14 @@ export default function ScannerScreen() {
                 {container.location}
               </ThemedText>
             </View>
-            <StatusBadge 
-              status={fillPercentage >= 90 ? "critical" : fillPercentage >= 70 ? "warning" : "success"} 
+            <StatusBadge
+              status={
+                fillPercentage >= 90
+                  ? "critical"
+                  : fillPercentage >= 70
+                    ? "warning"
+                    : "success"
+              }
               size="small"
               label={`${fillPercentage}%`}
             />
@@ -687,26 +895,36 @@ export default function ScannerScreen() {
 
           <View style={styles.infoRow}>
             <Feather name="layers" size={16} color={theme.textSecondary} />
-            <ThemedText type="body">Material: {container.materialType}</ThemedText>
+            <ThemedText type="body">
+              Material: {container.materialType}
+            </ThemedText>
           </View>
 
           <View style={styles.infoRow}>
             <Feather name="database" size={16} color={theme.textSecondary} />
             <ThemedText type="body">
-              Kapazität: {container.currentAmount.toFixed(0)} / {container.maxCapacity} {container.quantityUnit}
+              Kapazität: {container.currentAmount.toFixed(0)} /{" "}
+              {container.maxCapacity} {container.quantityUnit}
             </ThemedText>
           </View>
 
           {container.warehouseZone ? (
             <View style={styles.infoRow}>
               <Feather name="grid" size={16} color={theme.textSecondary} />
-              <ThemedText type="body">Zone: {container.warehouseZone}</ThemedText>
+              <ThemedText type="body">
+                Zone: {container.warehouseZone}
+              </ThemedText>
             </View>
           ) : null}
         </Card>
 
         {success ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.successLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.successLight },
+            ]}
+          >
             <Feather name="check-circle" size={20} color={theme.success} />
             <ThemedText type="small" style={{ color: theme.success, flex: 1 }}>
               {success}
@@ -715,7 +933,12 @@ export default function ScannerScreen() {
         ) : null}
 
         {error ? (
-          <View style={[styles.feedbackBanner, { backgroundColor: theme.errorLight }]}>
+          <View
+            style={[
+              styles.feedbackBanner,
+              { backgroundColor: theme.errorLight },
+            ]}
+          >
             <Feather name="alert-circle" size={20} color={theme.error} />
             <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
               {error}
@@ -724,7 +947,13 @@ export default function ScannerScreen() {
         ) : null}
 
         <View style={styles.modalActions}>
-          <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
+          <Button
+            onPress={closeModal}
+            style={[
+              styles.cancelButton,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             Schließen
           </Button>
         </View>
@@ -738,10 +967,18 @@ export default function ScannerScreen() {
     if (success) {
       return (
         <View style={styles.successContainer}>
-          <View style={[styles.successIcon, { backgroundColor: `${theme.success}20` }]}>
+          <View
+            style={[
+              styles.successIcon,
+              { backgroundColor: `${theme.success}20` },
+            ]}
+          >
             <Feather name="check-circle" size={48} color={theme.success} />
           </View>
-          <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+          <ThemedText
+            type="h3"
+            style={{ textAlign: "center", marginTop: Spacing.lg }}
+          >
             {success}
           </ThemedText>
         </View>
@@ -770,21 +1007,39 @@ export default function ScannerScreen() {
 
   if (!permission.granted) {
     return (
-      <ThemedView style={[styles.container, styles.permissionContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          styles.permissionContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
         <View style={styles.permissionContent}>
           <Feather name="camera-off" size={64} color={theme.textSecondary} />
           <ThemedText type="h4" style={styles.permissionTitle}>
             Kamerazugriff erforderlich
           </ThemedText>
-          <ThemedText type="body" style={[styles.permissionText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.permissionText, { color: theme.textSecondary }]}
+          >
             ContainerFlow benötigt Kamerazugriff zum Scannen von QR-Codes.
           </ThemedText>
-          <Button onPress={requestPermission} style={[styles.permissionButton, { backgroundColor: theme.accent }]}>
+          <Button
+            onPress={requestPermission}
+            style={[styles.permissionButton, { backgroundColor: theme.accent }]}
+          >
             Kamera aktivieren
           </Button>
-          {permission.status === "denied" && !permission.canAskAgain && Platform.OS !== "web" ? (
-            <ThemedText type="small" style={[styles.permissionHint, { color: theme.textSecondary }]}>
-              Bitte aktivieren Sie den Kamerazugriff in Ihren Geräteeinstellungen.
+          {permission.status === "denied" &&
+          !permission.canAskAgain &&
+          Platform.OS !== "web" ? (
+            <ThemedText
+              type="small"
+              style={[styles.permissionHint, { color: theme.textSecondary }]}
+            >
+              Bitte aktivieren Sie den Kamerazugriff in Ihren
+              Geräteeinstellungen.
             </ThemedText>
           ) : null}
         </View>
@@ -807,16 +1062,32 @@ export default function ScannerScreen() {
       <View style={[styles.overlay, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           {pendingStandForPlacement ? (
-            <View style={[styles.scanModeIndicator, { backgroundColor: theme.primary }]}>
+            <View
+              style={[
+                styles.scanModeIndicator,
+                { backgroundColor: theme.primary },
+              ]}
+            >
               <Feather name="log-in" size={18} color={theme.textOnPrimary} />
-              <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              <ThemedText
+                type="smallBold"
+                style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}
+              >
                 Box scannen für: {pendingStandForPlacement.stand.identifier}
               </ThemedText>
             </View>
           ) : (
-            <View style={[styles.scanModeIndicator, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
+            <View
+              style={[
+                styles.scanModeIndicator,
+                { backgroundColor: "rgba(0,0,0,0.6)" },
+              ]}
+            >
               <Feather name="maximize" size={18} color={theme.accent} />
-              <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              <ThemedText
+                type="smallBold"
+                style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}
+              >
                 Box / Stellplatz / Container scannen
               </ThemedText>
             </View>
@@ -832,35 +1103,88 @@ export default function ScannerScreen() {
               </Pressable>
             ) : null}
             <Pressable
-              style={[styles.flashButton, { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" }]}
+              style={[
+                styles.flashButton,
+                { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" },
+              ]}
               onPress={() => setFlashOn(!flashOn)}
             >
-              <Feather name={flashOn ? "zap" : "zap-off"} size={20} color={theme.textOnPrimary} />
+              <Feather
+                name={flashOn ? "zap" : "zap-off"}
+                size={20}
+                color={theme.textOnPrimary}
+              />
             </Pressable>
           </View>
         </View>
 
         <View style={styles.scanArea}>
           <View style={styles.scanFrame}>
-            <View style={[styles.cornerTopLeft, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
-            <View style={[styles.cornerTopRight, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
-            <View style={[styles.cornerBottomLeft, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
-            <View style={[styles.cornerBottomRight, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
+            <View
+              style={[
+                styles.cornerTopLeft,
+                {
+                  borderColor: pendingStandForPlacement
+                    ? theme.primary
+                    : theme.accent,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerTopRight,
+                {
+                  borderColor: pendingStandForPlacement
+                    ? theme.primary
+                    : theme.accent,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerBottomLeft,
+                {
+                  borderColor: pendingStandForPlacement
+                    ? theme.primary
+                    : theme.accent,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerBottomRight,
+                {
+                  borderColor: pendingStandForPlacement
+                    ? theme.primary
+                    : theme.accent,
+                },
+              ]}
+            />
           </View>
         </View>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+        <View
+          style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+        >
           {pendingStandForPlacement ? (
             <View style={[styles.helpText, { backgroundColor: theme.primary }]}>
               <Feather name="box" size={16} color={theme.textOnPrimary} />
-              <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}
+              >
                 Scannen Sie jetzt eine Box zum Platzieren
               </ThemedText>
             </View>
           ) : (
-            <View style={[styles.helpText, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
+            <View
+              style={[styles.helpText, { backgroundColor: "rgba(0,0,0,0.7)" }]}
+            >
               <Feather name="info" size={16} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}
+              >
                 Scannen Sie einen QR-Code zum Fortfahren
               </ThemedText>
             </View>
@@ -875,7 +1199,12 @@ export default function ScannerScreen() {
         onRequestClose={closeModal}
       >
         <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardSurface },
+            ]}
+          >
             <ScrollView showsVerticalScrollIndicator={false}>
               {renderModalContent()}
             </ScrollView>

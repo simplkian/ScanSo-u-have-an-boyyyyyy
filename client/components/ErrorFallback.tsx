@@ -90,9 +90,21 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           transparent={true}
           onRequestClose={() => setIsModalVisible(false)}
         >
-          <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-            <View style={[styles.modalContainer, { backgroundColor: theme.backgroundDefault }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: theme.divider }]}>
+          <View
+            style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
+          >
+            <View
+              style={[
+                styles.modalContainer,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
+              <View
+                style={[
+                  styles.modalHeader,
+                  { borderBottomColor: theme.divider },
+                ]}
+              >
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Error Details
                 </Text>

@@ -1,5 +1,11 @@
 import React from "react";
-import { StyleSheet, Pressable, ViewStyle, View, StyleProp } from "react-native";
+import {
+  StyleSheet,
+  Pressable,
+  ViewStyle,
+  View,
+  StyleProp,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,7 +15,12 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign, AnimationConfig } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  IndustrialDesign,
+  AnimationConfig,
+} from "@/constants/theme";
 
 type CardVariant = "default" | "elevated" | "outlined" | "filled";
 
@@ -72,7 +83,9 @@ export function Card({
         };
       case "elevated":
         return {
-          backgroundColor: isDark ? theme.cardSurfaceElevated : theme.cardSurface,
+          backgroundColor: isDark
+            ? theme.cardSurfaceElevated
+            : theme.cardSurface,
           borderWidth: 0,
         };
       case "outlined":
@@ -100,12 +113,22 @@ export function Card({
   const content = (
     <>
       {title ? (
-        <ThemedText type="h4" numberOfLines={2} ellipsizeMode="tail" style={[styles.cardTitle, { color: theme.text }]}>
+        <ThemedText
+          type="h4"
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          style={[styles.cardTitle, { color: theme.text }]}
+        >
           {title}
         </ThemedText>
       ) : null}
       {description ? (
-        <ThemedText type="small" numberOfLines={3} ellipsizeMode="tail" style={[styles.cardDescription, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          numberOfLines={3}
+          ellipsizeMode="tail"
+          style={[styles.cardDescription, { color: theme.textSecondary }]}
+        >
           {description}
         </ThemedText>
       ) : null}

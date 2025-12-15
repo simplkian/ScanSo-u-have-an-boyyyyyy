@@ -22,7 +22,10 @@ export function LoadingScreen({
     <View style={[styles.content, style]}>
       <ActivityIndicator size="large" color={theme.accent} />
       {message ? (
-        <ThemedText type="body" style={[styles.message, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="body"
+          style={[styles.message, { color: theme.textSecondary }]}
+        >
           {message}
         </ThemedText>
       ) : null}
@@ -30,11 +33,7 @@ export function LoadingScreen({
   );
 
   if (fullScreen) {
-    return (
-      <ThemedView style={styles.fullScreen}>
-        {content}
-      </ThemedView>
-    );
+    return <ThemedView style={styles.fullScreen}>{content}</ThemedView>;
   }
 
   return content;

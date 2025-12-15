@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -56,14 +62,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
-        
+
         try {
-          const response = await apiRequest("GET", `/api/users/${parsedUser.id}`);
+          const response = await apiRequest(
+            "GET",
+            `/api/users/${parsedUser.id}`,
+          );
           if (response.ok) {
             const serverUser = await response.json();
             if (serverUser.isActive) {
-              const updatedUser = normalizeUser({ ...parsedUser, ...serverUser });
-              await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+              const updatedUser = normalizeUser({
+                ...parsedUser,
+                ...serverUser,
+              });
+              await AsyncStorage.setItem(
+                AUTH_STORAGE_KEY,
+                JSON.stringify(updatedUser),
+              );
               setUser(updatedUser);
             } else {
               await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
@@ -83,9 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await apiRequest("POST", "/api/auth/login", { email, password });
+    const response = await apiRequest("POST", "/api/auth/login", {
+      email,
+      password,
+    });
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.error || "Login failed");
     }
@@ -99,9 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (Platform.OS === "web") {
       const response = await apiRequest("POST", "/api/auth/replit/login", {});
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.error || "Replit login failed. Make sure you're logged into Replit.");
+        throw new Error(
+          data.error ||
+            "Replit login failed. Make sure you're logged into Replit.",
+        );
       }
 
       const authUser = normalizeUser(data.user);
@@ -110,13 +131,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       const baseUrl = getApiUrl();
       const authUrl = `${baseUrl}/__replauthLoginPage`;
-      
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, "containerflow://auth");
-      
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        "containerflow://auth",
+      );
+
       if (result.type === "success") {
         const response = await apiRequest("POST", "/api/auth/replit/login", {});
         const data = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(data.error || "Replit login failed");
         }

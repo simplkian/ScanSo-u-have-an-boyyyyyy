@@ -84,10 +84,20 @@ export default function MapEditorScreen() {
 
   const [editorMode, setEditorMode] = useState<EditorMode>("hall");
   const [selectedHallId, setSelectedHallId] = useState<string | null>(null);
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
-  const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
-  const [tapPosition, setTapPosition] = useState<{ x: number; y: number } | null>(null);
-  const [showDropdown, setShowDropdown] = useState<"mode" | "hall" | "station" | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
+  const [mapDimensions, setMapDimensions] = useState({
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+  });
+  const [tapPosition, setTapPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [showDropdown, setShowDropdown] = useState<
+    "mode" | "hall" | "station" | null
+  >(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -97,26 +107,56 @@ export default function MapEditorScreen() {
   const savedTranslateY = useSharedValue(0);
   const crosshairOpacity = useSharedValue(0);
 
-  const { data: mapData, isLoading, error } = useQuery<MapEditorData>({
+  const {
+    data: mapData,
+    isLoading,
+    error,
+  } = useQuery<MapEditorData>({
     queryKey: ["/api/admin/map-editor/data"],
   });
 
   const hallMarkerMutation = useMutation({
-    mutationFn: async ({ hallId, x, y }: { hallId: string; x: number | null; y: number | null }) => {
-      await apiRequest("PATCH", `/api/admin/halls/${hallId}/map-marker`, { x, y });
+    mutationFn: async ({
+      hallId,
+      x,
+      y,
+    }: {
+      hallId: string;
+      x: number | null;
+      y: number | null;
+    }) => {
+      await apiRequest("PATCH", `/api/admin/halls/${hallId}/map-marker`, {
+        x,
+        y,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/map-editor/data"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/map-editor/data"],
+      });
       setTapPosition(null);
     },
   });
 
   const stationPositionMutation = useMutation({
-    mutationFn: async ({ stationId, x, y }: { stationId: string; x: number | null; y: number | null }) => {
-      await apiRequest("PATCH", `/api/admin/stations/${stationId}/position`, { x, y });
+    mutationFn: async ({
+      stationId,
+      x,
+      y,
+    }: {
+      stationId: string;
+      x: number | null;
+      y: number | null;
+    }) => {
+      await apiRequest("PATCH", `/api/admin/stations/${stationId}/position`, {
+        x,
+        y,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/map-editor/data"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/map-editor/data"],
+      });
       setTapPosition(null);
     },
   });
@@ -126,11 +166,14 @@ export default function MapEditorScreen() {
     setMapDimensions({ width, height });
   }, []);
 
-  const handleTap = useCallback((x: number, y: number) => {
-    const normalizedX = Math.max(0, Math.min(1, x / mapDimensions.width));
-    const normalizedY = Math.max(0, Math.min(1, y / mapDimensions.height));
-    setTapPosition({ x: normalizedX, y: normalizedY });
-  }, [mapDimensions]);
+  const handleTap = useCallback(
+    (x: number, y: number) => {
+      const normalizedX = Math.max(0, Math.min(1, x / mapDimensions.width));
+      const normalizedY = Math.max(0, Math.min(1, y / mapDimensions.height));
+      setTapPosition({ x: normalizedX, y: normalizedY });
+    },
+    [mapDimensions],
+  );
 
   const handleSaveMarker = useCallback(() => {
     if (!tapPosition) return;
@@ -148,7 +191,14 @@ export default function MapEditorScreen() {
         y: tapPosition.y,
       });
     }
-  }, [tapPosition, editorMode, selectedHallId, selectedStationId, hallMarkerMutation, stationPositionMutation]);
+  }, [
+    tapPosition,
+    editorMode,
+    selectedHallId,
+    selectedStationId,
+    hallMarkerMutation,
+    stationPositionMutation,
+  ]);
 
   const handleRemoveMarker = useCallback(() => {
     if (editorMode === "hall" && selectedHallId) {
@@ -164,7 +214,13 @@ export default function MapEditorScreen() {
         y: null,
       });
     }
-  }, [editorMode, selectedHallId, selectedStationId, hallMarkerMutation, stationPositionMutation]);
+  }, [
+    editorMode,
+    selectedHallId,
+    selectedStationId,
+    hallMarkerMutation,
+    stationPositionMutation,
+  ]);
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
@@ -181,23 +237,28 @@ export default function MapEditorScreen() {
       translateY.value = savedTranslateY.value + e.translationY;
     })
     .onEnd(() => {
-      const maxTranslate = (scale.value - 1) * mapDimensions.width / 2;
-      savedTranslateX.value = Math.max(-maxTranslate, Math.min(maxTranslate, translateX.value));
-      savedTranslateY.value = Math.max(-maxTranslate, Math.min(maxTranslate, translateY.value));
+      const maxTranslate = ((scale.value - 1) * mapDimensions.width) / 2;
+      savedTranslateX.value = Math.max(
+        -maxTranslate,
+        Math.min(maxTranslate, translateX.value),
+      );
+      savedTranslateY.value = Math.max(
+        -maxTranslate,
+        Math.min(maxTranslate, translateY.value),
+      );
       translateX.value = withSpring(savedTranslateX.value, { damping: 15 });
       translateY.value = withSpring(savedTranslateY.value, { damping: 15 });
     });
 
-  const tapGesture = Gesture.Tap()
-    .onEnd((e) => {
-      const adjustedX = (e.x - translateX.value) / scale.value;
-      const adjustedY = (e.y - translateY.value) / scale.value;
-      runOnJS(handleTap)(adjustedX, adjustedY);
-    });
+  const tapGesture = Gesture.Tap().onEnd((e) => {
+    const adjustedX = (e.x - translateX.value) / scale.value;
+    const adjustedY = (e.y - translateY.value) / scale.value;
+    runOnJS(handleTap)(adjustedX, adjustedY);
+  });
 
   const composedGesture = Gesture.Simultaneous(
     Gesture.Race(pinchGesture, panGesture),
-    tapGesture
+    tapGesture,
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -249,38 +310,58 @@ export default function MapEditorScreen() {
     options: { id: string; label: string }[],
     selectedValue: string | null,
     onSelect: (id: string) => void,
-    placeholder: string
+    placeholder: string,
   ) => {
     const isOpen = showDropdown === type;
     return (
       <View style={styles.dropdownContainer}>
         <Pressable
-          style={[styles.dropdown, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+          style={[
+            styles.dropdown,
+            {
+              backgroundColor: theme.backgroundSecondary,
+              borderColor: theme.border,
+            },
+          ]}
           onPress={() => setShowDropdown(isOpen ? null : type)}
         >
           <ThemedText style={styles.dropdownText}>
             {selectedValue
-              ? options.find((o) => o.id === selectedValue)?.label || placeholder
+              ? options.find((o) => o.id === selectedValue)?.label ||
+                placeholder
               : placeholder}
           </ThemedText>
-          <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+          <Feather
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={theme.textSecondary}
+          />
         </Pressable>
         {isOpen ? (
-          <View style={[styles.dropdownMenu, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.dropdownMenu,
+              { backgroundColor: theme.cardSurface, borderColor: theme.border },
+            ]}
+          >
             <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
               {options.map((option) => (
                 <Pressable
                   key={option.id}
                   style={[
                     styles.dropdownItem,
-                    selectedValue === option.id && { backgroundColor: theme.backgroundSecondary },
+                    selectedValue === option.id && {
+                      backgroundColor: theme.backgroundSecondary,
+                    },
                   ]}
                   onPress={() => {
                     onSelect(option.id);
                     setShowDropdown(null);
                   }}
                 >
-                  <ThemedText style={styles.dropdownItemText}>{option.label}</ThemedText>
+                  <ThemedText style={styles.dropdownItemText}>
+                    {option.label}
+                  </ThemedText>
                   {selectedValue === option.id ? (
                     <Feather name="check" size={16} color={theme.accent} />
                   ) : null}
@@ -298,7 +379,9 @@ export default function MapEditorScreen() {
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent} />
-          <ThemedText style={styles.loadingText}>Kartendaten werden geladen...</ThemedText>
+          <ThemedText style={styles.loadingText}>
+            Kartendaten werden geladen...
+          </ThemedText>
         </View>
       </ThemedView>
     );
@@ -316,13 +399,18 @@ export default function MapEditorScreen() {
     );
   }
 
-  const isMutating = hallMarkerMutation.isPending || stationPositionMutation.isPending;
-  const hasSelection = editorMode === "hall" ? !!selectedHallId : !!selectedStationId;
-  const currentMarker = editorMode === "hall" ? selectedHall?.mapMarker : selectedStation?.position;
+  const isMutating =
+    hallMarkerMutation.isPending || stationPositionMutation.isPending;
+  const hasSelection =
+    editorMode === "hall" ? !!selectedHallId : !!selectedStationId;
+  const currentMarker =
+    editorMode === "hall" ? selectedHall?.mapMarker : selectedStation?.position;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
+      <ThemedView
+        style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -334,7 +422,9 @@ export default function MapEditorScreen() {
         >
           <View style={styles.header}>
             <ThemedText style={styles.title}>Karten-Editor</ThemedText>
-            <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.subtitle, { color: theme.textSecondary }]}
+            >
               Marker für Hallen und Stationen setzen
             </ThemedText>
           </View>
@@ -353,45 +443,54 @@ export default function MapEditorScreen() {
                 setSelectedStationId(null);
                 setTapPosition(null);
               },
-              "Modus wählen"
+              "Modus wählen",
             )}
 
             {editorMode === "hall" ? (
               renderDropdown(
                 "hall",
-                hallsExcludingOut.map((h) => ({ id: h.id, label: `${h.code} - ${h.name}` })),
+                hallsExcludingOut.map((h) => ({
+                  id: h.id,
+                  label: `${h.code} - ${h.name}`,
+                })),
                 selectedHallId,
                 (id) => {
                   setSelectedHallId(id);
                   setTapPosition(null);
                 },
-                "Halle wählen"
+                "Halle wählen",
               )
             ) : (
               <>
                 {renderDropdown(
                   "hall",
-                  hallsWithFloorPlans.map((h) => ({ id: h.id, label: `${h.code} - ${h.name}` })),
+                  hallsWithFloorPlans.map((h) => ({
+                    id: h.id,
+                    label: `${h.code} - ${h.name}`,
+                  })),
                   selectedHallId,
                   (id) => {
                     setSelectedHallId(id);
                     setSelectedStationId(null);
                     setTapPosition(null);
                   },
-                  "Halle wählen"
+                  "Halle wählen",
                 )}
-                {selectedHallId ? (
-                  renderDropdown(
-                    "station",
-                    stationsForSelectedHall.map((s) => ({ id: s.id, label: `${s.code} - ${s.name}` })),
-                    selectedStationId,
-                    (id) => {
-                      setSelectedStationId(id);
-                      setTapPosition(null);
-                    },
-                    "Station wählen"
-                  )
-                ) : null}
+                {selectedHallId
+                  ? renderDropdown(
+                      "station",
+                      stationsForSelectedHall.map((s) => ({
+                        id: s.id,
+                        label: `${s.code} - ${s.name}`,
+                      })),
+                      selectedStationId,
+                      (id) => {
+                        setSelectedStationId(id);
+                        setTapPosition(null);
+                      },
+                      "Station wählen",
+                    )
+                  : null}
               </>
             )}
           </View>
@@ -403,59 +502,71 @@ export default function MapEditorScreen() {
                   style={[styles.mapContainer, animatedStyle]}
                   onLayout={handleMapLayout}
                 >
-                  <Image source={currentMapImage} style={styles.mapImage} contentFit="fill" />
+                  <Image
+                    source={currentMapImage}
+                    style={styles.mapImage}
+                    contentFit="fill"
+                  />
 
-                  {editorMode === "hall" ? (
-                    mapData.halls
-                      .filter((h) => h.mapMarker && h.code !== "OUT")
-                      .map((hall) => {
-                        const { x, y } = hall.mapMarker!;
-                        const isSelected = hall.id === selectedHallId;
-                        return (
-                          <View
-                            key={hall.id}
-                            style={[
-                              styles.marker,
-                              styles.hallMarker,
-                              {
-                                left: x * mapDimensions.width - 20,
-                                top: y * mapDimensions.height - 20,
-                                backgroundColor: isSelected ? theme.accent : theme.primary,
-                                borderWidth: isSelected ? 3 : 0,
-                                borderColor: "#FFFFFF",
-                              },
-                            ]}
-                          >
-                            <ThemedText style={styles.markerLabel}>{hall.code}</ThemedText>
-                          </View>
-                        );
-                      })
-                  ) : (
-                    stationsForSelectedHall
-                      .filter((s) => s.position)
-                      .map((station) => {
-                        const { x, y } = station.position!;
-                        const isSelected = station.id === selectedStationId;
-                        return (
-                          <View
-                            key={station.id}
-                            style={[
-                              styles.marker,
-                              styles.stationMarker,
-                              {
-                                left: x * mapDimensions.width - 16,
-                                top: y * mapDimensions.height - 16,
-                                backgroundColor: isSelected ? theme.accent : theme.info,
-                                borderWidth: isSelected ? 2 : 0,
-                                borderColor: "#FFFFFF",
-                              },
-                            ]}
-                          >
-                            <Feather name="target" size={16} color="#FFFFFF" />
-                          </View>
-                        );
-                      })
-                  )}
+                  {editorMode === "hall"
+                    ? mapData.halls
+                        .filter((h) => h.mapMarker && h.code !== "OUT")
+                        .map((hall) => {
+                          const { x, y } = hall.mapMarker!;
+                          const isSelected = hall.id === selectedHallId;
+                          return (
+                            <View
+                              key={hall.id}
+                              style={[
+                                styles.marker,
+                                styles.hallMarker,
+                                {
+                                  left: x * mapDimensions.width - 20,
+                                  top: y * mapDimensions.height - 20,
+                                  backgroundColor: isSelected
+                                    ? theme.accent
+                                    : theme.primary,
+                                  borderWidth: isSelected ? 3 : 0,
+                                  borderColor: "#FFFFFF",
+                                },
+                              ]}
+                            >
+                              <ThemedText style={styles.markerLabel}>
+                                {hall.code}
+                              </ThemedText>
+                            </View>
+                          );
+                        })
+                    : stationsForSelectedHall
+                        .filter((s) => s.position)
+                        .map((station) => {
+                          const { x, y } = station.position!;
+                          const isSelected = station.id === selectedStationId;
+                          return (
+                            <View
+                              key={station.id}
+                              style={[
+                                styles.marker,
+                                styles.stationMarker,
+                                {
+                                  left: x * mapDimensions.width - 16,
+                                  top: y * mapDimensions.height - 16,
+                                  backgroundColor: isSelected
+                                    ? theme.accent
+                                    : theme.info,
+                                  borderWidth: isSelected ? 2 : 0,
+                                  borderColor: "#FFFFFF",
+                                },
+                              ]}
+                            >
+                              <Feather
+                                name="target"
+                                size={16}
+                                color="#FFFFFF"
+                              />
+                            </View>
+                          );
+                        })}
 
                   {tapPosition ? (
                     <View
@@ -467,9 +578,24 @@ export default function MapEditorScreen() {
                         },
                       ]}
                     >
-                      <View style={[styles.crosshairVertical, { backgroundColor: theme.error }]} />
-                      <View style={[styles.crosshairHorizontal, { backgroundColor: theme.error }]} />
-                      <View style={[styles.crosshairCenter, { backgroundColor: theme.error }]} />
+                      <View
+                        style={[
+                          styles.crosshairVertical,
+                          { backgroundColor: theme.error },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.crosshairHorizontal,
+                          { backgroundColor: theme.error },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.crosshairCenter,
+                          { backgroundColor: theme.error },
+                        ]}
+                      />
                     </View>
                   ) : null}
                 </Animated.View>
@@ -478,8 +604,11 @@ export default function MapEditorScreen() {
 
             <View style={styles.mapHint}>
               <Feather name="info" size={14} color={theme.textSecondary} />
-              <ThemedText style={[styles.hintText, { color: theme.textSecondary }]}>
-                Tippen Sie auf die Karte um die Position zu setzen. Pinch zum Zoomen, Wischen zum Verschieben.
+              <ThemedText
+                style={[styles.hintText, { color: theme.textSecondary }]}
+              >
+                Tippen Sie auf die Karte um die Position zu setzen. Pinch zum
+                Zoomen, Wischen zum Verschieben.
               </ThemedText>
             </View>
           </Card>
@@ -489,14 +618,21 @@ export default function MapEditorScreen() {
               <View style={styles.positionInfo}>
                 {tapPosition ? (
                   <ThemedText style={styles.positionText}>
-                    Neue Position: X={tapPosition.x.toFixed(3)}, Y={tapPosition.y.toFixed(3)}
+                    Neue Position: X={tapPosition.x.toFixed(3)}, Y=
+                    {tapPosition.y.toFixed(3)}
                   </ThemedText>
                 ) : currentMarker ? (
                   <ThemedText style={styles.positionText}>
-                    Aktuelle Position: X={currentMarker.x.toFixed(3)}, Y={currentMarker.y.toFixed(3)}
+                    Aktuelle Position: X={currentMarker.x.toFixed(3)}, Y=
+                    {currentMarker.y.toFixed(3)}
                   </ThemedText>
                 ) : (
-                  <ThemedText style={[styles.positionText, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    style={[
+                      styles.positionText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     Kein Marker gesetzt
                   </ThemedText>
                 )}
@@ -540,12 +676,18 @@ export default function MapEditorScreen() {
 
           <View style={styles.missingSection}>
             <ThemedText style={styles.sectionTitle}>
-              <Feather name="alert-circle" size={18} color={theme.warning} /> Fehlt
+              <Feather name="alert-circle" size={18} color={theme.warning} />{" "}
+              Fehlt
             </ThemedText>
 
             {mapData.missing.halls.length > 0 ? (
               <View style={styles.missingGroup}>
-                <ThemedText style={[styles.missingGroupTitle, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[
+                    styles.missingGroupTitle,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Hallen ohne Marker ({mapData.missing.halls.length})
                 </ThemedText>
                 <View style={styles.chipContainer}>
@@ -556,7 +698,10 @@ export default function MapEditorScreen() {
                         styles.chip,
                         {
                           backgroundColor: theme.backgroundSecondary,
-                          borderColor: selectedHallId === hall.id ? theme.accent : theme.border,
+                          borderColor:
+                            selectedHallId === hall.id
+                              ? theme.accent
+                              : theme.border,
                           borderWidth: selectedHallId === hall.id ? 2 : 1,
                         },
                       ]}
@@ -566,7 +711,9 @@ export default function MapEditorScreen() {
                         setTapPosition(null);
                       }}
                     >
-                      <ThemedText style={styles.chipText}>{hall.code}</ThemedText>
+                      <ThemedText style={styles.chipText}>
+                        {hall.code}
+                      </ThemedText>
                     </Pressable>
                   ))}
                 </View>
@@ -575,7 +722,12 @@ export default function MapEditorScreen() {
 
             {mapData.missing.stations.length > 0 ? (
               <View style={styles.missingGroup}>
-                <ThemedText style={[styles.missingGroupTitle, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[
+                    styles.missingGroupTitle,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Stationen ohne Marker ({mapData.missing.stations.length})
                 </ThemedText>
                 <View style={styles.chipContainer}>
@@ -586,12 +738,17 @@ export default function MapEditorScreen() {
                         styles.chip,
                         {
                           backgroundColor: theme.backgroundSecondary,
-                          borderColor: selectedStationId === station.id ? theme.accent : theme.border,
+                          borderColor:
+                            selectedStationId === station.id
+                              ? theme.accent
+                              : theme.border,
                           borderWidth: selectedStationId === station.id ? 2 : 1,
                         },
                       ]}
                       onPress={() => {
-                        const hall = mapData.halls.find((h) => h.id === station.hallId);
+                        const hall = mapData.halls.find(
+                          (h) => h.id === station.hallId,
+                        );
                         if (hall && hallFloorPlans[hall.code]) {
                           setEditorMode("station");
                           setSelectedHallId(station.hallId);
@@ -600,12 +757,24 @@ export default function MapEditorScreen() {
                         }
                       }}
                     >
-                      <ThemedText style={styles.chipText}>{station.code}</ThemedText>
+                      <ThemedText style={styles.chipText}>
+                        {station.code}
+                      </ThemedText>
                     </Pressable>
                   ))}
                   {mapData.missing.stations.length > 20 ? (
-                    <View style={[styles.chip, { backgroundColor: theme.backgroundTertiary }]}>
-                      <ThemedText style={[styles.chipText, { color: theme.textSecondary }]}>
+                    <View
+                      style={[
+                        styles.chip,
+                        { backgroundColor: theme.backgroundTertiary },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.chipText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         +{mapData.missing.stations.length - 20} weitere
                       </ThemedText>
                     </View>
@@ -614,10 +783,13 @@ export default function MapEditorScreen() {
               </View>
             ) : null}
 
-            {mapData.missing.halls.length === 0 && mapData.missing.stations.length === 0 ? (
+            {mapData.missing.halls.length === 0 &&
+            mapData.missing.stations.length === 0 ? (
               <View style={styles.allSetContainer}>
                 <Feather name="check-circle" size={24} color={theme.success} />
-                <ThemedText style={[styles.allSetText, { color: theme.success }]}>
+                <ThemedText
+                  style={[styles.allSetText, { color: theme.success }]}
+                >
                   Alle Marker sind gesetzt!
                 </ThemedText>
               </View>

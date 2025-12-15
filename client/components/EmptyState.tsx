@@ -27,14 +27,26 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.iconContainer, { backgroundColor: `${theme.textSecondary}15` }]}>
-        <Feather name={icon} size={IndustrialDesign.iconSizeXL} color={theme.textSecondary} />
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: `${theme.textSecondary}15` },
+        ]}
+      >
+        <Feather
+          name={icon}
+          size={IndustrialDesign.iconSizeXL}
+          color={theme.textSecondary}
+        />
       </View>
       <ThemedText type="h4" style={styles.title}>
         {title}
       </ThemedText>
       {message ? (
-        <ThemedText type="body" style={[styles.message, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="body"
+          style={[styles.message, { color: theme.textSecondary }]}
+        >
           {message}
         </ThemedText>
       ) : null}

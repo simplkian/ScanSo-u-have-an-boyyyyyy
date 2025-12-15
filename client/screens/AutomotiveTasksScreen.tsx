@@ -1,5 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, FlatList, Pressable, RefreshControl, ScrollView } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -18,14 +25,39 @@ import { AUTOMOTIVE_TASK_STATUS_LABELS } from "@shared/schema";
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
 
-type CategoryTab = "offen" | "unterwegs" | "abgestellt" | "entsorgung" | "abgeschlossen" | "geplant";
+type CategoryTab =
+  | "offen"
+  | "unterwegs"
+  | "abgestellt"
+  | "entsorgung"
+  | "abgeschlossen"
+  | "geplant";
 
-const CATEGORY_CONFIG: Record<CategoryTab, { label: string; statuses: string[]; icon: keyof typeof Feather.glyphMap }> = {
+const CATEGORY_CONFIG: Record<
+  CategoryTab,
+  { label: string; statuses: string[]; icon: keyof typeof Feather.glyphMap }
+> = {
   offen: { label: "Offen", statuses: ["OPEN"], icon: "inbox" },
-  unterwegs: { label: "Unterwegs", statuses: ["PICKED_UP", "IN_TRANSIT"], icon: "truck" },
-  abgestellt: { label: "Abgestellt", statuses: ["DROPPED_OFF"], icon: "download" },
-  entsorgung: { label: "Entsorgung", statuses: ["TAKEN_OVER", "WEIGHED"], icon: "activity" },
-  abgeschlossen: { label: "Abgeschlossen", statuses: ["DISPOSED", "CANCELLED"], icon: "check-circle" },
+  unterwegs: {
+    label: "Unterwegs",
+    statuses: ["PICKED_UP", "IN_TRANSIT"],
+    icon: "truck",
+  },
+  abgestellt: {
+    label: "Abgestellt",
+    statuses: ["DROPPED_OFF"],
+    icon: "download",
+  },
+  entsorgung: {
+    label: "Entsorgung",
+    statuses: ["TAKEN_OVER", "WEIGHED"],
+    icon: "activity",
+  },
+  abgeschlossen: {
+    label: "Abgeschlossen",
+    statuses: ["DISPOSED", "CANCELLED"],
+    icon: "check-circle",
+  },
   geplant: { label: "Geplant", statuses: [], icon: "calendar" },
 };
 
@@ -60,7 +92,12 @@ export default function AutomotiveTasksScreen() {
 
   const [activeTab, setActiveTab] = useState<CategoryTab>("offen");
 
-  const { data: allTasks = [], isLoading, refetch, isRefetching } = useQuery<TaskWithDetails[]>({
+  const {
+    data: allTasks = [],
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/automotive/tasks"],
   });
 
@@ -87,7 +124,9 @@ export default function AutomotiveTasksScreen() {
     };
 
     allTasks.forEach((task) => {
-      const scheduledFor = task.scheduledFor ? new Date(task.scheduledFor) : null;
+      const scheduledFor = task.scheduledFor
+        ? new Date(task.scheduledFor)
+        : null;
       const isScheduledForFuture = scheduledFor && scheduledFor >= tomorrow;
 
       if (task.status === "OPEN" && isScheduledForFuture) {
@@ -108,9 +147,11 @@ export default function AutomotiveTasksScreen() {
     result.offen.sort((a, b) => {
       const aScheduled = a.scheduledFor ? new Date(a.scheduledFor) : null;
       const bScheduled = b.scheduledFor ? new Date(b.scheduledFor) : null;
-      const aIsToday = aScheduled && aScheduled >= today && aScheduled < tomorrow;
-      const bIsToday = bScheduled && bScheduled >= today && bScheduled < tomorrow;
-      
+      const aIsToday =
+        aScheduled && aScheduled >= today && aScheduled < tomorrow;
+      const bIsToday =
+        bScheduled && bScheduled >= today && bScheduled < tomorrow;
+
       if (aIsToday && !bIsToday) return -1;
       if (!aIsToday && bIsToday) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -125,40 +166,59 @@ export default function AutomotiveTasksScreen() {
     return result;
   }, [allTasks, today, tomorrow]);
 
-  const taskCounts = useMemo(() => ({
-    offen: categorizedTasks.offen.length,
-    unterwegs: categorizedTasks.unterwegs.length,
-    abgestellt: categorizedTasks.abgestellt.length,
-    entsorgung: categorizedTasks.entsorgung.length,
-    abgeschlossen: categorizedTasks.abgeschlossen.length,
-    geplant: categorizedTasks.geplant.length,
-  }), [categorizedTasks]);
+  const taskCounts = useMemo(
+    () => ({
+      offen: categorizedTasks.offen.length,
+      unterwegs: categorizedTasks.unterwegs.length,
+      abgestellt: categorizedTasks.abgestellt.length,
+      entsorgung: categorizedTasks.entsorgung.length,
+      abgeschlossen: categorizedTasks.abgeschlossen.length,
+      geplant: categorizedTasks.geplant.length,
+    }),
+    [categorizedTasks],
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "OPEN": return theme.statusOpen;
+      case "OPEN":
+        return theme.statusOpen;
       case "PICKED_UP":
-      case "IN_TRANSIT": return theme.warning;
-      case "DROPPED_OFF": return theme.info;
+      case "IN_TRANSIT":
+        return theme.warning;
+      case "DROPPED_OFF":
+        return theme.info;
       case "TAKEN_OVER":
-      case "WEIGHED": return theme.accent;
-      case "DISPOSED": return theme.statusCompleted;
-      case "CANCELLED": return theme.statusCancelled;
-      default: return theme.statusOpen;
+      case "WEIGHED":
+        return theme.accent;
+      case "DISPOSED":
+        return theme.statusCompleted;
+      case "CANCELLED":
+        return theme.statusCancelled;
+      default:
+        return theme.statusOpen;
     }
   };
 
   const getStatusIcon = (status: string): keyof typeof Feather.glyphMap => {
     switch (status) {
-      case "OPEN": return "inbox";
-      case "PICKED_UP": return "package";
-      case "IN_TRANSIT": return "truck";
-      case "DROPPED_OFF": return "download";
-      case "TAKEN_OVER": return "user-check";
-      case "WEIGHED": return "activity";
-      case "DISPOSED": return "check-circle";
-      case "CANCELLED": return "x-circle";
-      default: return "circle";
+      case "OPEN":
+        return "inbox";
+      case "PICKED_UP":
+        return "package";
+      case "IN_TRANSIT":
+        return "truck";
+      case "DROPPED_OFF":
+        return "download";
+      case "TAKEN_OVER":
+        return "user-check";
+      case "WEIGHED":
+        return "activity";
+      case "DISPOSED":
+        return "check-circle";
+      case "CANCELLED":
+        return "x-circle";
+      default:
+        return "circle";
     }
   };
 
@@ -166,10 +226,12 @@ export default function AutomotiveTasksScreen() {
     if (!task.claimedByUser || !task.claimedAt) return null;
 
     const claimedAt = new Date(task.claimedAt);
-    const expiryTime = new Date(claimedAt.getTime() + CLAIM_TTL_MINUTES * 60 * 1000);
+    const expiryTime = new Date(
+      claimedAt.getTime() + CLAIM_TTL_MINUTES * 60 * 1000,
+    );
     const now = new Date();
     const remainingMs = expiryTime.getTime() - now.getTime();
-    
+
     if (remainingMs <= 0) return null;
 
     const remainingMinutes = Math.ceil(remainingMs / (60 * 1000));
@@ -183,8 +245,15 @@ export default function AutomotiveTasksScreen() {
   const formatDateTime = (date: string | Date | null) => {
     if (!date) return null;
     const d = new Date(date);
-    const day = d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
-    const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const day = d.toLocaleDateString("de-DE", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const time = d.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     return `${day}, ${time}`;
   };
 
@@ -197,62 +266,110 @@ export default function AutomotiveTasksScreen() {
   };
 
   const renderTask = ({ item }: { item: TaskWithDetails }) => {
-    const statusLabel = AUTOMOTIVE_TASK_STATUS_LABELS[item.status] || item.status;
+    const statusLabel =
+      AUTOMOTIVE_TASK_STATUS_LABELS[item.status] || item.status;
     const claimInfo = getClaimInfo(item);
     const scheduledFor = item.scheduledFor ? new Date(item.scheduledFor) : null;
-    const isScheduledToday = scheduledFor && scheduledFor >= today && scheduledFor < tomorrow;
+    const isScheduledToday =
+      scheduledFor && scheduledFor >= today && scheduledFor < tomorrow;
 
     return (
       <Card
-        style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}
+        style={{
+          backgroundColor: theme.cardSurface,
+          borderColor: theme.cardBorder,
+        }}
         onPress={() => navigation.navigate("TaskDetail", { taskId: item.id })}
       >
         <View style={styles.taskRow}>
-          <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: getStatusColor(item.status) },
+            ]}
+          />
           <View style={styles.taskContent}>
             <View style={styles.taskMainInfo}>
               <View style={styles.taskTitleRow}>
-                <Feather name={getStatusIcon(item.status)} size={18} color={getStatusColor(item.status)} />
-                <ThemedText type="bodyBold" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }} numberOfLines={1}>
+                <Feather
+                  name={getStatusIcon(item.status)}
+                  size={18}
+                  color={getStatusColor(item.status)}
+                />
+                <ThemedText
+                  type="bodyBold"
+                  style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}
+                  numberOfLines={1}
+                >
                   {item.title || `Aufgabe ${item.id.substring(0, 8)}`}
                 </ThemedText>
                 {isScheduledToday ? (
-                  <View style={[styles.todayBadge, { backgroundColor: theme.accent }]}>
-                    <ThemedText type="captionBold" style={{ color: theme.textOnAccent }}>
+                  <View
+                    style={[
+                      styles.todayBadge,
+                      { backgroundColor: theme.accent },
+                    ]}
+                  >
+                    <ThemedText
+                      type="captionBold"
+                      style={{ color: theme.textOnAccent }}
+                    >
                       Heute
                     </ThemedText>
                   </View>
                 ) : null}
               </View>
 
-              <View style={[styles.statusChip, { backgroundColor: getStatusColor(item.status) + "20" }]}>
-                <ThemedText type="captionBold" style={{ color: getStatusColor(item.status) }}>
+              <View
+                style={[
+                  styles.statusChip,
+                  { backgroundColor: getStatusColor(item.status) + "20" },
+                ]}
+              >
+                <ThemedText
+                  type="captionBold"
+                  style={{ color: getStatusColor(item.status) }}
+                >
                   {statusLabel}
                 </ThemedText>
               </View>
 
               <View style={styles.taskLocation}>
                 <Feather name="map-pin" size={14} color={theme.textSecondary} />
-                <ThemedText type="body" style={{ color: theme.text, marginLeft: Spacing.xs, flex: 1 }} numberOfLines={1}>
+                <ThemedText
+                  type="body"
+                  style={{ color: theme.text, marginLeft: Spacing.xs, flex: 1 }}
+                  numberOfLines={1}
+                >
                   {getLocationString(item)}
                 </ThemedText>
               </View>
 
               {claimInfo ? (
-                <View style={[
-                  styles.claimBadge, 
-                  { backgroundColor: claimInfo.isExpiringSoon ? theme.warning + "20" : theme.info + "20" }
-                ]}>
-                  <Feather 
-                    name="user" 
-                    size={12} 
-                    color={claimInfo.isExpiringSoon ? theme.warning : theme.info} 
+                <View
+                  style={[
+                    styles.claimBadge,
+                    {
+                      backgroundColor: claimInfo.isExpiringSoon
+                        ? theme.warning + "20"
+                        : theme.info + "20",
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="user"
+                    size={12}
+                    color={
+                      claimInfo.isExpiringSoon ? theme.warning : theme.info
+                    }
                   />
-                  <ThemedText 
-                    type="caption" 
-                    style={{ 
-                      color: claimInfo.isExpiringSoon ? theme.warning : theme.info, 
-                      marginLeft: Spacing.xs 
+                  <ThemedText
+                    type="caption"
+                    style={{
+                      color: claimInfo.isExpiringSoon
+                        ? theme.warning
+                        : theme.info,
+                      marginLeft: Spacing.xs,
                     }}
                   >
                     {claimInfo.userName} ({claimInfo.remainingMinutes} Min.)
@@ -263,22 +380,44 @@ export default function AutomotiveTasksScreen() {
               <View style={styles.taskMeta}>
                 <View style={styles.metaItem}>
                   <Feather name="clock" size={14} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: theme.textSecondary,
+                      marginLeft: Spacing.xs,
+                    }}
+                  >
                     {formatDateTime(item.createdAt) || "Unbekannt"}
                   </ThemedText>
                 </View>
                 {item.material ? (
                   <View style={styles.metaItem}>
                     <Feather name="box" size={14} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: theme.textSecondary,
+                        marginLeft: Spacing.xs,
+                      }}
+                    >
                       {item.material.name}
                     </ThemedText>
                   </View>
                 ) : null}
                 {item.weightKg ? (
                   <View style={styles.metaItem}>
-                    <Feather name="activity" size={14} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    <Feather
+                      name="activity"
+                      size={14}
+                      color={theme.textSecondary}
+                    />
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: theme.textSecondary,
+                        marginLeft: Spacing.xs,
+                      }}
+                    >
                       {item.weightKg} kg
                     </ThemedText>
                   </View>
@@ -287,7 +426,11 @@ export default function AutomotiveTasksScreen() {
             </View>
 
             <View style={styles.chevronContainer}>
-              <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={24}
+                color={theme.textSecondary}
+              />
             </View>
           </View>
         </View>
@@ -297,13 +440,20 @@ export default function AutomotiveTasksScreen() {
 
   const getEmptyStateMessage = () => {
     switch (activeTab) {
-      case "offen": return "Keine offenen Aufgaben vorhanden";
-      case "unterwegs": return "Keine Aufgaben unterwegs";
-      case "abgestellt": return "Keine abgestellten Aufgaben";
-      case "entsorgung": return "Keine Aufgaben in Entsorgung";
-      case "abgeschlossen": return "Keine abgeschlossenen Aufgaben";
-      case "geplant": return "Keine geplanten Aufgaben";
-      default: return "Keine Aufgaben vorhanden";
+      case "offen":
+        return "Keine offenen Aufgaben vorhanden";
+      case "unterwegs":
+        return "Keine Aufgaben unterwegs";
+      case "abgestellt":
+        return "Keine abgestellten Aufgaben";
+      case "entsorgung":
+        return "Keine Aufgaben in Entsorgung";
+      case "abgeschlossen":
+        return "Keine abgeschlossenen Aufgaben";
+      case "geplant":
+        return "Keine geplanten Aufgaben";
+      default:
+        return "Keine Aufgaben vorhanden";
     }
   };
 
@@ -331,22 +481,31 @@ export default function AutomotiveTasksScreen() {
         ]}
         onPress={() => setActiveTab(tab)}
       >
-        <Feather 
-          name={config.icon} 
-          size={16} 
-          color={isSelected ? theme.textOnPrimary : theme.textSecondary} 
+        <Feather
+          name={config.icon}
+          size={16}
+          color={isSelected ? theme.textOnPrimary : theme.textSecondary}
         />
         <ThemedText
           type="smallBold"
           numberOfLines={1}
-          style={{ color: isSelected ? theme.textOnPrimary : theme.text, marginLeft: Spacing.xs }}
+          style={{
+            color: isSelected ? theme.textOnPrimary : theme.text,
+            marginLeft: Spacing.xs,
+          }}
         >
           {config.label}
         </ThemedText>
-        <View style={[
-          styles.countBadge,
-          { backgroundColor: isSelected ? theme.accent : theme.backgroundSecondary }
-        ]}>
+        <View
+          style={[
+            styles.countBadge,
+            {
+              backgroundColor: isSelected
+                ? theme.accent
+                : theme.backgroundSecondary,
+            },
+          ]}
+        >
           <ThemedText
             type="captionBold"
             numberOfLines={1}
@@ -360,8 +519,15 @@ export default function AutomotiveTasksScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.tabContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
+      <View
+        style={[
+          styles.tabContainer,
+          { marginTop: headerHeight, backgroundColor: theme.backgroundDefault },
+        ]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -377,7 +543,10 @@ export default function AutomotiveTasksScreen() {
       </View>
 
       {isLoading ? (
-        <LoadingScreen fullScreen={false} message="Aufgaben werden geladen..." />
+        <LoadingScreen
+          fullScreen={false}
+          message="Aufgaben werden geladen..."
+        />
       ) : (
         <FlatList
           data={categorizedTasks[activeTab]}

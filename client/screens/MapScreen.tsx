@@ -120,9 +120,9 @@ const MAP_HEIGHT = MAP_WIDTH / MAP_ASPECT_RATIO;
 
 const SNAP_POINTS = {
   CLOSED: SCREEN_HEIGHT,
-  COLLAPSED: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.25),
-  MEDIUM: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.50),
-  EXPANDED: SCREEN_HEIGHT - (SCREEN_HEIGHT * 0.85),
+  COLLAPSED: SCREEN_HEIGHT - SCREEN_HEIGHT * 0.25,
+  MEDIUM: SCREEN_HEIGHT - SCREEN_HEIGHT * 0.5,
+  EXPANDED: SCREEN_HEIGHT - SCREEN_HEIGHT * 0.85,
 };
 
 const SPRING_CONFIG = {
@@ -153,21 +153,31 @@ export default function MapScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const [selectedHall, setSelectedHall] = useState<HallData | null>(null);
-  const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
-  const [mapDimensions, setMapDimensions] = useState({ width: MAP_WIDTH, height: MAP_HEIGHT });
+  const [selectedStation, setSelectedStation] = useState<StationData | null>(
+    null,
+  );
+  const [mapDimensions, setMapDimensions] = useState({
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+  });
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
 
   const translateY = useSharedValue(SNAP_POINTS.CLOSED);
   const context = useSharedValue({ y: 0 });
 
-  const { data: mapData, isLoading, error } = useQuery<MapData>({
+  const {
+    data: mapData,
+    isLoading,
+    error,
+  } = useQuery<MapData>({
     queryKey: ["/api/factory/map-data"],
   });
 
-  const { data: stationDetails, isLoading: loadingDetails } = useQuery<StationDetails>({
-    queryKey: [`/api/stations/${selectedStation?.id}/details`],
-    enabled: !!selectedStation,
-  });
+  const { data: stationDetails, isLoading: loadingDetails } =
+    useQuery<StationDetails>({
+      queryKey: [`/api/stations/${selectedStation?.id}/details`],
+      enabled: !!selectedStation,
+    });
 
   const openBottomSheet = useCallback(() => {
     setIsBottomSheetVisible(true);
@@ -175,12 +185,16 @@ export default function MapScreen() {
   }, [translateY]);
 
   const closeBottomSheet = useCallback(() => {
-    translateY.value = withSpring(SNAP_POINTS.CLOSED, SPRING_CONFIG, (finished) => {
-      if (finished) {
-        runOnJS(setIsBottomSheetVisible)(false);
-        runOnJS(setSelectedStation)(null);
-      }
-    });
+    translateY.value = withSpring(
+      SNAP_POINTS.CLOSED,
+      SPRING_CONFIG,
+      (finished) => {
+        if (finished) {
+          runOnJS(setIsBottomSheetVisible)(false);
+          runOnJS(setSelectedStation)(null);
+        }
+      },
+    );
   }, [translateY]);
 
   useEffect(() => {
@@ -192,22 +206,27 @@ export default function MapScreen() {
   const snapToNearest = (velocity: number) => {
     "worklet";
     const currentY = translateY.value;
-    const snapPoints = [SNAP_POINTS.EXPANDED, SNAP_POINTS.MEDIUM, SNAP_POINTS.COLLAPSED, SNAP_POINTS.CLOSED];
-    
+    const snapPoints = [
+      SNAP_POINTS.EXPANDED,
+      SNAP_POINTS.MEDIUM,
+      SNAP_POINTS.COLLAPSED,
+      SNAP_POINTS.CLOSED,
+    ];
+
     if (velocity > 500) {
-      const lowerSnaps = snapPoints.filter(p => p > currentY);
+      const lowerSnaps = snapPoints.filter((p) => p > currentY);
       if (lowerSnaps.length > 0) {
         return lowerSnaps[0];
       }
       return SNAP_POINTS.CLOSED;
     } else if (velocity < -500) {
-      const higherSnaps = snapPoints.filter(p => p < currentY).reverse();
+      const higherSnaps = snapPoints.filter((p) => p < currentY).reverse();
       if (higherSnaps.length > 0) {
         return higherSnaps[0];
       }
       return SNAP_POINTS.EXPANDED;
     }
-    
+
     let closest = snapPoints[0];
     let minDistance = Math.abs(currentY - snapPoints[0]);
     for (const point of snapPoints) {
@@ -231,7 +250,10 @@ export default function MapScreen() {
     })
     .onUpdate((event) => {
       const newY = context.value.y + event.translationY;
-      translateY.value = Math.min(SNAP_POINTS.CLOSED, Math.max(SNAP_POINTS.EXPANDED, newY));
+      translateY.value = Math.min(
+        SNAP_POINTS.CLOSED,
+        Math.max(SNAP_POINTS.EXPANDED, newY),
+      );
     })
     .onEnd((event) => {
       const snapPoint = snapToNearest(event.velocityY);
@@ -247,7 +269,10 @@ export default function MapScreen() {
   }));
 
   const overlayStyle = useAnimatedStyle(() => ({
-    opacity: 1 - (translateY.value - SNAP_POINTS.EXPANDED) / (SNAP_POINTS.CLOSED - SNAP_POINTS.EXPANDED),
+    opacity:
+      1 -
+      (translateY.value - SNAP_POINTS.EXPANDED) /
+        (SNAP_POINTS.CLOSED - SNAP_POINTS.EXPANDED),
   }));
 
   const handleMapLayout = useCallback((event: LayoutChangeEvent) => {
@@ -314,7 +339,9 @@ export default function MapScreen() {
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent} />
-          <ThemedText style={styles.loadingText}>Karte wird geladen...</ThemedText>
+          <ThemedText style={styles.loadingText}>
+            Karte wird geladen...
+          </ThemedText>
         </View>
       </ThemedView>
     );
@@ -333,7 +360,9 @@ export default function MapScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
+    <ThemedView
+      style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -346,7 +375,10 @@ export default function MapScreen() {
           {selectedHall ? (
             <Pressable
               onPress={handleBackPress}
-              style={[styles.backButton, { backgroundColor: theme.backgroundSecondary }]}
+              style={[
+                styles.backButton,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
             >
               <Feather name="arrow-left" size={20} color={theme.text} />
             </Pressable>
@@ -359,86 +391,119 @@ export default function MapScreen() {
         <Card style={styles.mapCard}>
           <View style={styles.mapContainer} onLayout={handleMapLayout}>
             <Image
-              source={selectedHall ? hallFloorPlans[selectedHall.code] : OutdoorMap}
+              source={
+                selectedHall ? hallFloorPlans[selectedHall.code] : OutdoorMap
+              }
               style={styles.mapImage}
               contentFit="fill"
             />
 
-            {selectedHall ? (
-              stationsForHall.map((station) => {
-                if (!station.positionMeta) return null;
-                const { x, y } = station.positionMeta;
-                const isSelected = selectedStation?.id === station.id;
-                return (
-                  <Pressable
-                    key={station.id}
-                    onPress={() => handleStationPress(station)}
-                    style={[
-                      styles.marker,
-                      styles.stationMarker,
-                      {
-                        left: x * mapDimensions.width - 16,
-                        top: y * mapDimensions.height - 16,
-                        backgroundColor: isSelected ? theme.accent : theme.info,
-                        transform: [{ scale: isSelected ? 1.2 : 1 }],
-                      },
-                    ]}
-                  >
-                    <Feather name="target" size={16} color="#FFFFFF" />
-                  </Pressable>
-                );
-              })
-            ) : (
-              mapData.halls.map((hall) => {
-                if (!hall.positionMeta) return null;
-                const { x, y } = hall.positionMeta;
-                const hasFloorPlan = !!hallFloorPlans[hall.code];
-                return (
-                  <Pressable
-                    key={hall.id}
-                    onPress={() => handleHallPress(hall)}
-                    style={[
-                      styles.marker,
-                      styles.hallMarker,
-                      {
-                        left: x * mapDimensions.width - 20,
-                        top: y * mapDimensions.height - 20,
-                        backgroundColor: hasFloorPlan ? theme.accent : theme.textSecondary,
-                      },
-                    ]}
-                  >
-                    <ThemedText style={styles.markerLabel}>{hall.code}</ThemedText>
-                  </Pressable>
-                );
-              })
-            )}
+            {selectedHall
+              ? stationsForHall.map((station) => {
+                  if (!station.positionMeta) return null;
+                  const { x, y } = station.positionMeta;
+                  const isSelected = selectedStation?.id === station.id;
+                  return (
+                    <Pressable
+                      key={station.id}
+                      onPress={() => handleStationPress(station)}
+                      style={[
+                        styles.marker,
+                        styles.stationMarker,
+                        {
+                          left: x * mapDimensions.width - 16,
+                          top: y * mapDimensions.height - 16,
+                          backgroundColor: isSelected
+                            ? theme.accent
+                            : theme.info,
+                          transform: [{ scale: isSelected ? 1.2 : 1 }],
+                        },
+                      ]}
+                    >
+                      <Feather name="target" size={16} color="#FFFFFF" />
+                    </Pressable>
+                  );
+                })
+              : mapData.halls.map((hall) => {
+                  if (!hall.positionMeta) return null;
+                  const { x, y } = hall.positionMeta;
+                  const hasFloorPlan = !!hallFloorPlans[hall.code];
+                  return (
+                    <Pressable
+                      key={hall.id}
+                      onPress={() => handleHallPress(hall)}
+                      style={[
+                        styles.marker,
+                        styles.hallMarker,
+                        {
+                          left: x * mapDimensions.width - 20,
+                          top: y * mapDimensions.height - 20,
+                          backgroundColor: hasFloorPlan
+                            ? theme.accent
+                            : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      <ThemedText style={styles.markerLabel}>
+                        {hall.code}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
           </View>
         </Card>
 
         {selectedHall ? (
           <View style={styles.legendSection}>
-            <ThemedText style={styles.legendTitle}>Stationen in {selectedHall.code}</ThemedText>
+            <ThemedText style={styles.legendTitle}>
+              Stationen in {selectedHall.code}
+            </ThemedText>
             <ThemedText style={styles.legendHint}>
               Tippen Sie auf eine Station um Details anzuzeigen
             </ThemedText>
             {stationsForHall.length === 0 ? (
-              <ThemedText style={styles.legendItem}>Keine Stationen gefunden</ThemedText>
+              <ThemedText style={styles.legendItem}>
+                Keine Stationen gefunden
+              </ThemedText>
             ) : (
               stationsForHall.map((station) => (
-                <Pressable 
-                  key={station.id} 
+                <Pressable
+                  key={station.id}
                   style={[
-                    styles.stationRow, 
-                    { backgroundColor: selectedStation?.id === station.id ? theme.backgroundSecondary : 'transparent' }
+                    styles.stationRow,
+                    {
+                      backgroundColor:
+                        selectedStation?.id === station.id
+                          ? theme.backgroundSecondary
+                          : "transparent",
+                    },
                   ]}
                   onPress={() => handleStationPress(station)}
                 >
-                  <View style={[styles.stationDot, { backgroundColor: selectedStation?.id === station.id ? theme.accent : theme.info }]} />
+                  <View
+                    style={[
+                      styles.stationDot,
+                      {
+                        backgroundColor:
+                          selectedStation?.id === station.id
+                            ? theme.accent
+                            : theme.info,
+                      },
+                    ]}
+                  />
                   <View style={styles.stationInfo}>
-                    <ThemedText style={styles.stationCode}>{station.code}</ThemedText>
-                    <ThemedText style={styles.stationName}>{station.name}</ThemedText>
+                    <ThemedText style={styles.stationCode}>
+                      {station.code}
+                    </ThemedText>
+                    <ThemedText style={styles.stationName}>
+                      {station.name}
+                    </ThemedText>
                   </View>
-                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={theme.textSecondary}
+                  />
                 </Pressable>
               ))
             )}
@@ -456,10 +521,20 @@ export default function MapScreen() {
                   <Pressable
                     key={hall.id}
                     onPress={() => handleHallPress(hall)}
-                    style={[styles.legendChip, { backgroundColor: theme.backgroundSecondary }]}
+                    style={[
+                      styles.legendChip,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
                   >
-                    <View style={[styles.legendDot, { backgroundColor: theme.accent }]} />
-                    <ThemedText style={styles.legendChipText}>{hall.code}</ThemedText>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: theme.accent },
+                      ]}
+                    />
+                    <ThemedText style={styles.legendChipText}>
+                      {hall.code}
+                    </ThemedText>
                   </Pressable>
                 ))}
             </View>
@@ -469,11 +544,14 @@ export default function MapScreen() {
 
       {isBottomSheetVisible ? (
         <>
-          <Animated.View 
-            style={[styles.bottomSheetOverlay, overlayStyle]} 
+          <Animated.View
+            style={[styles.bottomSheetOverlay, overlayStyle]}
             pointerEvents={isBottomSheetVisible ? "auto" : "none"}
           >
-            <Pressable style={styles.overlayPressable} onPress={closeStationDrawer} />
+            <Pressable
+              style={styles.overlayPressable}
+              onPress={closeStationDrawer}
+            />
           </Animated.View>
 
           <Animated.View
@@ -485,7 +563,12 @@ export default function MapScreen() {
           >
             <GestureDetector gesture={panGesture}>
               <View style={styles.bottomSheetHandleArea}>
-                <View style={[styles.drawerHandle, { backgroundColor: theme.border }]} />
+                <View
+                  style={[
+                    styles.drawerHandle,
+                    { backgroundColor: theme.border },
+                  ]}
+                />
               </View>
             </GestureDetector>
 
@@ -496,12 +579,21 @@ export default function MapScreen() {
                   <ThemedText style={styles.drawerTitle}>
                     {selectedStation?.name}
                   </ThemedText>
-                  <ThemedText style={[styles.drawerSubtitle, { color: theme.textSecondary }]}>
-                    {selectedStation?.code} - {stationDetails?.hall?.name || selectedHall?.name}
+                  <ThemedText
+                    style={[
+                      styles.drawerSubtitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {selectedStation?.code} -{" "}
+                    {stationDetails?.hall?.name || selectedHall?.name}
                   </ThemedText>
                 </View>
               </View>
-              <Pressable onPress={closeStationDrawer} style={styles.closeButton}>
+              <Pressable
+                onPress={closeStationDrawer}
+                style={styles.closeButton}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -509,62 +601,159 @@ export default function MapScreen() {
             {loadingDetails ? (
               <View style={styles.drawerLoading}>
                 <ActivityIndicator size="small" color={theme.accent} />
-                <ThemedText style={{ color: theme.textSecondary }}>Laden...</ThemedText>
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Laden...
+                </ThemedText>
               </View>
             ) : stationDetails ? (
-              <ScrollView 
-                style={[styles.drawerScrollView, { paddingBottom: insets.bottom }]}
+              <ScrollView
+                style={[
+                  styles.drawerScrollView,
+                  { paddingBottom: insets.bottom },
+                ]}
                 contentContainerStyle={styles.drawerScrollContent}
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.summaryRow}>
-                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                  <View
+                    style={[
+                      styles.summaryCard,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                  >
                     <Feather name="target" size={20} color={theme.info} />
-                    <ThemedText style={styles.summaryNumber}>{stationDetails.stands.length}</ThemedText>
-                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Stellplätze</ThemedText>
+                    <ThemedText style={styles.summaryNumber}>
+                      {stationDetails.stands.length}
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.summaryLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Stellplätze
+                    </ThemedText>
                   </View>
-                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                  <View
+                    style={[
+                      styles.summaryCard,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                  >
                     <Feather name="package" size={20} color={theme.success} />
-                    <ThemedText style={styles.summaryNumber}>{stationDetails.totalBoxes}</ThemedText>
-                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Boxen</ThemedText>
+                    <ThemedText style={styles.summaryNumber}>
+                      {stationDetails.totalBoxes}
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.summaryLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Boxen
+                    </ThemedText>
                   </View>
-                  <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+                  <View
+                    style={[
+                      styles.summaryCard,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                  >
                     <Feather name="clipboard" size={20} color={theme.warning} />
-                    <ThemedText style={styles.summaryNumber}>{stationDetails.totalOpenTasks}</ThemedText>
-                    <ThemedText style={[styles.summaryLabel, { color: theme.textSecondary }]}>Offene Tasks</ThemedText>
+                    <ThemedText style={styles.summaryNumber}>
+                      {stationDetails.totalOpenTasks}
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.summaryLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Offene Tasks
+                    </ThemedText>
                   </View>
                 </View>
 
                 {stationDetails.stands.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Feather name="inbox" size={32} color={theme.textTertiary} />
-                    <ThemedText style={{ color: theme.textSecondary }}>Keine Stellplätze vorhanden</ThemedText>
+                    <Feather
+                      name="inbox"
+                      size={32}
+                      color={theme.textTertiary}
+                    />
+                    <ThemedText style={{ color: theme.textSecondary }}>
+                      Keine Stellplätze vorhanden
+                    </ThemedText>
                   </View>
                 ) : (
                   stationDetails.stands.map((stand) => (
                     <Card key={stand.id} style={styles.standCard}>
                       <View style={styles.standHeader}>
                         <View style={styles.standInfo}>
-                          <ThemedText style={styles.standIdentifier}>{stand.identifier}</ThemedText>
-                          {stand.material ? (
-                            (() => {
-                              const materialColors = getMaterialColors(stand.material.code);
-                              return (
-                                <View style={[styles.materialBadge, { backgroundColor: materialColors.background, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.sm }]}>
-                                  <View style={[styles.materialDot, { backgroundColor: materialColors.primary }]} />
-                                  <ThemedText style={[styles.materialName, { color: materialColors.text }]}>
-                                    {materialColors.label}
-                                  </ThemedText>
-                                </View>
-                              );
-                            })()
-                          ) : null}
+                          <ThemedText style={styles.standIdentifier}>
+                            {stand.identifier}
+                          </ThemedText>
+                          {stand.material
+                            ? (() => {
+                                const materialColors = getMaterialColors(
+                                  stand.material.code,
+                                );
+                                return (
+                                  <View
+                                    style={[
+                                      styles.materialBadge,
+                                      {
+                                        backgroundColor:
+                                          materialColors.background,
+                                        paddingHorizontal: Spacing.sm,
+                                        paddingVertical: Spacing.xs,
+                                        borderRadius: BorderRadius.sm,
+                                      },
+                                    ]}
+                                  >
+                                    <View
+                                      style={[
+                                        styles.materialDot,
+                                        {
+                                          backgroundColor:
+                                            materialColors.primary,
+                                        },
+                                      ]}
+                                    />
+                                    <ThemedText
+                                      style={[
+                                        styles.materialName,
+                                        { color: materialColors.text },
+                                      ]}
+                                    >
+                                      {materialColors.label}
+                                    </ThemedText>
+                                  </View>
+                                );
+                              })()
+                            : null}
                         </View>
                         <View style={styles.standBadges}>
                           {stand.dailyFull ? (
-                            <View style={[styles.dailyBadge, { backgroundColor: theme.warning + '20' }]}>
-                              <Feather name="clock" size={12} color={theme.warning} />
-                              <ThemedText style={[styles.dailyText, { color: theme.warning }]}>Täglich</ThemedText>
+                            <View
+                              style={[
+                                styles.dailyBadge,
+                                { backgroundColor: theme.warning + "20" },
+                              ]}
+                            >
+                              <Feather
+                                name="clock"
+                                size={12}
+                                color={theme.warning}
+                              />
+                              <ThemedText
+                                style={[
+                                  styles.dailyText,
+                                  { color: theme.warning },
+                                ]}
+                              >
+                                Täglich
+                              </ThemedText>
                             </View>
                           ) : null}
                         </View>
@@ -572,27 +761,61 @@ export default function MapScreen() {
 
                       {stand.boxes.length > 0 ? (
                         <View style={styles.boxesSection}>
-                          <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                          <ThemedText
+                            style={[
+                              styles.sectionLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
                             Boxen ({stand.boxes.length})
                           </ThemedText>
                           {stand.boxes.map((box) => (
-                            <View key={box.id} style={[styles.boxRow, { borderColor: theme.border }]}>
+                            <View
+                              key={box.id}
+                              style={[
+                                styles.boxRow,
+                                { borderColor: theme.border },
+                              ]}
+                            >
                               <View style={styles.boxInfo}>
-                                <Feather name="package" size={14} color={getBoxStatusColor(box.status)} />
-                                <ThemedText style={styles.boxSerial}>{box.serial}</ThemedText>
+                                <Feather
+                                  name="package"
+                                  size={14}
+                                  color={getBoxStatusColor(box.status)}
+                                />
+                                <ThemedText style={styles.boxSerial}>
+                                  {box.serial}
+                                </ThemedText>
                               </View>
-                              <StatusBadge 
-                                status={box.status === "AT_STAND" ? "success" : box.status === "IN_TRANSIT" ? "warning" : "info"} 
-                                label={BOX_STATUS_LABELS[box.status] || box.status} 
-                                size="small" 
+                              <StatusBadge
+                                status={
+                                  box.status === "AT_STAND"
+                                    ? "success"
+                                    : box.status === "IN_TRANSIT"
+                                      ? "warning"
+                                      : "info"
+                                }
+                                label={
+                                  BOX_STATUS_LABELS[box.status] || box.status
+                                }
+                                size="small"
                               />
                             </View>
                           ))}
                         </View>
                       ) : (
                         <View style={styles.noBoxes}>
-                          <Feather name="package" size={14} color={theme.textTertiary} />
-                          <ThemedText style={[styles.noBoxesText, { color: theme.textTertiary }]}>
+                          <Feather
+                            name="package"
+                            size={14}
+                            color={theme.textTertiary}
+                          />
+                          <ThemedText
+                            style={[
+                              styles.noBoxesText,
+                              { color: theme.textTertiary },
+                            ]}
+                          >
                             Keine Boxen am Stellplatz
                           </ThemedText>
                         </View>
@@ -600,21 +823,47 @@ export default function MapScreen() {
 
                       {stand.openTasks.length > 0 ? (
                         <View style={styles.tasksSection}>
-                          <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                          <ThemedText
+                            style={[
+                              styles.sectionLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
                             Offene Aufgaben ({stand.openTasks.length})
                           </ThemedText>
                           {stand.openTasks.map((task) => (
-                            <View key={task.id} style={[styles.taskRow, { borderColor: theme.border }]}>
+                            <View
+                              key={task.id}
+                              style={[
+                                styles.taskRow,
+                                { borderColor: theme.border },
+                              ]}
+                            >
                               <View style={styles.taskInfo}>
-                                <View style={[styles.taskDot, { backgroundColor: getStatusColor(task.status) }]} />
+                                <View
+                                  style={[
+                                    styles.taskDot,
+                                    {
+                                      backgroundColor: getStatusColor(
+                                        task.status,
+                                      ),
+                                    },
+                                  ]}
+                                />
                                 <ThemedText style={styles.taskType}>
-                                  {task.taskType === "DAILY_FULL" ? "Tagesabholung" : "Manuell"}
+                                  {task.taskType === "DAILY_FULL"
+                                    ? "Tagesabholung"
+                                    : "Manuell"}
                                 </ThemedText>
                               </View>
-                              <StatusBadge 
-                                status={task.status === "OPEN" ? "warning" : "info"} 
-                                label={TASK_STATUS_LABELS[task.status] || task.status} 
-                                size="small" 
+                              <StatusBadge
+                                status={
+                                  task.status === "OPEN" ? "warning" : "info"
+                                }
+                                label={
+                                  TASK_STATUS_LABELS[task.status] || task.status
+                                }
+                                size="small"
                               />
                             </View>
                           ))}
@@ -627,8 +876,14 @@ export default function MapScreen() {
               </ScrollView>
             ) : (
               <View style={styles.emptyState}>
-                <Feather name="alert-circle" size={32} color={theme.textTertiary} />
-                <ThemedText style={{ color: theme.textSecondary }}>Keine Daten verfügbar</ThemedText>
+                <Feather
+                  name="alert-circle"
+                  size={32}
+                  color={theme.textTertiary}
+                />
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Keine Daten verfügbar
+                </ThemedText>
               </View>
             )}
           </Animated.View>

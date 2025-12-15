@@ -104,11 +104,7 @@
         }
       },
       "sdkVersion": "54.0.0",
-      "platforms": [
-        "ios",
-        "android",
-        "web"
-      ],
+      "platforms": ["ios", "android", "web"],
       "androidStatusBar": {
         "backgroundColor": "#1E3A5F"
       },

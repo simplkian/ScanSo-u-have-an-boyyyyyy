@@ -25,7 +25,8 @@ const databaseUrl = process.env.DATABASE_URL;
 
 // Configure SSL for Supabase connections (required for external connections)
 // Supabase URLs contain 'supabase' or use port 6543
-const isSupabase = databaseUrl.includes('supabase') || databaseUrl.includes(':6543');
+const isSupabase =
+  databaseUrl.includes("supabase") || databaseUrl.includes(":6543");
 const poolConfig: pg.PoolConfig = {
   connectionString: databaseUrl,
   ...(isSupabase && {
@@ -40,17 +41,20 @@ export const db = drizzle(pool, { schema });
 
 // Health check function to verify database connectivity
 // Used by /api/health endpoint to confirm Supabase/PostgreSQL is reachable
-export async function checkDatabaseHealth(): Promise<{ connected: boolean; error?: string }> {
+export async function checkDatabaseHealth(): Promise<{
+  connected: boolean;
+  error?: string;
+}> {
   try {
     const client = await pool.connect();
-    await client.query('SELECT 1');
+    await client.query("SELECT 1");
     client.release();
     return { connected: true };
   } catch (error) {
-    console.error('Database health check failed:', error);
-    return { 
-      connected: false, 
-      error: error instanceof Error ? error.message : 'Unknown database error' 
+    console.error("Database health check failed:", error);
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : "Unknown database error",
     };
   }
 }

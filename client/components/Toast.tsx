@@ -1,5 +1,17 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { StyleSheet, View, Pressable, Dimensions, Platform } from "react-native";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  Dimensions,
+  Platform,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -162,7 +174,12 @@ function ToastItem({ message, variant, onDismiss }: ToastItemProps) {
         >
           {message}
         </ThemedText>
-        <Feather name="x" size={18} color={colors.text} style={styles.closeIcon} />
+        <Feather
+          name="x"
+          size={18}
+          color={colors.text}
+          style={styles.closeIcon}
+        />
       </Pressable>
     </Animated.View>
   );
@@ -175,10 +192,13 @@ interface ToastProviderProps {
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = useCallback((message: string, variant: ToastVariant = "info") => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, variant }]);
-  }, []);
+  const showToast = useCallback(
+    (message: string, variant: ToastVariant = "info") => {
+      const id = `${Date.now()}-${Math.random()}`;
+      setToasts((prev) => [...prev, { id, message, variant }]);
+    },
+    [],
+  );
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));

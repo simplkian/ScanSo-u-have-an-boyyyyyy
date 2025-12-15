@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, Modal, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Modal,
+  Pressable,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -59,7 +68,9 @@ export default function LayoutManagementScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>("stations");
   const [selectedHallId, setSelectedHallId] = useState<string | null>(null);
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
 
   const [moveStationModalVisible, setMoveStationModalVisible] = useState(false);
   const [stationToMove, setStationToMove] = useState<Station | null>(null);
@@ -75,7 +86,9 @@ export default function LayoutManagementScreen() {
     queryKey: ["/api/halls"],
   });
 
-  const { data: allStations = [], isLoading: stationsLoading } = useQuery<Station[]>({
+  const { data: allStations = [], isLoading: stationsLoading } = useQuery<
+    Station[]
+  >({
     queryKey: ["/api/stations"],
   });
 
@@ -86,7 +99,10 @@ export default function LayoutManagementScreen() {
   const { data: allStands = [], isLoading: standsLoading } = useQuery<Stand[]>({
     queryKey: ["/api/stands", { includeInactive: true }],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/stands?includeInactive=true");
+      const response = await apiRequest(
+        "GET",
+        "/api/stands?includeInactive=true",
+      );
       return response.json();
     },
   });
@@ -94,7 +110,10 @@ export default function LayoutManagementScreen() {
   const { data: allBoxes = [] } = useQuery<Box[]>({
     queryKey: ["/api/boxes", { includeInactive: true }],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/boxes?includeInactive=true");
+      const response = await apiRequest(
+        "GET",
+        "/api/boxes?includeInactive=true",
+      );
       return response.json();
     },
   });
@@ -106,15 +125,23 @@ export default function LayoutManagementScreen() {
   const filteredStands = selectedStationId
     ? allStands.filter((s) => s.stationId === selectedStationId)
     : selectedHallId
-    ? allStands.filter((s) => {
-        const station = allStations.find((st) => st.id === s.stationId);
-        return station?.hallId === selectedHallId;
-      })
-    : allStands;
+      ? allStands.filter((s) => {
+          const station = allStations.find((st) => st.id === s.stationId);
+          return station?.hallId === selectedHallId;
+        })
+      : allStands;
 
   const moveStationMutation = useMutation({
-    mutationFn: async ({ stationId, hallId }: { stationId: string; hallId: string }) => {
-      const response = await apiRequest("PATCH", `/api/stations/${stationId}`, { hallId });
+    mutationFn: async ({
+      stationId,
+      hallId,
+    }: {
+      stationId: string;
+      hallId: string;
+    }) => {
+      const response = await apiRequest("PATCH", `/api/stations/${stationId}`, {
+        hallId,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -153,12 +180,20 @@ export default function LayoutManagementScreen() {
       if (materialId !== undefined) body.materialId = materialId;
       if (stationId !== undefined) body.stationId = stationId;
       if (isActive !== undefined) body.isActive = isActive;
-      const response = await apiRequest("PATCH", `/api/stands/${standId}`, body);
+      const response = await apiRequest(
+        "PATCH",
+        `/api/stands/${standId}`,
+        body,
+      );
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/stands", { includeInactive: true }] });
-      queryClient.invalidateQueries({ queryKey: ["/api/boxes", { includeInactive: true }] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/stands", { includeInactive: true }],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/boxes", { includeInactive: true }],
+      });
       setEditStandModalVisible(false);
       setStandToEdit(null);
       if (Platform.OS === "web") {
@@ -192,14 +227,19 @@ export default function LayoutManagementScreen() {
 
   const handleMoveStation = () => {
     if (!stationToMove || !targetHallId) return;
-    moveStationMutation.mutate({ stationId: stationToMove.id, hallId: targetHallId });
+    moveStationMutation.mutate({
+      stationId: stationToMove.id,
+      hallId: targetHallId,
+    });
   };
 
   const handleEditStand = () => {
     if (!standToEdit) return;
     const changes: any = {};
-    if (editMaterialId !== standToEdit.materialId) changes.materialId = editMaterialId;
-    if (editStationId !== standToEdit.stationId) changes.stationId = editStationId;
+    if (editMaterialId !== standToEdit.materialId)
+      changes.materialId = editMaterialId;
+    if (editStationId !== standToEdit.stationId)
+      changes.stationId = editStationId;
     if (editIsActive !== standToEdit.isActive) changes.isActive = editIsActive;
 
     if (Object.keys(changes).length === 0) {
@@ -214,10 +254,14 @@ export default function LayoutManagementScreen() {
     editStandMutation.mutate({ standId: standToEdit.id, ...changes });
   };
 
-  const getHallName = (hallId: string) => halls.find((h) => h.id === hallId)?.name || "Unbekannt";
-  const getStationName = (stationId: string) => allStations.find((s) => s.id === stationId)?.name || "Unbekannt";
+  const getHallName = (hallId: string) =>
+    halls.find((h) => h.id === hallId)?.name || "Unbekannt";
+  const getStationName = (stationId: string) =>
+    allStations.find((s) => s.id === stationId)?.name || "Unbekannt";
   const getMaterialName = (materialId: string | null) =>
-    materialId ? materials.find((m) => m.id === materialId)?.name || "Unbekannt" : "Kein Material";
+    materialId
+      ? materials.find((m) => m.id === materialId)?.name || "Unbekannt"
+      : "Kein Material";
 
   const standHasActiveBoxes = (standId: string) =>
     allBoxes.some((b) => b.standId === standId && b.isActive);
@@ -256,7 +300,10 @@ export default function LayoutManagementScreen() {
     placeholder: string;
   }) => (
     <View style={styles.filterContainer}>
-      <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
+      <ThemedText
+        type="small"
+        style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}
+      >
         {label}
       </ThemedText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -264,7 +311,8 @@ export default function LayoutManagementScreen() {
           style={[
             styles.filterChip,
             {
-              backgroundColor: selectedId === null ? theme.accent : theme.cardSurface,
+              backgroundColor:
+                selectedId === null ? theme.accent : theme.cardSurface,
               borderColor: selectedId === null ? theme.accent : theme.border,
             },
           ]}
@@ -272,7 +320,9 @@ export default function LayoutManagementScreen() {
         >
           <ThemedText
             type="small"
-            style={{ color: selectedId === null ? theme.textOnAccent : theme.text }}
+            style={{
+              color: selectedId === null ? theme.textOnAccent : theme.text,
+            }}
           >
             {placeholder}
           </ThemedText>
@@ -283,15 +333,19 @@ export default function LayoutManagementScreen() {
             style={[
               styles.filterChip,
               {
-                backgroundColor: selectedId === opt.id ? theme.accent : theme.cardSurface,
-                borderColor: selectedId === opt.id ? theme.accent : theme.border,
+                backgroundColor:
+                  selectedId === opt.id ? theme.accent : theme.cardSurface,
+                borderColor:
+                  selectedId === opt.id ? theme.accent : theme.border,
               },
             ]}
             onPress={() => onSelect(opt.id)}
           >
             <ThemedText
               type="small"
-              style={{ color: selectedId === opt.id ? theme.textOnAccent : theme.text }}
+              style={{
+                color: selectedId === opt.id ? theme.textOnAccent : theme.text,
+              }}
             >
               {opt.name}
             </ThemedText>
@@ -305,23 +359,38 @@ export default function LayoutManagementScreen() {
     <View style={styles.listContainer}>
       <FilterDropdown
         label="Halle filtern"
-        options={halls.map((h) => ({ id: h.id, name: `${h.code} - ${h.name}` }))}
+        options={halls.map((h) => ({
+          id: h.id,
+          name: `${h.code} - ${h.name}`,
+        }))}
         selectedId={selectedHallId}
         onSelect={setSelectedHallId}
         placeholder="Alle Hallen"
       />
 
       {stationsLoading ? (
-        <ActivityIndicator color={theme.accent} style={{ marginTop: Spacing.xl }} />
+        <ActivityIndicator
+          color={theme.accent}
+          style={{ marginTop: Spacing.xl }}
+        />
       ) : filteredStations.length === 0 ? (
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xl, textAlign: "center" }}>
+        <ThemedText
+          type="body"
+          style={{
+            color: theme.textSecondary,
+            marginTop: Spacing.xl,
+            textAlign: "center",
+          }}
+        >
           Keine Stationen gefunden
         </ThemedText>
       ) : (
         halls
           .filter((h) => !selectedHallId || h.id === selectedHallId)
           .map((hall) => {
-            const hallStations = filteredStations.filter((s) => s.hallId === hall.id);
+            const hallStations = filteredStations.filter(
+              (s) => s.hallId === hall.id,
+            );
             if (hallStations.length === 0) return null;
             return (
               <View key={hall.id} style={styles.groupContainer}>
@@ -343,16 +412,25 @@ export default function LayoutManagementScreen() {
                     <View style={styles.itemRow}>
                       <View style={styles.itemInfo}>
                         <ThemedText type="bodyBold">{station.name}</ThemedText>
-                        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: theme.textSecondary }}
+                        >
                           Code: {station.code}
                         </ThemedText>
                       </View>
                       <Pressable
-                        style={[styles.actionButton, { backgroundColor: theme.backgroundSecondary }]}
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: theme.backgroundSecondary },
+                        ]}
                         onPress={() => openMoveStationModal(station)}
                       >
                         <Feather name="move" size={16} color={theme.primary} />
-                        <ThemedText type="small" style={{ color: theme.primary }}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: theme.primary }}
+                        >
                           Verschieben
                         </ThemedText>
                       </Pressable>
@@ -370,7 +448,10 @@ export default function LayoutManagementScreen() {
     <View style={styles.listContainer}>
       <FilterDropdown
         label="Halle filtern"
-        options={halls.map((h) => ({ id: h.id, name: `${h.code} - ${h.name}` }))}
+        options={halls.map((h) => ({
+          id: h.id,
+          name: `${h.code} - ${h.name}`,
+        }))}
         selectedId={selectedHallId}
         onSelect={(id) => {
           setSelectedHallId(id);
@@ -392,9 +473,19 @@ export default function LayoutManagementScreen() {
       ) : null}
 
       {standsLoading ? (
-        <ActivityIndicator color={theme.accent} style={{ marginTop: Spacing.xl }} />
+        <ActivityIndicator
+          color={theme.accent}
+          style={{ marginTop: Spacing.xl }}
+        />
       ) : filteredStands.length === 0 ? (
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xl, textAlign: "center" }}>
+        <ThemedText
+          type="body"
+          style={{
+            color: theme.textSecondary,
+            marginTop: Spacing.xl,
+            textAlign: "center",
+          }}
+        >
           Keine Stellplätze gefunden
         </ThemedText>
       ) : (
@@ -405,7 +496,9 @@ export default function LayoutManagementScreen() {
             return true;
           })
           .map((station) => {
-            const stationStands = filteredStands.filter((s) => s.stationId === station.id);
+            const stationStands = filteredStands.filter(
+              (s) => s.stationId === station.id,
+            );
             if (stationStands.length === 0) return null;
             const hall = halls.find((h) => h.id === station.hallId);
             return (
@@ -415,7 +508,10 @@ export default function LayoutManagementScreen() {
                   <ThemedText type="h4" style={{ color: theme.primary }}>
                     {station.name}
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText
+                    type="small"
+                    style={{ color: theme.textSecondary }}
+                  >
                     ({hall?.code || "?"})
                   </ThemedText>
                 </View>
@@ -430,24 +526,50 @@ export default function LayoutManagementScreen() {
                   >
                     <View style={styles.itemRow}>
                       <View style={styles.itemInfo}>
-                        <ThemedText type="bodyBold">{stand.identifier}</ThemedText>
-                        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        <ThemedText type="bodyBold">
+                          {stand.identifier}
+                        </ThemedText>
+                        <ThemedText
+                          type="small"
+                          style={{ color: theme.textSecondary }}
+                        >
                           {getMaterialName(stand.materialId)}
                         </ThemedText>
                         {!stand.isActive ? (
-                          <View style={[styles.statusBadge, { backgroundColor: theme.error }]}>
-                            <ThemedText type="small" style={{ color: theme.textOnAccent, fontSize: 10 }}>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: theme.error },
+                            ]}
+                          >
+                            <ThemedText
+                              type="small"
+                              style={{
+                                color: theme.textOnAccent,
+                                fontSize: 10,
+                              }}
+                            >
                               Inaktiv
                             </ThemedText>
                           </View>
                         ) : null}
                       </View>
                       <Pressable
-                        style={[styles.actionButton, { backgroundColor: theme.backgroundSecondary }]}
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: theme.backgroundSecondary },
+                        ]}
                         onPress={() => openEditStandModal(stand)}
                       >
-                        <Feather name="edit-2" size={16} color={theme.primary} />
-                        <ThemedText type="small" style={{ color: theme.primary }}>
+                        <Feather
+                          name="edit-2"
+                          size={16}
+                          color={theme.primary}
+                        />
+                        <ThemedText
+                          type="small"
+                          style={{ color: theme.primary }}
+                        >
                           Bearbeiten
                         </ThemedText>
                       </Pressable>
@@ -462,7 +584,9 @@ export default function LayoutManagementScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -488,7 +612,12 @@ export default function LayoutManagementScreen() {
         onRequestClose={() => setMoveStationModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardSurface },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <ThemedText type="h4">Station verschieben</ThemedText>
               <Pressable onPress={() => setMoveStationModalVisible(false)}>
@@ -499,7 +628,9 @@ export default function LayoutManagementScreen() {
             {stationToMove ? (
               <>
                 <ThemedText type="body" style={{ marginBottom: Spacing.md }}>
-                  "{stationToMove.name}" von "{getHallName(stationToMove.hallId)}" in eine andere Halle verschieben:
+                  "{stationToMove.name}" von "
+                  {getHallName(stationToMove.hallId)}" in eine andere Halle
+                  verschieben:
                 </ThemedText>
 
                 <View style={styles.optionsList}>
@@ -511,20 +642,35 @@ export default function LayoutManagementScreen() {
                         style={[
                           styles.optionItem,
                           {
-                            backgroundColor: targetHallId === hall.id ? theme.accent : theme.backgroundSecondary,
-                            borderColor: targetHallId === hall.id ? theme.accent : theme.border,
+                            backgroundColor:
+                              targetHallId === hall.id
+                                ? theme.accent
+                                : theme.backgroundSecondary,
+                            borderColor:
+                              targetHallId === hall.id
+                                ? theme.accent
+                                : theme.border,
                           },
                         ]}
                         onPress={() => setTargetHallId(hall.id)}
                       >
                         <ThemedText
                           type="body"
-                          style={{ color: targetHallId === hall.id ? theme.textOnAccent : theme.text }}
+                          style={{
+                            color:
+                              targetHallId === hall.id
+                                ? theme.textOnAccent
+                                : theme.text,
+                          }}
                         >
                           {hall.code} - {hall.name}
                         </ThemedText>
                         {targetHallId === hall.id ? (
-                          <Feather name="check" size={18} color={theme.textOnAccent} />
+                          <Feather
+                            name="check"
+                            size={18}
+                            color={theme.textOnAccent}
+                          />
                         ) : null}
                       </Pressable>
                     ))}
@@ -532,7 +678,10 @@ export default function LayoutManagementScreen() {
 
                 <View style={styles.modalActions}>
                   <Button
-                    style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
+                    style={[
+                      styles.modalButton,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
                     onPress={() => setMoveStationModalVisible(false)}
                   >
                     <ThemedText type="body" style={{ color: theme.text }}>
@@ -542,15 +691,25 @@ export default function LayoutManagementScreen() {
                   <Button
                     style={[
                       styles.modalButton,
-                      { backgroundColor: targetHallId ? theme.accent : theme.backgroundTertiary },
+                      {
+                        backgroundColor: targetHallId
+                          ? theme.accent
+                          : theme.backgroundTertiary,
+                      },
                     ]}
                     onPress={handleMoveStation}
                     disabled={!targetHallId || moveStationMutation.isPending}
                   >
                     {moveStationMutation.isPending ? (
-                      <ActivityIndicator color={theme.textOnAccent} size="small" />
+                      <ActivityIndicator
+                        color={theme.textOnAccent}
+                        size="small"
+                      />
                     ) : (
-                      <ThemedText type="bodyBold" style={{ color: theme.textOnAccent }}>
+                      <ThemedText
+                        type="bodyBold"
+                        style={{ color: theme.textOnAccent }}
+                      >
                         Verschieben
                       </ThemedText>
                     )}
@@ -569,7 +728,12 @@ export default function LayoutManagementScreen() {
         onRequestClose={() => setEditStandModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardSurface },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <ThemedText type="h4">Stellplatz bearbeiten</ThemedText>
               <Pressable onPress={() => setEditStandModalVisible(false)}>
@@ -579,25 +743,49 @@ export default function LayoutManagementScreen() {
 
             {standToEdit ? (
               <ScrollView style={{ maxHeight: 400 }}>
-                <ThemedText type="bodyBold" style={{ marginBottom: Spacing.lg }}>
+                <ThemedText
+                  type="bodyBold"
+                  style={{ marginBottom: Spacing.lg }}
+                >
                   {standToEdit.identifier}
                 </ThemedText>
 
-                {!editIsActive && standToEdit.isActive && standHasActiveBoxes(standToEdit.id) ? (
+                {!editIsActive &&
+                standToEdit.isActive &&
+                standHasActiveBoxes(standToEdit.id) ? (
                   <View
                     style={[
                       styles.warningBanner,
-                      { backgroundColor: isDark ? theme.warningLight : `${theme.warning}20`, borderColor: theme.warning },
+                      {
+                        backgroundColor: isDark
+                          ? theme.warningLight
+                          : `${theme.warning}20`,
+                        borderColor: theme.warning,
+                      },
                     ]}
                   >
-                    <Feather name="alert-triangle" size={18} color={theme.warning} />
-                    <ThemedText type="small" style={{ color: theme.warning, flex: 1 }}>
-                      Dieser Stellplatz hat aktive Boxen. Beim Deaktivieren werden alle Boxen vom Stellplatz abgemeldet.
+                    <Feather
+                      name="alert-triangle"
+                      size={18}
+                      color={theme.warning}
+                    />
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.warning, flex: 1 }}
+                    >
+                      Dieser Stellplatz hat aktive Boxen. Beim Deaktivieren
+                      werden alle Boxen vom Stellplatz abgemeldet.
                     </ThemedText>
                   </View>
                 ) : null}
 
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: theme.textSecondary,
+                    marginBottom: Spacing.xs,
+                  }}
+                >
                   Material
                 </ThemedText>
                 <View style={styles.optionsList}>
@@ -605,15 +793,24 @@ export default function LayoutManagementScreen() {
                     style={[
                       styles.optionItem,
                       {
-                        backgroundColor: editMaterialId === null ? theme.accent : theme.backgroundSecondary,
-                        borderColor: editMaterialId === null ? theme.accent : theme.border,
+                        backgroundColor:
+                          editMaterialId === null
+                            ? theme.accent
+                            : theme.backgroundSecondary,
+                        borderColor:
+                          editMaterialId === null ? theme.accent : theme.border,
                       },
                     ]}
                     onPress={() => setEditMaterialId(null)}
                   >
                     <ThemedText
                       type="body"
-                      style={{ color: editMaterialId === null ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color:
+                          editMaterialId === null
+                            ? theme.textOnAccent
+                            : theme.text,
+                      }}
                     >
                       Kein Material
                     </ThemedText>
@@ -626,26 +823,48 @@ export default function LayoutManagementScreen() {
                         style={[
                           styles.optionItem,
                           {
-                            backgroundColor: editMaterialId === material.id ? theme.accent : theme.backgroundSecondary,
-                            borderColor: editMaterialId === material.id ? theme.accent : theme.border,
+                            backgroundColor:
+                              editMaterialId === material.id
+                                ? theme.accent
+                                : theme.backgroundSecondary,
+                            borderColor:
+                              editMaterialId === material.id
+                                ? theme.accent
+                                : theme.border,
                           },
                         ]}
                         onPress={() => setEditMaterialId(material.id)}
                       >
                         <ThemedText
                           type="body"
-                          style={{ color: editMaterialId === material.id ? theme.textOnAccent : theme.text }}
+                          style={{
+                            color:
+                              editMaterialId === material.id
+                                ? theme.textOnAccent
+                                : theme.text,
+                          }}
                         >
                           {material.code} - {material.name}
                         </ThemedText>
                         {editMaterialId === material.id ? (
-                          <Feather name="check" size={18} color={theme.textOnAccent} />
+                          <Feather
+                            name="check"
+                            size={18}
+                            color={theme.textOnAccent}
+                          />
                         ) : null}
                       </Pressable>
                     ))}
                 </View>
 
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.xs }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: theme.textSecondary,
+                    marginTop: Spacing.lg,
+                    marginBottom: Spacing.xs,
+                  }}
+                >
                   Station
                 </ThemedText>
                 <View style={styles.optionsList}>
@@ -659,27 +878,49 @@ export default function LayoutManagementScreen() {
                           style={[
                             styles.optionItem,
                             {
-                              backgroundColor: editStationId === station.id ? theme.accent : theme.backgroundSecondary,
-                              borderColor: editStationId === station.id ? theme.accent : theme.border,
+                              backgroundColor:
+                                editStationId === station.id
+                                  ? theme.accent
+                                  : theme.backgroundSecondary,
+                              borderColor:
+                                editStationId === station.id
+                                  ? theme.accent
+                                  : theme.border,
                             },
                           ]}
                           onPress={() => setEditStationId(station.id)}
                         >
                           <ThemedText
                             type="body"
-                            style={{ color: editStationId === station.id ? theme.textOnAccent : theme.text }}
+                            style={{
+                              color:
+                                editStationId === station.id
+                                  ? theme.textOnAccent
+                                  : theme.text,
+                            }}
                           >
                             {station.name} ({hall?.code || "?"})
                           </ThemedText>
                           {editStationId === station.id ? (
-                            <Feather name="check" size={18} color={theme.textOnAccent} />
+                            <Feather
+                              name="check"
+                              size={18}
+                              color={theme.textOnAccent}
+                            />
                           ) : null}
                         </Pressable>
                       );
                     })}
                 </View>
 
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.xs }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: theme.textSecondary,
+                    marginTop: Spacing.lg,
+                    marginBottom: Spacing.xs,
+                  }}
+                >
                   Status
                 </ThemedText>
                 <View style={styles.toggleRow}>
@@ -687,16 +928,28 @@ export default function LayoutManagementScreen() {
                     style={[
                       styles.toggleOption,
                       {
-                        backgroundColor: editIsActive ? theme.success : theme.backgroundSecondary,
-                        borderColor: editIsActive ? theme.success : theme.border,
+                        backgroundColor: editIsActive
+                          ? theme.success
+                          : theme.backgroundSecondary,
+                        borderColor: editIsActive
+                          ? theme.success
+                          : theme.border,
                       },
                     ]}
                     onPress={() => setEditIsActive(true)}
                   >
-                    <Feather name="check-circle" size={16} color={editIsActive ? theme.textOnAccent : theme.textSecondary} />
+                    <Feather
+                      name="check-circle"
+                      size={16}
+                      color={
+                        editIsActive ? theme.textOnAccent : theme.textSecondary
+                      }
+                    />
                     <ThemedText
                       type="body"
-                      style={{ color: editIsActive ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color: editIsActive ? theme.textOnAccent : theme.text,
+                      }}
                     >
                       Aktiv
                     </ThemedText>
@@ -705,16 +958,26 @@ export default function LayoutManagementScreen() {
                     style={[
                       styles.toggleOption,
                       {
-                        backgroundColor: !editIsActive ? theme.error : theme.backgroundSecondary,
+                        backgroundColor: !editIsActive
+                          ? theme.error
+                          : theme.backgroundSecondary,
                         borderColor: !editIsActive ? theme.error : theme.border,
                       },
                     ]}
                     onPress={() => setEditIsActive(false)}
                   >
-                    <Feather name="x-circle" size={16} color={!editIsActive ? theme.textOnAccent : theme.textSecondary} />
+                    <Feather
+                      name="x-circle"
+                      size={16}
+                      color={
+                        !editIsActive ? theme.textOnAccent : theme.textSecondary
+                      }
+                    />
                     <ThemedText
                       type="body"
-                      style={{ color: !editIsActive ? theme.textOnAccent : theme.text }}
+                      style={{
+                        color: !editIsActive ? theme.textOnAccent : theme.text,
+                      }}
                     >
                       Inaktiv
                     </ThemedText>
@@ -725,7 +988,10 @@ export default function LayoutManagementScreen() {
 
             <View style={styles.modalActions}>
               <Button
-                style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
                 onPress={() => setEditStandModalVisible(false)}
               >
                 <ThemedText type="body" style={{ color: theme.text }}>
@@ -740,7 +1006,10 @@ export default function LayoutManagementScreen() {
                 {editStandMutation.isPending ? (
                   <ActivityIndicator color={theme.textOnAccent} size="small" />
                 ) : (
-                  <ThemedText type="bodyBold" style={{ color: theme.textOnAccent }}>
+                  <ThemedText
+                    type="bodyBold"
+                    style={{ color: theme.textOnAccent }}
+                  >
                     Speichern
                   </ThemedText>
                 )}

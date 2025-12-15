@@ -1,5 +1,13 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, FlatList, Modal, ActivityIndicator, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Modal,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +25,12 @@ import { User, Task, ActivityLog } from "@shared/schema";
 import { useTheme } from "@/hooks/useTheme";
 
 const OPEN_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED"];
-const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+const IN_PROGRESS_STATUSES = [
+  "ACCEPTED",
+  "PICKED_UP",
+  "IN_TRANSIT",
+  "DELIVERED",
+];
 const COMPLETED_STATUSES = ["COMPLETED"];
 const CANCELLED_STATUSES = ["CANCELLED"];
 
@@ -39,9 +52,19 @@ export default function ManageDriversScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedDriver, setSelectedDriver] = useState<UserWithoutPassword | null>(null);
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
-  const [editFormData, setEditFormData] = useState({ name: "", email: "", password: "", role: "driver" as "driver" | "admin" });
+  const [selectedDriver, setSelectedDriver] =
+    useState<UserWithoutPassword | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "driver" as "driver" | "admin",
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [editError, setEditError] = useState("");
@@ -68,18 +91,26 @@ export default function ManageDriversScreen() {
     drivers.forEach((driver) => {
       const driverTasks = tasks.filter((t) => t.assignedTo === driver.id);
       const tasksCompletedToday = driverTasks.filter((t) => {
-        if (!COMPLETED_STATUSES.includes(t.status) || !t.deliveryTimestamp) return false;
+        if (!COMPLETED_STATUSES.includes(t.status) || !t.deliveryTimestamp)
+          return false;
         const completedDate = new Date(t.deliveryTimestamp);
         completedDate.setHours(0, 0, 0, 0);
         return completedDate.getTime() === today.getTime();
       }).length;
 
-      const tasksInProgress = driverTasks.filter((t) => IN_PROGRESS_STATUSES.includes(t.status)).length;
+      const tasksInProgress = driverTasks.filter((t) =>
+        IN_PROGRESS_STATUSES.includes(t.status),
+      ).length;
 
       const driverLogs = activityLogs.filter((log) => log.userId === driver.id);
-      const lastActivity = driverLogs.length > 0
-        ? new Date(Math.max(...driverLogs.map((log) => new Date(log.createdAt).getTime())))
-        : null;
+      const lastActivity =
+        driverLogs.length > 0
+          ? new Date(
+              Math.max(
+                ...driverLogs.map((log) => new Date(log.createdAt).getTime()),
+              ),
+            )
+          : null;
 
       statsMap.set(driver.id, {
         tasksCompletedToday,
@@ -95,18 +126,35 @@ export default function ManageDriversScreen() {
     if (!selectedDriver) return [];
     return activityLogs
       .filter((log) => log.userId === selectedDriver.id)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
       .slice(0, 5);
   }, [selectedDriver, activityLogs]);
 
   const selectedDriverStats = useMemo(() => {
     if (!selectedDriver) return null;
     const driverTasks = tasks.filter((t) => t.assignedTo === selectedDriver.id);
-    const totalCompleted = driverTasks.filter((t) => COMPLETED_STATUSES.includes(t.status)).length;
-    const totalCancelled = driverTasks.filter((t) => CANCELLED_STATUSES.includes(t.status)).length;
-    const totalInProgress = driverTasks.filter((t) => IN_PROGRESS_STATUSES.includes(t.status)).length;
-    const totalOpen = driverTasks.filter((t) => OPEN_STATUSES.includes(t.status)).length;
-    return { totalCompleted, totalCancelled, totalInProgress, totalOpen, totalTasks: driverTasks.length };
+    const totalCompleted = driverTasks.filter((t) =>
+      COMPLETED_STATUSES.includes(t.status),
+    ).length;
+    const totalCancelled = driverTasks.filter((t) =>
+      CANCELLED_STATUSES.includes(t.status),
+    ).length;
+    const totalInProgress = driverTasks.filter((t) =>
+      IN_PROGRESS_STATUSES.includes(t.status),
+    ).length;
+    const totalOpen = driverTasks.filter((t) =>
+      OPEN_STATUSES.includes(t.status),
+    ).length;
+    return {
+      totalCompleted,
+      totalCancelled,
+      totalInProgress,
+      totalOpen,
+      totalTasks: driverTasks.length,
+    };
   }, [selectedDriver, tasks]);
 
   const generatePassword = () => {
@@ -119,7 +167,11 @@ export default function ManageDriversScreen() {
   };
 
   const handleCreateDriver = async () => {
-    if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
+    if (
+      !formData.name.trim() ||
+      !formData.email.trim() ||
+      !formData.password.trim()
+    ) {
       setError("Bitte füllen Sie alle Felder aus");
       return;
     }
@@ -141,7 +193,11 @@ export default function ManageDriversScreen() {
       setShowCreateModal(false);
       setFormData({ name: "", email: "", password: "" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fahrer konnte nicht erstellt werden");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Fahrer konnte nicht erstellt werden",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +236,11 @@ export default function ManageDriversScreen() {
       setSelectedDriver(null);
       setEditFormData({ name: "", email: "", password: "", role: "driver" });
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Fahrer konnte nicht aktualisiert werden");
+      setEditError(
+        err instanceof Error
+          ? err.message
+          : "Fahrer konnte nicht aktualisiert werden",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -188,7 +248,9 @@ export default function ManageDriversScreen() {
 
   const toggleDriverStatus = async (userId: string, isActive: boolean) => {
     try {
-      await apiRequest("PATCH", `/api/users/${userId}`, { isActive: !isActive });
+      await apiRequest("PATCH", `/api/users/${userId}`, {
+        isActive: !isActive,
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     } catch (err) {
       console.error("Failed to update driver status:", err);
@@ -234,7 +296,11 @@ export default function ManageDriversScreen() {
     if (diffMins < 60) return `Vor ${diffMins} Min.`;
     if (diffHours < 24) return `Vor ${diffHours} Std.`;
     if (diffDays < 7) return `Vor ${diffDays} Tag${diffDays > 1 ? "en" : ""}`;
-    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return d.toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   const getActionLabel = (action: string) => {
@@ -251,39 +317,70 @@ export default function ManageDriversScreen() {
 
   const renderDriver = ({ item }: { item: UserWithoutPassword }) => {
     const stats = driverStatsMap.get(item.id);
-    
+
     return (
-      <Card 
+      <Card
         style={{
-          ...styles.driverCard, 
+          ...styles.driverCard,
           backgroundColor: theme.cardSurface,
-          ...(!item.isActive ? styles.inactiveCard : {})
+          ...(!item.isActive ? styles.inactiveCard : {}),
         }}
         onPress={() => openDetailModal(item)}
       >
         <View style={styles.driverHeader}>
           <View style={styles.driverInfo}>
-            <View style={[
-              styles.avatar, 
-              { backgroundColor: item.isActive ? theme.primary : theme.textTertiary },
-              !item.isActive && styles.inactiveAvatar
-            ]}>
-              <ThemedText type="body" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: item.isActive
+                    ? theme.primary
+                    : theme.textTertiary,
+                },
+                !item.isActive && styles.inactiveAvatar,
+              ]}
+            >
+              <ThemedText
+                type="body"
+                style={[styles.avatarText, { color: theme.textOnPrimary }]}
+              >
                 {getInitials(item.name)}
               </ThemedText>
             </View>
             <View style={styles.driverDetails}>
               <View style={styles.nameRow}>
-                <ThemedText type="h4" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, flex: 1 }}>{item.name}</ThemedText>
+                <ThemedText
+                  type="h4"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: theme.text, flex: 1 }}
+                >
+                  {item.name}
+                </ThemedText>
                 {!item.isActive ? (
-                  <View style={[styles.inactiveBadge, { backgroundColor: theme.errorLight }]}>
-                    <ThemedText type="caption" style={{ color: theme.error, fontWeight: "700" }}>
+                  <View
+                    style={[
+                      styles.inactiveBadge,
+                      { backgroundColor: theme.errorLight },
+                    ]}
+                  >
+                    <ThemedText
+                      type="caption"
+                      style={{ color: theme.error, fontWeight: "700" }}
+                    >
                       INAKTIV
                     </ThemedText>
                   </View>
                 ) : null}
               </View>
-              <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary }}>{item.email}</ThemedText>
+              <ThemedText
+                type="small"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: theme.textSecondary }}
+              >
+                {item.email}
+              </ThemedText>
             </View>
           </View>
           <Pressable
@@ -300,7 +397,9 @@ export default function ManageDriversScreen() {
 
         <View style={[styles.statsRow, { borderTopColor: theme.divider }]}>
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: theme.successLight }]}>
+            <View
+              style={[styles.statIcon, { backgroundColor: theme.successLight }]}
+            >
               <Feather name="check-circle" size={14} color={theme.success} />
             </View>
             <View>
@@ -313,7 +412,9 @@ export default function ManageDriversScreen() {
             </View>
           </View>
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: theme.warningLight }]}>
+            <View
+              style={[styles.statIcon, { backgroundColor: theme.warningLight }]}
+            >
               <Feather name="clock" size={14} color={theme.warning} />
             </View>
             <View>
@@ -326,7 +427,9 @@ export default function ManageDriversScreen() {
             </View>
           </View>
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: theme.infoLight }]}>
+            <View
+              style={[styles.statIcon, { backgroundColor: theme.infoLight }]}
+            >
               <Feather name="activity" size={14} color={theme.info} />
             </View>
             <View>
@@ -340,10 +443,10 @@ export default function ManageDriversScreen() {
         <View style={[styles.statusRow, { borderTopColor: theme.divider }]}>
           <Pressable
             style={[
-              styles.statusButton, 
-              item.isActive 
-                ? { backgroundColor: theme.successLight } 
-                : { backgroundColor: theme.errorLight }
+              styles.statusButton,
+              item.isActive
+                ? { backgroundColor: theme.successLight }
+                : { backgroundColor: theme.errorLight },
             ]}
             onPress={(e) => {
               e.stopPropagation();
@@ -358,8 +461,8 @@ export default function ManageDriversScreen() {
             <ThemedText
               type="small"
               style={[
-                styles.statusText, 
-                { color: item.isActive ? theme.success : theme.error }
+                styles.statusText,
+                { color: item.isActive ? theme.success : theme.error },
               ]}
             >
               {item.isActive ? "Aktiv" : "Inaktiv"}
@@ -376,15 +479,25 @@ export default function ManageDriversScreen() {
       <ThemedText type="h4" style={[styles.emptyTitle, { color: theme.text }]}>
         Noch keine Fahrer
       </ThemedText>
-      <ThemedText type="body" style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+      <ThemedText
+        type="body"
+        style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+      >
         Fügen Sie Fahrer hinzu, um Aufgaben zuzuweisen
       </ThemedText>
     </View>
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.header, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
+      <View
+        style={[
+          styles.header,
+          { marginTop: headerHeight, backgroundColor: theme.backgroundDefault },
+        ]}
+      >
         <ThemedText type="body" style={{ color: theme.textSecondary }}>
           {drivers.length} Fahrer
         </ThemedText>
@@ -398,7 +511,12 @@ export default function ManageDriversScreen() {
         >
           <View style={styles.addContent}>
             <Feather name="plus" size={18} color={theme.textOnAccent} />
-            <ThemedText type="small" style={[styles.addText, { color: theme.textOnAccent }]}>Fahrer hinzufügen</ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.addText, { color: theme.textOnAccent }]}
+            >
+              Fahrer hinzufügen
+            </ThemedText>
           </View>
         </Button>
       </View>
@@ -431,9 +549,16 @@ export default function ManageDriversScreen() {
           <KeyboardAwareScrollViewCompat
             contentContainerStyle={styles.modalScrollContent}
           >
-            <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.backgroundRoot },
+              ]}
+            >
               <View style={styles.modalHeader}>
-                <ThemedText type="h3" style={{ color: theme.text }}>Neuen Fahrer hinzufügen</ThemedText>
+                <ThemedText type="h3" style={{ color: theme.text }}>
+                  Neuen Fahrer hinzufügen
+                </ThemedText>
                 <Pressable
                   onPress={() => setShowCreateModal(false)}
                   style={styles.closeButton}
@@ -446,7 +571,9 @@ export default function ManageDriversScreen() {
                 <TextInput
                   label="Vollständiger Name"
                   value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, name: text })
+                  }
                   placeholder="Name des Fahrers eingeben"
                   autoCapitalize="words"
                 />
@@ -454,7 +581,9 @@ export default function ManageDriversScreen() {
                 <TextInput
                   label="E-Mail"
                   value={formData.email}
-                  onChangeText={(text) => setFormData({ ...formData, email: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, email: text })
+                  }
                   placeholder="E-Mail-Adresse eingeben"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -465,22 +594,48 @@ export default function ManageDriversScreen() {
                     <TextInput
                       label="Passwort"
                       value={formData.password}
-                      onChangeText={(text) => setFormData({ ...formData, password: text })}
+                      onChangeText={(text) =>
+                        setFormData({ ...formData, password: text })
+                      }
                       placeholder="Passwort eingeben"
                     />
                   </View>
                   <Pressable
-                    style={[styles.generateButton, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
-                    onPress={() => setFormData({ ...formData, password: generatePassword() })}
+                    style={[
+                      styles.generateButton,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    onPress={() =>
+                      setFormData({ ...formData, password: generatePassword() })
+                    }
                   >
-                    <Feather name="refresh-cw" size={20} color={theme.primary} />
+                    <Feather
+                      name="refresh-cw"
+                      size={20}
+                      color={theme.primary}
+                    />
                   </Pressable>
                 </View>
 
                 {error ? (
-                  <View style={[styles.errorBanner, { backgroundColor: theme.errorLight }]}>
-                    <Feather name="alert-circle" size={16} color={theme.error} />
-                    <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
+                  <View
+                    style={[
+                      styles.errorBanner,
+                      { backgroundColor: theme.errorLight },
+                    ]}
+                  >
+                    <Feather
+                      name="alert-circle"
+                      size={16}
+                      color={theme.error}
+                    />
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.error, flex: 1 }}
+                    >
                       {error}
                     </ThemedText>
                   </View>
@@ -489,20 +644,32 @@ export default function ManageDriversScreen() {
 
               <View style={styles.modalActions}>
                 <Button
-                  style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}
+                  style={[
+                    styles.cancelButton,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
                   onPress={() => setShowCreateModal(false)}
                 >
                   Abbrechen
                 </Button>
                 <Button
-                  style={[styles.submitButton, { backgroundColor: theme.accent }]}
+                  style={[
+                    styles.submitButton,
+                    { backgroundColor: theme.accent },
+                  ]}
                   onPress={handleCreateDriver}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator size="small" color={theme.textOnAccent} />
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.textOnAccent}
+                    />
                   ) : (
-                    <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
+                    <ThemedText
+                      type="body"
+                      style={{ color: theme.textOnAccent, fontWeight: "600" }}
+                    >
                       Fahrer erstellen
                     </ThemedText>
                   )}
@@ -523,9 +690,16 @@ export default function ManageDriversScreen() {
           <KeyboardAwareScrollViewCompat
             contentContainerStyle={styles.modalScrollContent}
           >
-            <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.backgroundRoot },
+              ]}
+            >
               <View style={styles.modalHeader}>
-                <ThemedText type="h3" style={{ color: theme.text }}>Fahrer bearbeiten</ThemedText>
+                <ThemedText type="h3" style={{ color: theme.text }}>
+                  Fahrer bearbeiten
+                </ThemedText>
                 <Pressable
                   onPress={() => setShowEditModal(false)}
                   style={styles.closeButton}
@@ -538,7 +712,9 @@ export default function ManageDriversScreen() {
                 <TextInput
                   label="Vollständiger Name"
                   value={editFormData.name}
-                  onChangeText={(text) => setEditFormData({ ...editFormData, name: text })}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, name: text })
+                  }
                   placeholder="Name des Fahrers eingeben"
                   autoCapitalize="words"
                 />
@@ -546,7 +722,9 @@ export default function ManageDriversScreen() {
                 <TextInput
                   label="E-Mail"
                   value={editFormData.email}
-                  onChangeText={(text) => setEditFormData({ ...editFormData, email: text })}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, email: text })
+                  }
                   placeholder="E-Mail-Adresse eingeben"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -557,21 +735,41 @@ export default function ManageDriversScreen() {
                     <TextInput
                       label="Neues Passwort (leer lassen für keine Änderung)"
                       value={editFormData.password}
-                      onChangeText={(text) => setEditFormData({ ...editFormData, password: text })}
+                      onChangeText={(text) =>
+                        setEditFormData({ ...editFormData, password: text })
+                      }
                       placeholder="Neues Passwort eingeben"
                     />
                   </View>
                   <Pressable
-                    style={[styles.generateButton, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
-                    onPress={() => setEditFormData({ ...editFormData, password: generatePassword() })}
+                    style={[
+                      styles.generateButton,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    onPress={() =>
+                      setEditFormData({
+                        ...editFormData,
+                        password: generatePassword(),
+                      })
+                    }
                   >
-                    <Feather name="refresh-cw" size={20} color={theme.primary} />
+                    <Feather
+                      name="refresh-cw"
+                      size={20}
+                      color={theme.primary}
+                    />
                   </Pressable>
                 </View>
 
                 {isAdmin ? (
                   <View style={styles.roleSection}>
-                    <ThemedText type="small" style={[styles.roleLabel, { color: theme.textSecondary }]}>
+                    <ThemedText
+                      type="small"
+                      style={[styles.roleLabel, { color: theme.textSecondary }]}
+                    >
                       Rolle
                     </ThemedText>
                     <View style={styles.roleOptions}>
@@ -579,23 +777,32 @@ export default function ManageDriversScreen() {
                         style={[
                           styles.roleOption,
                           { borderColor: theme.border },
-                          editFormData.role === "driver" && { 
-                            backgroundColor: theme.primary, 
-                            borderColor: theme.primary 
-                          }
+                          editFormData.role === "driver" && {
+                            backgroundColor: theme.primary,
+                            borderColor: theme.primary,
+                          },
                         ]}
-                        onPress={() => setEditFormData({ ...editFormData, role: "driver" })}
+                        onPress={() =>
+                          setEditFormData({ ...editFormData, role: "driver" })
+                        }
                       >
-                        <Feather 
-                          name="truck" 
-                          size={16} 
-                          color={editFormData.role === "driver" ? theme.textOnPrimary : theme.text} 
+                        <Feather
+                          name="truck"
+                          size={16}
+                          color={
+                            editFormData.role === "driver"
+                              ? theme.textOnPrimary
+                              : theme.text
+                          }
                         />
-                        <ThemedText 
-                          type="small" 
-                          style={{ 
-                            color: editFormData.role === "driver" ? theme.textOnPrimary : theme.text,
-                            fontWeight: "600"
+                        <ThemedText
+                          type="small"
+                          style={{
+                            color:
+                              editFormData.role === "driver"
+                                ? theme.textOnPrimary
+                                : theme.text,
+                            fontWeight: "600",
                           }}
                         >
                           Fahrer
@@ -605,23 +812,32 @@ export default function ManageDriversScreen() {
                         style={[
                           styles.roleOption,
                           { borderColor: theme.border },
-                          editFormData.role === "admin" && { 
-                            backgroundColor: theme.accent, 
-                            borderColor: theme.accent 
-                          }
+                          editFormData.role === "admin" && {
+                            backgroundColor: theme.accent,
+                            borderColor: theme.accent,
+                          },
                         ]}
-                        onPress={() => setEditFormData({ ...editFormData, role: "admin" })}
+                        onPress={() =>
+                          setEditFormData({ ...editFormData, role: "admin" })
+                        }
                       >
-                        <Feather 
-                          name="shield" 
-                          size={16} 
-                          color={editFormData.role === "admin" ? theme.textOnAccent : theme.text} 
+                        <Feather
+                          name="shield"
+                          size={16}
+                          color={
+                            editFormData.role === "admin"
+                              ? theme.textOnAccent
+                              : theme.text
+                          }
                         />
-                        <ThemedText 
-                          type="small" 
-                          style={{ 
-                            color: editFormData.role === "admin" ? theme.textOnAccent : theme.text,
-                            fontWeight: "600"
+                        <ThemedText
+                          type="small"
+                          style={{
+                            color:
+                              editFormData.role === "admin"
+                                ? theme.textOnAccent
+                                : theme.text,
+                            fontWeight: "600",
                           }}
                         >
                           Admin
@@ -632,9 +848,21 @@ export default function ManageDriversScreen() {
                 ) : null}
 
                 {editError ? (
-                  <View style={[styles.errorBanner, { backgroundColor: theme.errorLight }]}>
-                    <Feather name="alert-circle" size={16} color={theme.error} />
-                    <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
+                  <View
+                    style={[
+                      styles.errorBanner,
+                      { backgroundColor: theme.errorLight },
+                    ]}
+                  >
+                    <Feather
+                      name="alert-circle"
+                      size={16}
+                      color={theme.error}
+                    />
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.error, flex: 1 }}
+                    >
                       {editError}
                     </ThemedText>
                   </View>
@@ -643,20 +871,32 @@ export default function ManageDriversScreen() {
 
               <View style={styles.modalActions}>
                 <Button
-                  style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}
+                  style={[
+                    styles.cancelButton,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
                   onPress={() => setShowEditModal(false)}
                 >
                   Abbrechen
                 </Button>
                 <Button
-                  style={[styles.submitButton, { backgroundColor: theme.accent }]}
+                  style={[
+                    styles.submitButton,
+                    { backgroundColor: theme.accent },
+                  ]}
                   onPress={handleEditDriver}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator size="small" color={theme.textOnAccent} />
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.textOnAccent}
+                    />
                   ) : (
-                    <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
+                    <ThemedText
+                      type="body"
+                      style={{ color: theme.textOnAccent, fontWeight: "600" }}
+                    >
                       Speichern
                     </ThemedText>
                   )}
@@ -674,9 +914,16 @@ export default function ManageDriversScreen() {
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.detailModalContent, { backgroundColor: theme.backgroundRoot }]}>
+          <View
+            style={[
+              styles.detailModalContent,
+              { backgroundColor: theme.backgroundRoot },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <ThemedText type="h3" style={{ color: theme.text }}>Fahrer-Details</ThemedText>
+              <ThemedText type="h3" style={{ color: theme.text }}>
+                Fahrer-Details
+              </ThemedText>
               <Pressable
                 onPress={() => setShowDetailModal(false)}
                 style={styles.closeButton}
@@ -686,40 +933,70 @@ export default function ManageDriversScreen() {
             </View>
 
             {selectedDriver ? (
-              <ScrollView 
+              <ScrollView
                 style={styles.detailScroll}
                 contentContainerStyle={styles.detailScrollContent}
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.detailHeader}>
-                  <View style={[
-                    styles.detailAvatar, 
-                    { backgroundColor: selectedDriver.isActive ? theme.primary : theme.textTertiary }
-                  ]}>
-                    <ThemedText type="h3" style={[styles.avatarText, { color: theme.textOnPrimary }]}>
+                  <View
+                    style={[
+                      styles.detailAvatar,
+                      {
+                        backgroundColor: selectedDriver.isActive
+                          ? theme.primary
+                          : theme.textTertiary,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      type="h3"
+                      style={[
+                        styles.avatarText,
+                        { color: theme.textOnPrimary },
+                      ]}
+                    >
                       {getInitials(selectedDriver.name)}
                     </ThemedText>
                   </View>
-                  <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.md }}>
+                  <ThemedText
+                    type="h3"
+                    style={{ color: theme.text, marginTop: Spacing.md }}
+                  >
                     {selectedDriver.name}
                   </ThemedText>
-                  <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                  <ThemedText
+                    type="body"
+                    style={{ color: theme.textSecondary }}
+                  >
                     {selectedDriver.email}
                   </ThemedText>
-                  <View style={[
-                    styles.detailStatusBadge,
-                    { backgroundColor: selectedDriver.isActive ? theme.successLight : theme.errorLight }
-                  ]}>
-                    <Feather 
-                      name={selectedDriver.isActive ? "check-circle" : "x-circle"} 
-                      size={14} 
-                      color={selectedDriver.isActive ? theme.success : theme.error} 
+                  <View
+                    style={[
+                      styles.detailStatusBadge,
+                      {
+                        backgroundColor: selectedDriver.isActive
+                          ? theme.successLight
+                          : theme.errorLight,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={
+                        selectedDriver.isActive ? "check-circle" : "x-circle"
+                      }
+                      size={14}
+                      color={
+                        selectedDriver.isActive ? theme.success : theme.error
+                      }
                     />
-                    <ThemedText 
-                      type="small" 
-                      style={{ 
-                        color: selectedDriver.isActive ? theme.success : theme.error,
-                        fontWeight: "600"
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: selectedDriver.isActive
+                          ? theme.success
+                          : theme.error,
+                        fontWeight: "600",
                       }}
                     >
                       {selectedDriver.isActive ? "Aktiv" : "Inaktiv"}
@@ -727,28 +1004,57 @@ export default function ManageDriversScreen() {
                   </View>
                 </View>
 
-                <View style={[styles.detailSection, { borderTopColor: theme.divider }]}>
-                  <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+                <View
+                  style={[
+                    styles.detailSection,
+                    { borderTopColor: theme.divider },
+                  ]}
+                >
+                  <ThemedText
+                    type="h4"
+                    style={[styles.sectionTitle, { color: theme.text }]}
+                  >
                     Leistungsübersicht
                   </ThemedText>
                   <View style={styles.performanceGrid}>
-                    <View style={[styles.performanceItem, { backgroundColor: theme.successLight }]}>
+                    <View
+                      style={[
+                        styles.performanceItem,
+                        { backgroundColor: theme.successLight },
+                      ]}
+                    >
                       <ThemedText type="h3" style={{ color: theme.success }}>
                         {selectedDriverStats?.totalCompleted || 0}
                       </ThemedText>
-                      <ThemedText type="caption" style={{ color: theme.success }}>
+                      <ThemedText
+                        type="caption"
+                        style={{ color: theme.success }}
+                      >
                         Erledigt
                       </ThemedText>
                     </View>
-                    <View style={[styles.performanceItem, { backgroundColor: theme.warningLight }]}>
+                    <View
+                      style={[
+                        styles.performanceItem,
+                        { backgroundColor: theme.warningLight },
+                      ]}
+                    >
                       <ThemedText type="h3" style={{ color: theme.warning }}>
                         {selectedDriverStats?.totalInProgress || 0}
                       </ThemedText>
-                      <ThemedText type="caption" style={{ color: theme.warning }}>
+                      <ThemedText
+                        type="caption"
+                        style={{ color: theme.warning }}
+                      >
                         In Bearbeitung
                       </ThemedText>
                     </View>
-                    <View style={[styles.performanceItem, { backgroundColor: theme.infoLight }]}>
+                    <View
+                      style={[
+                        styles.performanceItem,
+                        { backgroundColor: theme.infoLight },
+                      ]}
+                    >
                       <ThemedText type="h3" style={{ color: theme.info }}>
                         {selectedDriverStats?.totalOpen || 0}
                       </ThemedText>
@@ -756,7 +1062,12 @@ export default function ManageDriversScreen() {
                         Offen
                       </ThemedText>
                     </View>
-                    <View style={[styles.performanceItem, { backgroundColor: theme.errorLight }]}>
+                    <View
+                      style={[
+                        styles.performanceItem,
+                        { backgroundColor: theme.errorLight },
+                      ]}
+                    >
                       <ThemedText type="h3" style={{ color: theme.error }}>
                         {selectedDriverStats?.totalCancelled || 0}
                       </ThemedText>
@@ -767,41 +1078,71 @@ export default function ManageDriversScreen() {
                   </View>
                 </View>
 
-                <View style={[styles.detailSection, { borderTopColor: theme.divider }]}>
-                  <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+                <View
+                  style={[
+                    styles.detailSection,
+                    { borderTopColor: theme.divider },
+                  ]}
+                >
+                  <ThemedText
+                    type="h4"
+                    style={[styles.sectionTitle, { color: theme.text }]}
+                  >
                     Letzte Aktivitäten
                   </ThemedText>
                   {selectedDriverLogs.length > 0 ? (
                     <View style={styles.activityList}>
                       {selectedDriverLogs.map((log) => (
-                        <View 
-                          key={log.id} 
-                          style={[styles.activityItem, { borderBottomColor: theme.divider }]}
+                        <View
+                          key={log.id}
+                          style={[
+                            styles.activityItem,
+                            { borderBottomColor: theme.divider },
+                          ]}
                         >
-                          <View style={[styles.activityIcon, { backgroundColor: theme.backgroundSecondary }]}>
-                            <Feather 
+                          <View
+                            style={[
+                              styles.activityIcon,
+                              { backgroundColor: theme.backgroundSecondary },
+                            ]}
+                          >
+                            <Feather
                               name={
-                                log.action === "pickup" ? "package" :
-                                log.action === "delivery" ? "check-square" :
-                                log.action === "cancel" ? "x-circle" :
-                                log.action === "scan" ? "camera" :
-                                "activity"
-                              } 
-                              size={16} 
-                              color={theme.primary} 
+                                log.action === "pickup"
+                                  ? "package"
+                                  : log.action === "delivery"
+                                    ? "check-square"
+                                    : log.action === "cancel"
+                                      ? "x-circle"
+                                      : log.action === "scan"
+                                        ? "camera"
+                                        : "activity"
+                              }
+                              size={16}
+                              color={theme.primary}
                             />
                           </View>
                           <View style={styles.activityContent}>
-                            <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>
+                            <ThemedText
+                              type="small"
+                              style={{ color: theme.text, fontWeight: "600" }}
+                            >
                               {getActionLabel(log.action)}
                             </ThemedText>
                             {log.details ? (
-                              <ThemedText type="caption" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                              <ThemedText
+                                type="caption"
+                                style={{ color: theme.textSecondary }}
+                                numberOfLines={1}
+                              >
                                 {log.details}
                               </ThemedText>
                             ) : null}
                           </View>
-                          <ThemedText type="caption" style={{ color: theme.textTertiary }}>
+                          <ThemedText
+                            type="caption"
+                            style={{ color: theme.textTertiary }}
+                          >
                             {formatTimestamp(log.createdAt)}
                           </ThemedText>
                         </View>
@@ -809,46 +1150,97 @@ export default function ManageDriversScreen() {
                     </View>
                   ) : (
                     <View style={styles.noActivity}>
-                      <Feather name="inbox" size={32} color={theme.textTertiary} />
-                      <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+                      <Feather
+                        name="inbox"
+                        size={32}
+                        color={theme.textTertiary}
+                      />
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: theme.textSecondary,
+                          marginTop: Spacing.sm,
+                        }}
+                      >
                         Keine Aktivitäten vorhanden
                       </ThemedText>
                     </View>
                   )}
                 </View>
 
-                <View style={[styles.detailSection, { borderTopColor: theme.divider }]}>
-                  <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+                <View
+                  style={[
+                    styles.detailSection,
+                    { borderTopColor: theme.divider },
+                  ]}
+                >
+                  <ThemedText
+                    type="h4"
+                    style={[styles.sectionTitle, { color: theme.text }]}
+                  >
                     Kontoinformationen
                   </ThemedText>
                   <View style={styles.infoRow}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>Rolle</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>
-                      {selectedDriver.role === "admin" ? "Administrator" : "Fahrer"}
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      Rolle
+                    </ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.text, fontWeight: "600" }}
+                    >
+                      {selectedDriver.role === "admin"
+                        ? "Administrator"
+                        : "Fahrer"}
                     </ThemedText>
                   </View>
                   <View style={styles.infoRow}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>Erstellt am</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>
-                      {new Date(selectedDriver.createdAt).toLocaleDateString("de-DE", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      Erstellt am
+                    </ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.text, fontWeight: "600" }}
+                    >
+                      {new Date(selectedDriver.createdAt).toLocaleDateString(
+                        "de-DE",
+                        {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        },
+                      )}
                     </ThemedText>
                   </View>
                 </View>
 
                 <Button
-                  style={[styles.editFromDetailButton, { backgroundColor: theme.primary }]}
+                  style={[
+                    styles.editFromDetailButton,
+                    { backgroundColor: theme.primary },
+                  ]}
                   onPress={() => {
                     setShowDetailModal(false);
                     openEditModal(selectedDriver);
                   }}
                 >
                   <View style={styles.addContent}>
-                    <Feather name="edit-2" size={18} color={theme.textOnPrimary} />
-                    <ThemedText type="small" style={[styles.addText, { color: theme.textOnPrimary }]}>Fahrer bearbeiten</ThemedText>
+                    <Feather
+                      name="edit-2"
+                      size={18}
+                      color={theme.textOnPrimary}
+                    />
+                    <ThemedText
+                      type="small"
+                      style={[styles.addText, { color: theme.textOnPrimary }]}
+                    >
+                      Fahrer bearbeiten
+                    </ThemedText>
                   </View>
                 </Button>
               </ScrollView>

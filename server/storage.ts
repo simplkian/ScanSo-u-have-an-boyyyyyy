@@ -1,11 +1,26 @@
-import { 
-  users, customers, customerContainers, warehouseContainers, tasks, activityLogs, fillHistory, scanEvents,
+import {
+  users,
+  customers,
+  customerContainers,
+  warehouseContainers,
+  tasks,
+  activityLogs,
+  fillHistory,
+  scanEvents,
   departments,
-  type User, type InsertUser, 
-  type Customer, type CustomerContainer, type WarehouseContainer, 
-  type Task, type ActivityLog, type FillHistory, type ScanEvent,
-  type Department, type InsertDepartment,
-  isValidTaskTransition, getTimestampFieldForStatus
+  type User,
+  type InsertUser,
+  type Customer,
+  type CustomerContainer,
+  type WarehouseContainer,
+  type Task,
+  type ActivityLog,
+  type FillHistory,
+  type ScanEvent,
+  type Department,
+  type InsertDepartment,
+  isValidTaskTransition,
+  getTimestampFieldForStatus,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, or } from "drizzle-orm";
@@ -21,49 +36,94 @@ export interface IStorage {
   // Customers
   getCustomers(): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
-  createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer>;
-  updateCustomer(id: string, data: Partial<Customer>): Promise<Customer | undefined>;
+  createCustomer(
+    data: Omit<Customer, "id" | "createdAt" | "updatedAt">,
+  ): Promise<Customer>;
+  updateCustomer(
+    id: string,
+    data: Partial<Customer>,
+  ): Promise<Customer | undefined>;
 
   // Customer Containers
   getCustomerContainers(): Promise<CustomerContainer[]>;
   getCustomerContainer(id: string): Promise<CustomerContainer | undefined>;
-  getCustomerContainerByQR(qrCode: string): Promise<CustomerContainer | undefined>;
-  createCustomerContainer(data: Omit<CustomerContainer, 'createdAt' | 'updatedAt'>): Promise<CustomerContainer>;
-  updateCustomerContainer(id: string, data: Partial<CustomerContainer>): Promise<CustomerContainer | undefined>;
+  getCustomerContainerByQR(
+    qrCode: string,
+  ): Promise<CustomerContainer | undefined>;
+  createCustomerContainer(
+    data: Omit<CustomerContainer, "createdAt" | "updatedAt">,
+  ): Promise<CustomerContainer>;
+  updateCustomerContainer(
+    id: string,
+    data: Partial<CustomerContainer>,
+  ): Promise<CustomerContainer | undefined>;
 
   // Warehouse Containers
   getWarehouseContainers(): Promise<WarehouseContainer[]>;
   getWarehouseContainer(id: string): Promise<WarehouseContainer | undefined>;
-  getWarehouseContainerByQR(qrCode: string): Promise<WarehouseContainer | undefined>;
-  createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt' | 'updatedAt'>): Promise<WarehouseContainer>;
-  updateWarehouseContainer(id: string, data: Partial<WarehouseContainer>): Promise<WarehouseContainer | undefined>;
+  getWarehouseContainerByQR(
+    qrCode: string,
+  ): Promise<WarehouseContainer | undefined>;
+  createWarehouseContainer(
+    data: Omit<WarehouseContainer, "createdAt" | "updatedAt">,
+  ): Promise<WarehouseContainer>;
+  updateWarehouseContainer(
+    id: string,
+    data: Partial<WarehouseContainer>,
+  ): Promise<WarehouseContainer | undefined>;
 
   // Tasks
-  getTasks(filters?: { assignedTo?: string; status?: string; date?: Date }): Promise<Task[]>;
+  getTasks(filters?: {
+    assignedTo?: string;
+    status?: string;
+    date?: Date;
+  }): Promise<Task[]>;
   getTask(id: string): Promise<Task | undefined>;
-  createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task>;
+  createTask(data: Omit<Task, "id" | "createdAt" | "updatedAt">): Promise<Task>;
   updateTask(id: string, data: Partial<Task>): Promise<Task | undefined>;
-  updateTaskStatus(id: string, newStatus: string, userId?: string): Promise<Task | undefined>;
+  updateTaskStatus(
+    id: string,
+    newStatus: string,
+    userId?: string,
+  ): Promise<Task | undefined>;
   deleteTask(id: string): Promise<boolean>;
 
   // Scan Events
-  getScanEvents(filters?: { containerId?: string; taskId?: string; userId?: string }): Promise<ScanEvent[]>;
+  getScanEvents(filters?: {
+    containerId?: string;
+    taskId?: string;
+    userId?: string;
+  }): Promise<ScanEvent[]>;
   getScanEvent(id: string): Promise<ScanEvent | undefined>;
-  createScanEvent(data: Omit<ScanEvent, 'id' | 'createdAt'>): Promise<ScanEvent>;
+  createScanEvent(
+    data: Omit<ScanEvent, "id" | "createdAt">,
+  ): Promise<ScanEvent>;
 
   // Activity Logs
-  getActivityLogs(filters?: { userId?: string; containerId?: string; type?: string; taskId?: string }): Promise<ActivityLog[]>;
-  createActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog>;
+  getActivityLogs(filters?: {
+    userId?: string;
+    containerId?: string;
+    type?: string;
+    taskId?: string;
+  }): Promise<ActivityLog[]>;
+  createActivityLog(
+    data: Omit<ActivityLog, "id" | "createdAt">,
+  ): Promise<ActivityLog>;
 
   // Fill History
   getFillHistory(warehouseContainerId: string): Promise<FillHistory[]>;
-  createFillHistory(data: Omit<FillHistory, 'id' | 'createdAt'>): Promise<FillHistory>;
+  createFillHistory(
+    data: Omit<FillHistory, "id" | "createdAt">,
+  ): Promise<FillHistory>;
 
   // Departments
   getDepartments(): Promise<Department[]>;
   getDepartment(id: string): Promise<Department | undefined>;
   createDepartment(data: InsertDepartment): Promise<Department>;
-  updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined>;
+  updateDepartment(
+    id: string,
+    data: Partial<InsertDepartment>,
+  ): Promise<Department | undefined>;
   deleteDepartment(id: string): Promise<boolean>;
 }
 
@@ -71,7 +131,7 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
   // USERS
   // ============================================================================
-  
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -93,7 +153,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [user] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
     return user || undefined;
   }
 
@@ -106,18 +170,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, id));
     return customer || undefined;
   }
 
-  async createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
+  async createCustomer(
+    data: Omit<Customer, "id" | "createdAt" | "updatedAt">,
+  ): Promise<Customer> {
     const [customer] = await db.insert(customers).values(data).returning();
     return customer;
   }
 
-  async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer | undefined> {
+  async updateCustomer(
+    id: string,
+    data: Partial<Customer>,
+  ): Promise<Customer | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [customer] = await db.update(customers).set(updateData).where(eq(customers.id, id)).returning();
+    const [customer] = await db
+      .update(customers)
+      .set(updateData)
+      .where(eq(customers.id, id))
+      .returning();
     return customer || undefined;
   }
 
@@ -126,27 +202,52 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   async getCustomerContainers(): Promise<CustomerContainer[]> {
-    return db.select().from(customerContainers).where(eq(customerContainers.isActive, true));
+    return db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.isActive, true));
   }
 
-  async getCustomerContainer(id: string): Promise<CustomerContainer | undefined> {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.id, id));
+  async getCustomerContainer(
+    id: string,
+  ): Promise<CustomerContainer | undefined> {
+    const [container] = await db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.id, id));
     return container || undefined;
   }
 
-  async getCustomerContainerByQR(qrCode: string): Promise<CustomerContainer | undefined> {
-    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.qrCode, qrCode));
+  async getCustomerContainerByQR(
+    qrCode: string,
+  ): Promise<CustomerContainer | undefined> {
+    const [container] = await db
+      .select()
+      .from(customerContainers)
+      .where(eq(customerContainers.qrCode, qrCode));
     return container || undefined;
   }
 
-  async createCustomerContainer(data: Omit<CustomerContainer, 'createdAt' | 'updatedAt'>): Promise<CustomerContainer> {
-    const [container] = await db.insert(customerContainers).values(data).returning();
+  async createCustomerContainer(
+    data: Omit<CustomerContainer, "createdAt" | "updatedAt">,
+  ): Promise<CustomerContainer> {
+    const [container] = await db
+      .insert(customerContainers)
+      .values(data)
+      .returning();
     return container;
   }
 
-  async updateCustomerContainer(id: string, data: Partial<CustomerContainer>): Promise<CustomerContainer | undefined> {
+  async updateCustomerContainer(
+    id: string,
+    data: Partial<CustomerContainer>,
+  ): Promise<CustomerContainer | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [container] = await db.update(customerContainers).set(updateData).where(eq(customerContainers.id, id)).returning();
+    const [container] = await db
+      .update(customerContainers)
+      .set(updateData)
+      .where(eq(customerContainers.id, id))
+      .returning();
     return container || undefined;
   }
 
@@ -155,27 +256,52 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   async getWarehouseContainers(): Promise<WarehouseContainer[]> {
-    return db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
+    return db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.isActive, true));
   }
 
-  async getWarehouseContainer(id: string): Promise<WarehouseContainer | undefined> {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
+  async getWarehouseContainer(
+    id: string,
+  ): Promise<WarehouseContainer | undefined> {
+    const [container] = await db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.id, id));
     return container || undefined;
   }
 
-  async getWarehouseContainerByQR(qrCode: string): Promise<WarehouseContainer | undefined> {
-    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.qrCode, qrCode));
+  async getWarehouseContainerByQR(
+    qrCode: string,
+  ): Promise<WarehouseContainer | undefined> {
+    const [container] = await db
+      .select()
+      .from(warehouseContainers)
+      .where(eq(warehouseContainers.qrCode, qrCode));
     return container || undefined;
   }
 
-  async createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt' | 'updatedAt'>): Promise<WarehouseContainer> {
-    const [container] = await db.insert(warehouseContainers).values(data).returning();
+  async createWarehouseContainer(
+    data: Omit<WarehouseContainer, "createdAt" | "updatedAt">,
+  ): Promise<WarehouseContainer> {
+    const [container] = await db
+      .insert(warehouseContainers)
+      .values(data)
+      .returning();
     return container;
   }
 
-  async updateWarehouseContainer(id: string, data: Partial<WarehouseContainer>): Promise<WarehouseContainer | undefined> {
+  async updateWarehouseContainer(
+    id: string,
+    data: Partial<WarehouseContainer>,
+  ): Promise<WarehouseContainer | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [container] = await db.update(warehouseContainers).set(updateData).where(eq(warehouseContainers.id, id)).returning();
+    const [container] = await db
+      .update(warehouseContainers)
+      .set(updateData)
+      .where(eq(warehouseContainers.id, id))
+      .returning();
     return container || undefined;
   }
 
@@ -183,9 +309,13 @@ export class DatabaseStorage implements IStorage {
   // TASKS
   // ============================================================================
 
-  async getTasks(filters?: { assignedTo?: string; status?: string; date?: Date }): Promise<Task[]> {
+  async getTasks(filters?: {
+    assignedTo?: string;
+    status?: string;
+    date?: Date;
+  }): Promise<Task[]> {
     const conditions = [];
-    
+
     if (filters?.assignedTo) {
       conditions.push(eq(tasks.assignedTo, filters.assignedTo));
     }
@@ -202,7 +332,11 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt));
+      return db
+        .select()
+        .from(tasks)
+        .where(and(...conditions))
+        .orderBy(desc(tasks.createdAt));
     }
     return db.select().from(tasks).orderBy(desc(tasks.createdAt));
   }
@@ -212,14 +346,20 @@ export class DatabaseStorage implements IStorage {
     return task || undefined;
   }
 
-  async createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
+  async createTask(
+    data: Omit<Task, "id" | "createdAt" | "updatedAt">,
+  ): Promise<Task> {
     const [task] = await db.insert(tasks).values(data).returning();
     return task;
   }
 
   async updateTask(id: string, data: Partial<Task>): Promise<Task | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    const [task] = await db
+      .update(tasks)
+      .set(updateData)
+      .where(eq(tasks.id, id))
+      .returning();
     return task || undefined;
   }
 
@@ -227,13 +367,19 @@ export class DatabaseStorage implements IStorage {
    * Update task status with validation and automatic timestamp setting
    * Returns undefined if transition is invalid
    */
-  async updateTaskStatus(id: string, newStatus: string, userId?: string): Promise<Task | undefined> {
+  async updateTaskStatus(
+    id: string,
+    newStatus: string,
+    userId?: string,
+  ): Promise<Task | undefined> {
     const currentTask = await this.getTask(id);
     if (!currentTask) return undefined;
 
     // Validate status transition
     if (!isValidTaskTransition(currentTask.status, newStatus)) {
-      console.warn(`Invalid task transition: ${currentTask.status} -> ${newStatus}`);
+      console.warn(
+        `Invalid task transition: ${currentTask.status} -> ${newStatus}`,
+      );
       return undefined;
     }
 
@@ -250,23 +396,31 @@ export class DatabaseStorage implements IStorage {
     }
 
     // If assigning, also set assignedTo if provided
-    if (newStatus === 'ASSIGNED' && userId) {
+    if (newStatus === "ASSIGNED" && userId) {
       updateData.assignedTo = userId;
     }
 
     // Auto-assign driver when accepting from OFFEN or PLANNED state
-    if (newStatus === 'ACCEPTED' && (currentTask.status === 'OFFEN' || currentTask.status === 'PLANNED') && userId) {
+    if (
+      newStatus === "ACCEPTED" &&
+      (currentTask.status === "OFFEN" || currentTask.status === "PLANNED") &&
+      userId
+    ) {
       updateData.assignedTo = userId;
       updateData.assignedAt = new Date();
     }
 
     // If accepting from ASSIGNED and driver info provided, ensure assignedTo is set
-    if (newStatus === 'ACCEPTED' && userId && !currentTask.assignedTo) {
+    if (newStatus === "ACCEPTED" && userId && !currentTask.assignedTo) {
       updateData.assignedTo = userId;
       updateData.assignedAt = new Date();
     }
 
-    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    const [task] = await db
+      .update(tasks)
+      .set(updateData)
+      .where(eq(tasks.id, id))
+      .returning();
     return task || undefined;
   }
 
@@ -279,14 +433,23 @@ export class DatabaseStorage implements IStorage {
     if (!existingTask) return false;
 
     // Set taskId to null for related scan events (don't delete them - preserve history)
-    await db.update(scanEvents).set({ taskId: null }).where(eq(scanEvents.taskId, id));
-    
+    await db
+      .update(scanEvents)
+      .set({ taskId: null })
+      .where(eq(scanEvents.taskId, id));
+
     // Set taskId to null for related activity logs (keep logs but unlink from deleted task)
-    await db.update(activityLogs).set({ taskId: null }).where(eq(activityLogs.taskId, id));
-    
+    await db
+      .update(activityLogs)
+      .set({ taskId: null })
+      .where(eq(activityLogs.taskId, id));
+
     // Set taskId to null for related fill history entries
-    await db.update(fillHistory).set({ taskId: null }).where(eq(fillHistory.taskId, id));
-    
+    await db
+      .update(fillHistory)
+      .set({ taskId: null })
+      .where(eq(fillHistory.taskId, id));
+
     // Now delete the task
     const result = await db.delete(tasks).where(eq(tasks.id, id)).returning();
     return result.length > 0;
@@ -296,9 +459,13 @@ export class DatabaseStorage implements IStorage {
   // SCAN EVENTS
   // ============================================================================
 
-  async getScanEvents(filters?: { containerId?: string; taskId?: string; userId?: string }): Promise<ScanEvent[]> {
+  async getScanEvents(filters?: {
+    containerId?: string;
+    taskId?: string;
+    userId?: string;
+  }): Promise<ScanEvent[]> {
     const conditions = [];
-    
+
     if (filters?.containerId) {
       conditions.push(eq(scanEvents.containerId, filters.containerId));
     }
@@ -310,17 +477,26 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      return db.select().from(scanEvents).where(and(...conditions)).orderBy(desc(scanEvents.scannedAt));
+      return db
+        .select()
+        .from(scanEvents)
+        .where(and(...conditions))
+        .orderBy(desc(scanEvents.scannedAt));
     }
     return db.select().from(scanEvents).orderBy(desc(scanEvents.scannedAt));
   }
 
   async getScanEvent(id: string): Promise<ScanEvent | undefined> {
-    const [event] = await db.select().from(scanEvents).where(eq(scanEvents.id, id));
+    const [event] = await db
+      .select()
+      .from(scanEvents)
+      .where(eq(scanEvents.id, id));
     return event || undefined;
   }
 
-  async createScanEvent(data: Omit<ScanEvent, 'id' | 'createdAt'>): Promise<ScanEvent> {
+  async createScanEvent(
+    data: Omit<ScanEvent, "id" | "createdAt">,
+  ): Promise<ScanEvent> {
     const [event] = await db.insert(scanEvents).values(data).returning();
     return event;
   }
@@ -329,9 +505,14 @@ export class DatabaseStorage implements IStorage {
   // ACTIVITY LOGS
   // ============================================================================
 
-  async getActivityLogs(filters?: { userId?: string; containerId?: string; type?: string; taskId?: string }): Promise<ActivityLog[]> {
+  async getActivityLogs(filters?: {
+    userId?: string;
+    containerId?: string;
+    type?: string;
+    taskId?: string;
+  }): Promise<ActivityLog[]> {
     const conditions = [];
-    
+
     if (filters?.userId) {
       conditions.push(eq(activityLogs.userId, filters.userId));
     }
@@ -346,12 +527,18 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.timestamp));
+      return db
+        .select()
+        .from(activityLogs)
+        .where(and(...conditions))
+        .orderBy(desc(activityLogs.timestamp));
     }
     return db.select().from(activityLogs).orderBy(desc(activityLogs.timestamp));
   }
 
-  async createActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog> {
+  async createActivityLog(
+    data: Omit<ActivityLog, "id" | "createdAt">,
+  ): Promise<ActivityLog> {
     // Ensure action is set (legacy field, same as type for backward compatibility)
     const logData = {
       ...data,
@@ -366,12 +553,16 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   async getFillHistory(warehouseContainerId: string): Promise<FillHistory[]> {
-    return db.select().from(fillHistory)
+    return db
+      .select()
+      .from(fillHistory)
       .where(eq(fillHistory.warehouseContainerId, warehouseContainerId))
       .orderBy(desc(fillHistory.createdAt));
   }
 
-  async createFillHistory(data: Omit<FillHistory, 'id' | 'createdAt'>): Promise<FillHistory> {
+  async createFillHistory(
+    data: Omit<FillHistory, "id" | "createdAt">,
+  ): Promise<FillHistory> {
     const [history] = await db.insert(fillHistory).values(data).returning();
     return history;
   }
@@ -385,7 +576,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDepartment(id: string): Promise<Department | undefined> {
-    const [department] = await db.select().from(departments).where(eq(departments.id, id));
+    const [department] = await db
+      .select()
+      .from(departments)
+      .where(eq(departments.id, id));
     return department || undefined;
   }
 
@@ -394,14 +588,22 @@ export class DatabaseStorage implements IStorage {
     return department;
   }
 
-  async updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined> {
+  async updateDepartment(
+    id: string,
+    data: Partial<InsertDepartment>,
+  ): Promise<Department | undefined> {
     const updateData = { ...data, updatedAt: new Date() };
-    const [department] = await db.update(departments).set(updateData).where(eq(departments.id, id)).returning();
+    const [department] = await db
+      .update(departments)
+      .set(updateData)
+      .where(eq(departments.id, id))
+      .returning();
     return department || undefined;
   }
 
   async deleteDepartment(id: string): Promise<boolean> {
-    const [department] = await db.update(departments)
+    const [department] = await db
+      .update(departments)
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(departments.id, id))
       .returning();

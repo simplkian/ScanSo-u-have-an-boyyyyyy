@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  TextInput,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -65,7 +73,9 @@ export default function StandMappingScreen() {
   const queryClient = useQueryClient();
 
   const [selectedHallId, setSelectedHallId] = useState<string | null>(null);
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
   const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
   const [boxSearchQuery, setBoxSearchQuery] = useState("");
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
@@ -74,21 +84,34 @@ export default function StandMappingScreen() {
     queryKey: ["/api/halls"],
   });
 
-  const { data: stations = [], isLoading: stationsLoading } = useQuery<Station[]>({
+  const { data: stations = [], isLoading: stationsLoading } = useQuery<
+    Station[]
+  >({
     queryKey: ["/api/stations", { hallId: selectedHallId }],
     queryFn: async () => {
       if (!selectedHallId) return [];
-      const response = await apiRequest("GET", `/api/stations?hallId=${selectedHallId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/stations?hallId=${selectedHallId}`,
+      );
       return response.json();
     },
     enabled: !!selectedHallId,
   });
 
-  const { data: standsData = [], isLoading: standsLoading } = useQuery<StandWithMaterial[]>({
-    queryKey: ["/api/admin/stands-with-materials", { stationId: selectedStationId }],
+  const { data: standsData = [], isLoading: standsLoading } = useQuery<
+    StandWithMaterial[]
+  >({
+    queryKey: [
+      "/api/admin/stands-with-materials",
+      { stationId: selectedStationId },
+    ],
     queryFn: async () => {
       if (!selectedStationId) return [];
-      const response = await apiRequest("GET", `/api/admin/stands-with-materials?stationId=${selectedStationId}`);
+      const response = await apiRequest(
+        "GET",
+        `/api/admin/stands-with-materials?stationId=${selectedStationId}`,
+      );
       return response.json();
     },
     enabled: !!selectedStationId,
@@ -98,11 +121,18 @@ export default function StandMappingScreen() {
     queryKey: ["/api/boxes"],
   });
 
-  const { data: boxesAtStand = [], isLoading: boxesAtStandLoading, refetch: refetchBoxesAtStand } = useQuery<Box[]>({
+  const {
+    data: boxesAtStand = [],
+    isLoading: boxesAtStandLoading,
+    refetch: refetchBoxesAtStand,
+  } = useQuery<Box[]>({
     queryKey: ["/api/admin/stands/boxes", selectedStandId],
     queryFn: async () => {
       if (!selectedStandId) return [];
-      const response = await apiRequest("GET", `/api/admin/stands/${selectedStandId}/boxes`);
+      const response = await apiRequest(
+        "GET",
+        `/api/admin/stands/${selectedStandId}/boxes`,
+      );
       return response.json();
     },
     enabled: !!selectedStandId,
@@ -127,14 +157,26 @@ export default function StandMappingScreen() {
   }, [selectedStandId]);
 
   const assignBoxMutation = useMutation({
-    mutationFn: async ({ boxId, standId }: { boxId: string; standId: string }) => {
-      const response = await apiRequest("POST", `/api/admin/stands/${standId}/assign-box`, {
-        boxId,
-      });
+    mutationFn: async ({
+      boxId,
+      standId,
+    }: {
+      boxId: string;
+      standId: string;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/stands/${standId}/assign-box`,
+        {
+          boxId,
+        },
+      );
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 409) {
-          throw new Error(`Box ist bereits an Stellplatz "${errorData.currentStandIdentifier}" zugewiesen`);
+          throw new Error(
+            `Box ist bereits an Stellplatz "${errorData.currentStandIdentifier}" zugewiesen`,
+          );
         }
         throw new Error(errorData.error || "Zuweisung fehlgeschlagen");
       }
@@ -164,10 +206,20 @@ export default function StandMappingScreen() {
   });
 
   const removeBoxMutation = useMutation({
-    mutationFn: async ({ boxId, standId }: { boxId: string; standId: string }) => {
-      const response = await apiRequest("POST", `/api/admin/stands/${standId}/unassign-box`, {
-        boxId,
-      });
+    mutationFn: async ({
+      boxId,
+      standId,
+    }: {
+      boxId: string;
+      standId: string;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/stands/${standId}/unassign-box`,
+        {
+          boxId,
+        },
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Entfernung fehlgeschlagen");
@@ -202,14 +254,17 @@ export default function StandMappingScreen() {
   const availableBoxes = allBoxes.filter(
     (box) =>
       !box.standId &&
-      box.serial.toLowerCase().includes(boxSearchQuery.toLowerCase())
+      box.serial.toLowerCase().includes(boxSearchQuery.toLowerCase()),
   );
 
   const currentBoxAtStand = boxesAtStand.length > 0 ? boxesAtStand[0] : null;
 
   const handleAssignBox = () => {
     if (!selectedBoxId || !selectedStandId) return;
-    assignBoxMutation.mutate({ boxId: selectedBoxId, standId: selectedStandId });
+    assignBoxMutation.mutate({
+      boxId: selectedBoxId,
+      standId: selectedStandId,
+    });
   };
 
   const handleRemoveBox = (boxId: string) => {
@@ -219,14 +274,15 @@ export default function StandMappingScreen() {
         removeBoxMutation.mutate({ boxId, standId: selectedStandId });
       }
     } else {
-      Alert.alert(
-        "Box entfernen",
-        "Box wirklich vom Stellplatz entfernen?",
-        [
-          { text: "Abbrechen", style: "cancel" },
-          { text: "Entfernen", style: "destructive", onPress: () => removeBoxMutation.mutate({ boxId, standId: selectedStandId }) },
-        ]
-      );
+      Alert.alert("Box entfernen", "Box wirklich vom Stellplatz entfernen?", [
+        { text: "Abbrechen", style: "cancel" },
+        {
+          text: "Entfernen",
+          style: "destructive",
+          onPress: () =>
+            removeBoxMutation.mutate({ boxId, standId: selectedStandId }),
+        },
+      ]);
     }
   };
 
@@ -262,7 +318,9 @@ export default function StandMappingScreen() {
   );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -300,7 +358,13 @@ export default function StandMappingScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.card, backgroundColor: theme.cardSurface, opacity: selectedHallId ? 1 : 0.5 }}>
+        <Card
+          style={{
+            ...styles.card,
+            backgroundColor: theme.cardSurface,
+            opacity: selectedHallId ? 1 : 0.5,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <Feather name="grid" size={20} color={theme.primary} />
             <ThemedText type="h4" style={{ color: theme.primary }}>
@@ -331,7 +395,13 @@ export default function StandMappingScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.card, backgroundColor: theme.cardSurface, opacity: selectedStationId ? 1 : 0.5 }}>
+        <Card
+          style={{
+            ...styles.card,
+            backgroundColor: theme.cardSurface,
+            opacity: selectedStationId ? 1 : 0.5,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <Feather name="map-pin" size={20} color={theme.primary} />
             <ThemedText type="h4" style={{ color: theme.primary }}>
@@ -364,7 +434,9 @@ export default function StandMappingScreen() {
 
         {selectedStandId ? (
           <>
-            <Card style={{ ...styles.card, backgroundColor: theme.cardSurface }}>
+            <Card
+              style={{ ...styles.card, backgroundColor: theme.cardSurface }}
+            >
               <View style={styles.sectionHeader}>
                 <Feather name="info" size={20} color={theme.primary} />
                 <ThemedText type="h4" style={{ color: theme.primary }}>
@@ -390,7 +462,9 @@ export default function StandMappingScreen() {
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+              <View
+                style={[styles.divider, { backgroundColor: theme.divider }]}
+              />
 
               <View style={styles.sectionHeader}>
                 <Feather name="box" size={20} color={theme.primary} />
@@ -406,27 +480,51 @@ export default function StandMappingScreen() {
                   <View style={styles.boxInfo}>
                     <Feather name="box" size={24} color={theme.success} />
                     <View style={{ flex: 1 }}>
-                      <ThemedText type="bodyBold">{currentBoxAtStand.serial}</ThemedText>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                      <ThemedText type="bodyBold">
+                        {currentBoxAtStand.serial}
+                      </ThemedText>
+                      <ThemedText
+                        type="small"
+                        style={{ color: theme.textSecondary }}
+                      >
                         Status: {currentBoxAtStand.status}
                       </ThemedText>
-                      <ThemedText type="small" style={{ color: theme.textTertiary, fontFamily: 'monospace' }}>
-                        stand_id: {currentBoxAtStand.standId || 'null'}
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: theme.textTertiary,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        stand_id: {currentBoxAtStand.standId || "null"}
                       </ThemedText>
                     </View>
                     <StatusBadge status="success" size="small" label="Belegt" />
                   </View>
                   <Button
-                    style={[styles.removeButton, { backgroundColor: theme.error }]}
+                    style={[
+                      styles.removeButton,
+                      { backgroundColor: theme.error },
+                    ]}
                     onPress={() => handleRemoveBox(currentBoxAtStand.id)}
                     disabled={removeBoxMutation.isPending}
                   >
                     {removeBoxMutation.isPending ? (
-                      <ActivityIndicator size="small" color={theme.textOnPrimary} />
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.textOnPrimary}
+                      />
                     ) : (
                       <View style={styles.buttonContent}>
-                        <Feather name="x-circle" size={18} color={theme.textOnPrimary} />
-                        <ThemedText type="body" style={{ color: theme.textOnPrimary }}>
+                        <Feather
+                          name="x-circle"
+                          size={18}
+                          color={theme.textOnPrimary}
+                        />
+                        <ThemedText
+                          type="body"
+                          style={{ color: theme.textOnPrimary }}
+                        >
                           Box entfernen
                         </ThemedText>
                       </View>
@@ -434,8 +532,22 @@ export default function StandMappingScreen() {
                   </Button>
                 </View>
               ) : (
-                <View style={[styles.emptyBox, { backgroundColor: isDark ? theme.backgroundSecondary : `${theme.warning}10`, borderColor: theme.warning }]}>
-                  <Feather name="alert-circle" size={20} color={theme.warning} />
+                <View
+                  style={[
+                    styles.emptyBox,
+                    {
+                      backgroundColor: isDark
+                        ? theme.backgroundSecondary
+                        : `${theme.warning}10`,
+                      borderColor: theme.warning,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="alert-circle"
+                    size={20}
+                    color={theme.warning}
+                  />
                   <ThemedText type="body" style={{ color: theme.warning }}>
                     Keine Box zugewiesen
                   </ThemedText>
@@ -444,7 +556,9 @@ export default function StandMappingScreen() {
             </Card>
 
             {!currentBoxAtStand ? (
-              <Card style={{ ...styles.card, backgroundColor: theme.cardSurface }}>
+              <Card
+                style={{ ...styles.card, backgroundColor: theme.cardSurface }}
+              >
                 <View style={styles.sectionHeader}>
                   <Feather name="plus-circle" size={20} color={theme.accent} />
                   <ThemedText type="h4" style={{ color: theme.accent }}>
@@ -452,8 +566,20 @@ export default function StandMappingScreen() {
                   </ThemedText>
                 </View>
 
-                <View style={[styles.searchContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-                  <Feather name="search" size={18} color={theme.textSecondary} />
+                <View
+                  style={[
+                    styles.searchContainer,
+                    {
+                      backgroundColor: theme.backgroundSecondary,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="search"
+                    size={18}
+                    color={theme.textSecondary}
+                  />
                   <TextInput
                     style={[styles.searchInput, { color: theme.text }]}
                     placeholder="Box-Seriennummer suchen..."
@@ -466,8 +592,17 @@ export default function StandMappingScreen() {
                 {boxesLoading ? (
                   <ActivityIndicator color={theme.accent} />
                 ) : availableBoxes.length === 0 ? (
-                  <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}>
-                    {boxSearchQuery ? "Keine passenden verfügbaren Boxen gefunden" : "Keine verfügbaren Boxen (ohne Stellplatz)"}
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: theme.textSecondary,
+                      textAlign: "center",
+                      marginTop: Spacing.md,
+                    }}
+                  >
+                    {boxSearchQuery
+                      ? "Keine passenden verfügbaren Boxen gefunden"
+                      : "Keine verfügbaren Boxen (ohne Stellplatz)"}
                   </ThemedText>
                 ) : (
                   <View style={styles.boxList}>
@@ -480,8 +615,15 @@ export default function StandMappingScreen() {
                       />
                     ))}
                     {availableBoxes.length > 10 ? (
-                      <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                        + {availableBoxes.length - 10} weitere Boxen (Suche eingrenzen)
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: theme.textSecondary,
+                          textAlign: "center",
+                        }}
+                      >
+                        + {availableBoxes.length - 10} weitere Boxen (Suche
+                        eingrenzen)
                       </ThemedText>
                     ) : null}
                   </View>
@@ -489,16 +631,29 @@ export default function StandMappingScreen() {
 
                 {selectedBoxId ? (
                   <Button
-                    style={[styles.assignButton, { backgroundColor: theme.accent }]}
+                    style={[
+                      styles.assignButton,
+                      { backgroundColor: theme.accent },
+                    ]}
                     onPress={handleAssignBox}
                     disabled={assignBoxMutation.isPending}
                   >
                     {assignBoxMutation.isPending ? (
-                      <ActivityIndicator size="small" color={theme.textOnAccent} />
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.textOnAccent}
+                      />
                     ) : (
                       <View style={styles.buttonContent}>
-                        <Feather name="check-circle" size={18} color={theme.textOnAccent} />
-                        <ThemedText type="bodyBold" style={{ color: theme.textOnAccent }}>
+                        <Feather
+                          name="check-circle"
+                          size={18}
+                          color={theme.textOnAccent}
+                        />
+                        <ThemedText
+                          type="bodyBold"
+                          style={{ color: theme.textOnAccent }}
+                        >
                           Box zuweisen
                         </ThemedText>
                       </View>

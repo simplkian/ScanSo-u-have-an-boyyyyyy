@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
 import { Platform, AppState } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,13 +39,13 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
+
       const response = await fetch(`${getApiUrl()}/api/health`, {
         method: "GET",
         cache: "no-store",
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
       setIsOnline(response.ok);
       return response.ok;
@@ -60,14 +67,14 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
   const syncPendingActions = useCallback(async () => {
     if (isSyncing) return;
-    
+
     const online = await checkConnectivity();
     if (!online) return;
 
     setIsSyncing(true);
     try {
       const actions = await getPendingActions();
-      
+
       for (const action of actions) {
         try {
           await apiRequest(action.method, action.endpoint, action.body);
@@ -80,12 +87,18 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       await setLastSyncTime();
       await updateLastSyncText();
       await updatePendingCount();
-      
+
       queryClient.invalidateQueries();
     } finally {
       setIsSyncing(false);
     }
-  }, [isSyncing, checkConnectivity, queryClient, updateLastSyncText, updatePendingCount]);
+  }, [
+    isSyncing,
+    checkConnectivity,
+    queryClient,
+    updateLastSyncText,
+    updatePendingCount,
+  ]);
 
   useEffect(() => {
     checkConnectivity();
@@ -108,7 +121,12 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
       subscription.remove();
     };
-  }, [checkConnectivity, updatePendingCount, updateLastSyncText, syncPendingActions]);
+  }, [
+    checkConnectivity,
+    updatePendingCount,
+    updateLastSyncText,
+    syncPendingActions,
+  ]);
 
   useEffect(() => {
     if (isOnline && pendingActionsCount > 0) {

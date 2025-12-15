@@ -14,7 +14,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
-type NavigationProp = NativeStackNavigationProp<ProfileStackParamList, "Profile">;
+type NavigationProp = NativeStackNavigationProp<
+  ProfileStackParamList,
+  "Profile"
+>;
 
 export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
@@ -37,7 +40,11 @@ export default function ProfileScreen() {
   };
 
   const cycleTheme = () => {
-    const modes: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
+    const modes: Array<"light" | "dark" | "system"> = [
+      "light",
+      "dark",
+      "system",
+    ];
     const currentIndex = modes.indexOf(themeMode);
     const nextIndex = (currentIndex + 1) % modes.length;
     setThemeMode(modes[nextIndex]);
@@ -45,19 +52,28 @@ export default function ProfileScreen() {
 
   const getThemeLabel = () => {
     switch (themeMode) {
-      case "system": return "System";
-      case "dark": return "Dunkel";
-      case "light": return "Hell";
-      default: return "System";
+      case "system":
+        return "System";
+      case "dark":
+        return "Dunkel";
+      case "light":
+        return "Hell";
+      default:
+        return "System";
     }
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl },
+          {
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: tabBarHeight + Spacing.xl,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -67,36 +83,63 @@ export default function ProfileScreen() {
               {getInitials(user?.name || "User")}
             </ThemedText>
           </View>
-          <ThemedText type="h3" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>
+          <ThemedText
+            type="h3"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{ color: theme.text }}
+          >
             {user?.name}
           </ThemedText>
-          <View style={[styles.roleBadge, { backgroundColor: theme.backgroundDefault }]}>
+          <View
+            style={[
+              styles.roleBadge,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
             <Feather
               name={isAdmin ? "shield" : "truck"}
               size={14}
               color={theme.primary}
             />
-            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "500" }}>
+            <ThemedText
+              type="small"
+              style={{ color: theme.primary, fontWeight: "500" }}
+            >
               {isAdmin ? "Administrator" : "Fahrer"}
             </ThemedText>
           </View>
         </View>
 
         <Card style={{ backgroundColor: theme.cardSurface }}>
-          <ThemedText type="h4" style={{ color: theme.primary, marginBottom: Spacing.sm }}>
+          <ThemedText
+            type="h4"
+            style={{ color: theme.primary, marginBottom: Spacing.sm }}
+          >
             Kontoinformationen
           </ThemedText>
           <View style={styles.infoRow}>
             <Feather name="mail" size={20} color={theme.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>E-Mail</ThemedText>
-              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>{user?.email}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                E-Mail
+              </ThemedText>
+              <ThemedText
+                type="body"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: theme.text }}
+              >
+                {user?.email}
+              </ThemedText>
             </View>
           </View>
           <View style={styles.infoRow}>
             <Feather name="calendar" size={20} color={theme.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>Mitglied seit</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Mitglied seit
+              </ThemedText>
               <ThemedText type="body" style={{ color: theme.text }}>
                 {user?.createdAt
                   ? new Date(user.createdAt).toLocaleDateString("de-DE", {
@@ -111,7 +154,10 @@ export default function ProfileScreen() {
 
         {isAdmin ? (
           <Card style={{ backgroundColor: theme.cardSurface }}>
-            <ThemedText type="h4" style={{ color: theme.primary, marginBottom: Spacing.sm }}>
+            <ThemedText
+              type="h4"
+              style={{ color: theme.primary, marginBottom: Spacing.sm }}
+            >
               Schnellaktionen
             </ThemedText>
             <Pressable
@@ -120,9 +166,20 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="grid" size={20} color={theme.primary} />
-                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Dashboard</ThemedText>
+                <ThemedText
+                  type="body"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: theme.text }}
+                >
+                  Dashboard
+                </ThemedText>
               </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
             <Pressable
               style={[styles.menuItem, { borderBottomColor: theme.border }]}
@@ -130,9 +187,20 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="users" size={20} color={theme.primary} />
-                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Fahrer verwalten</ThemedText>
+                <ThemedText
+                  type="body"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: theme.text }}
+                >
+                  Fahrer verwalten
+                </ThemedText>
               </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
             <Pressable
               style={[styles.menuItem, { borderBottomColor: theme.border }]}
@@ -140,115 +208,204 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="activity" size={20} color={theme.primary} />
-                <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Aktivitätsverlauf</ThemedText>
+                <ThemedText
+                  type="body"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: theme.text }}
+                >
+                  Aktivitätsverlauf
+                </ThemedText>
               </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
           </Card>
         ) : null}
 
         <Card style={{ backgroundColor: theme.cardSurface }}>
-          <ThemedText type="h4" style={{ color: theme.primary, marginBottom: Spacing.sm }}>
+          <ThemedText
+            type="h4"
+            style={{ color: theme.primary, marginBottom: Spacing.sm }}
+          >
             Einstellungen
           </ThemedText>
-          
+
           <Pressable
             style={[styles.menuItem, { borderBottomColor: theme.border }]}
             onPress={() => navigation.navigate("QRCenter")}
           >
             <View style={styles.menuItemLeft}>
               <Feather name="grid" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>QR-Center</ThemedText>
+              <ThemedText
+                type="body"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: theme.text }}
+              >
+                QR-Center
+              </ThemedText>
             </View>
-            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={theme.textSecondary}
+            />
           </Pressable>
 
-          <View style={[styles.themeToggle, { borderBottomColor: theme.border }]}>
+          <View
+            style={[styles.themeToggle, { borderBottomColor: theme.border }]}
+          >
             <View style={styles.menuItemLeft}>
-              <Feather name={isDark ? "moon" : "sun"} size={20} color={theme.textSecondary} />
+              <Feather
+                name={isDark ? "moon" : "sun"}
+                size={20}
+                color={theme.textSecondary}
+              />
               <View>
-                <ThemedText type="body" style={{ color: theme.text }}>Erscheinungsbild</ThemedText>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>{getThemeLabel()}</ThemedText>
+                <ThemedText type="body" style={{ color: theme.text }}>
+                  Erscheinungsbild
+                </ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {getThemeLabel()}
+                </ThemedText>
               </View>
             </View>
             <View style={styles.themeButtons}>
               <Pressable
                 style={[
                   styles.themeButton,
-                  { 
-                    backgroundColor: themeMode === "light" ? theme.primary : theme.backgroundSecondary,
+                  {
+                    backgroundColor:
+                      themeMode === "light"
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                     borderColor: theme.border,
-                  }
+                  },
                 ]}
                 onPress={() => setThemeMode("light")}
               >
-                <Feather 
-                  name="sun" 
-                  size={16} 
-                  color={themeMode === "light" ? theme.textOnPrimary : theme.text} 
+                <Feather
+                  name="sun"
+                  size={16}
+                  color={
+                    themeMode === "light" ? theme.textOnPrimary : theme.text
+                  }
                 />
               </Pressable>
               <Pressable
                 style={[
                   styles.themeButton,
-                  { 
-                    backgroundColor: themeMode === "dark" ? theme.primary : theme.backgroundSecondary,
+                  {
+                    backgroundColor:
+                      themeMode === "dark"
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                     borderColor: theme.border,
-                  }
+                  },
                 ]}
                 onPress={() => setThemeMode("dark")}
               >
-                <Feather 
-                  name="moon" 
-                  size={16} 
-                  color={themeMode === "dark" ? theme.textOnPrimary : theme.text} 
+                <Feather
+                  name="moon"
+                  size={16}
+                  color={
+                    themeMode === "dark" ? theme.textOnPrimary : theme.text
+                  }
                 />
               </Pressable>
               <Pressable
                 style={[
                   styles.themeButton,
-                  { 
-                    backgroundColor: themeMode === "system" ? theme.primary : theme.backgroundSecondary,
+                  {
+                    backgroundColor:
+                      themeMode === "system"
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                     borderColor: theme.border,
-                  }
+                  },
                 ]}
                 onPress={() => setThemeMode("system")}
               >
-                <Feather 
-                  name="smartphone" 
-                  size={16} 
-                  color={themeMode === "system" ? theme.textOnPrimary : theme.text} 
+                <Feather
+                  name="smartphone"
+                  size={16}
+                  color={
+                    themeMode === "system" ? theme.textOnPrimary : theme.text
+                  }
                 />
               </Pressable>
             </View>
           </View>
 
-          <Pressable style={[styles.menuItem, { borderBottomColor: theme.border }]}>
+          <Pressable
+            style={[styles.menuItem, { borderBottomColor: theme.border }]}
+          >
             <View style={styles.menuItemLeft}>
               <Feather name="bell" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Benachrichtigungen</ThemedText>
+              <ThemedText
+                type="body"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: theme.text }}
+              >
+                Benachrichtigungen
+              </ThemedText>
             </View>
-            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={theme.textSecondary}
+            />
           </Pressable>
-          <Pressable style={[styles.menuItem, { borderBottomColor: theme.border }]}>
+          <Pressable
+            style={[styles.menuItem, { borderBottomColor: theme.border }]}
+          >
             <View style={styles.menuItemLeft}>
-              <Feather name="help-circle" size={20} color={theme.textSecondary} />
-              <ThemedText type="body" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text }}>Hilfe & Support</ThemedText>
+              <Feather
+                name="help-circle"
+                size={20}
+                color={theme.textSecondary}
+              />
+              <ThemedText
+                type="body"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: theme.text }}
+              >
+                Hilfe & Support
+              </ThemedText>
             </View>
-            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={theme.textSecondary}
+            />
           </Pressable>
         </Card>
 
-        <Button onPress={handleLogout} style={[styles.logoutButton, { backgroundColor: theme.error }]}>
+        <Button
+          onPress={handleLogout}
+          style={[styles.logoutButton, { backgroundColor: theme.error }]}
+        >
           <View style={styles.logoutContent}>
             <Feather name="log-out" size={20} color={theme.textOnPrimary} />
-            <ThemedText type="body" style={[styles.logoutText, { color: theme.textOnPrimary }]}>
+            <ThemedText
+              type="body"
+              style={[styles.logoutText, { color: theme.textOnPrimary }]}
+            >
               Abmelden
             </ThemedText>
           </View>
         </Button>
 
-        <ThemedText type="small" style={[styles.versionText, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.versionText, { color: theme.textSecondary }]}
+        >
           ContainerFlow v1.0.0
         </ThemedText>
       </ScrollView>

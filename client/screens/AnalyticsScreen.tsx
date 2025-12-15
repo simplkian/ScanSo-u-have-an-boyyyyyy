@@ -1,5 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Pressable,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
@@ -95,16 +101,16 @@ const DATE_RANGES: { key: DateRangeKey; label: string; days: number }[] = [
 function getDateRange(key: DateRangeKey): { from: string; to: string } {
   const now = new Date();
   const to = now.toISOString();
-  
-  const range = DATE_RANGES.find(r => r.key === key);
+
+  const range = DATE_RANGES.find((r) => r.key === key);
   const days = range?.days ?? 7;
-  
+
   if (days === 0) {
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
     return { from: startOfDay.toISOString(), to };
   }
-  
+
   const from = new Date(now);
   from.setDate(from.getDate() - days);
   return { from: from.toISOString(), to };
@@ -120,8 +126,8 @@ export default function AnalyticsScreen() {
 
   const { from, to } = useMemo(() => getDateRange(dateRange), [dateRange]);
 
-  const { 
-    data: materialsResponse, 
+  const {
+    data: materialsResponse,
     isLoading: materialsLoading,
     refetch: refetchMaterials,
     isRefetching: materialsRefetching,
@@ -129,8 +135,8 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/materials", { from, to }],
   });
 
-  const { 
-    data: stationsResponse, 
+  const {
+    data: stationsResponse,
     isLoading: stationsLoading,
     refetch: refetchStations,
     isRefetching: stationsRefetching,
@@ -138,8 +144,8 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/stations", { from, to }],
   });
 
-  const { 
-    data: hallsResponse, 
+  const {
+    data: hallsResponse,
     isLoading: hallsLoading,
     refetch: refetchHalls,
     isRefetching: hallsRefetching,
@@ -147,8 +153,8 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/halls", { from, to }],
   });
 
-  const { 
-    data: usersResponse, 
+  const {
+    data: usersResponse,
     isLoading: usersLoading,
     refetch: refetchUsers,
     isRefetching: usersRefetching,
@@ -156,8 +162,8 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/users", { from, to }],
   });
 
-  const { 
-    data: leadTimesResponse, 
+  const {
+    data: leadTimesResponse,
     isLoading: leadTimesLoading,
     refetch: refetchLeadTimes,
     isRefetching: leadTimesRefetching,
@@ -165,8 +171,8 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/lead-times", { from, to, by: "overall" }],
   });
 
-  const { 
-    data: backlogResponse, 
+  const {
+    data: backlogResponse,
     isLoading: backlogLoading,
     refetch: refetchBacklog,
     isRefetching: backlogRefetching,
@@ -174,8 +180,20 @@ export default function AnalyticsScreen() {
     queryKey: ["/api/analytics/backlog"],
   });
 
-  const isLoading = materialsLoading || stationsLoading || hallsLoading || usersLoading || leadTimesLoading || backlogLoading;
-  const isRefetching = materialsRefetching || stationsRefetching || hallsRefetching || usersRefetching || leadTimesRefetching || backlogRefetching;
+  const isLoading =
+    materialsLoading ||
+    stationsLoading ||
+    hallsLoading ||
+    usersLoading ||
+    leadTimesLoading ||
+    backlogLoading;
+  const isRefetching =
+    materialsRefetching ||
+    stationsRefetching ||
+    hallsRefetching ||
+    usersRefetching ||
+    leadTimesRefetching ||
+    backlogRefetching;
 
   const handleRefresh = () => {
     refetchMaterials();
@@ -203,7 +221,10 @@ export default function AnalyticsScreen() {
   }, [materials, materialSortAsc]);
 
   const totalKg = useMemo(() => {
-    return materials.reduce((sum, m) => sum + parseFloat(m.totalWeightKg || "0"), 0);
+    return materials.reduce(
+      (sum, m) => sum + parseFloat(m.totalWeightKg || "0"),
+      0,
+    );
   }, [materials]);
 
   const totalTaskCount = useMemo(() => {
@@ -213,16 +234,21 @@ export default function AnalyticsScreen() {
   const avgLeadTimeHours = useMemo(() => {
     if (!leadTimes) return null;
     const openToPickup = parseFloat(leadTimes.avgOpenToPickedUpHours || "0");
-    const pickupToDropoff = parseFloat(leadTimes.avgPickedUpToDroppedOffHours || "0");
-    const dropoffToDisposed = parseFloat(leadTimes.avgDroppedOffToDisposedHours || "0");
+    const pickupToDropoff = parseFloat(
+      leadTimes.avgPickedUpToDroppedOffHours || "0",
+    );
+    const dropoffToDisposed = parseFloat(
+      leadTimes.avgDroppedOffToDisposedHours || "0",
+    );
     const total = openToPickup + pickupToDropoff + dropoffToDisposed;
     return total > 0 ? total : null;
   }, [leadTimes]);
 
   const topMaterial = useMemo(() => {
     if (materials.length === 0) return null;
-    return [...materials].sort((a, b) => 
-      parseFloat(b.totalWeightKg || "0") - parseFloat(a.totalWeightKg || "0")
+    return [...materials].sort(
+      (a, b) =>
+        parseFloat(b.totalWeightKg || "0") - parseFloat(a.totalWeightKg || "0"),
     )[0];
   }, [materials]);
 
@@ -263,13 +289,17 @@ export default function AnalyticsScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "OPEN": return theme.statusOpen;
+      case "OPEN":
+        return theme.statusOpen;
       case "PICKED_UP":
-      case "IN_TRANSIT": return theme.warning;
+      case "IN_TRANSIT":
+        return theme.warning;
       case "DROPPED_OFF":
       case "TAKEN_OVER":
-      case "WEIGHED": return theme.info;
-      default: return theme.textSecondary;
+      case "WEIGHED":
+        return theme.info;
+      default:
+        return theme.textSecondary;
     }
   };
 
@@ -278,11 +308,16 @@ export default function AnalyticsScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl },
+          {
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: tabBarHeight + Spacing.xl,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -293,8 +328,8 @@ export default function AnalyticsScreen() {
           />
         }
       >
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.dateFilters}
         >
@@ -310,9 +345,20 @@ export default function AnalyticsScreen() {
         </ScrollView>
 
         <View style={styles.kpiGrid}>
-          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <Card
+            style={{
+              ...styles.kpiCard,
+              backgroundColor: theme.cardSurface,
+              borderColor: theme.cardBorder,
+            }}
+          >
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: theme.success + "20" }]}>
+              <View
+                style={[
+                  styles.kpiIconContainer,
+                  { backgroundColor: theme.success + "20" },
+                ]}
+              >
                 <Feather name="check-circle" size={20} color={theme.success} />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
@@ -324,9 +370,20 @@ export default function AnalyticsScreen() {
             </View>
           </Card>
 
-          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <Card
+            style={{
+              ...styles.kpiCard,
+              backgroundColor: theme.cardSurface,
+              borderColor: theme.cardBorder,
+            }}
+          >
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: theme.accent + "20" }]}>
+              <View
+                style={[
+                  styles.kpiIconContainer,
+                  { backgroundColor: theme.accent + "20" },
+                ]}
+              >
                 <Feather name="trending-up" size={20} color={theme.accent} />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
@@ -338,9 +395,20 @@ export default function AnalyticsScreen() {
             </View>
           </Card>
 
-          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <Card
+            style={{
+              ...styles.kpiCard,
+              backgroundColor: theme.cardSurface,
+              borderColor: theme.cardBorder,
+            }}
+          >
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: theme.info + "20" }]}>
+              <View
+                style={[
+                  styles.kpiIconContainer,
+                  { backgroundColor: theme.info + "20" },
+                ]}
+              >
                 <Feather name="clock" size={20} color={theme.info} />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
@@ -352,52 +420,112 @@ export default function AnalyticsScreen() {
             </View>
           </Card>
 
-          <Card style={{ ...styles.kpiCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+          <Card
+            style={{
+              ...styles.kpiCard,
+              backgroundColor: theme.cardSurface,
+              borderColor: theme.cardBorder,
+            }}
+          >
             <View style={styles.kpiContent}>
-              <View style={[styles.kpiIconContainer, { backgroundColor: openTasksCount > 0 ? theme.warning + "20" : theme.success + "20" }]}>
-                <Feather name="alert-triangle" size={20} color={openTasksCount > 0 ? theme.warning : theme.success} />
+              <View
+                style={[
+                  styles.kpiIconContainer,
+                  {
+                    backgroundColor:
+                      openTasksCount > 0
+                        ? theme.warning + "20"
+                        : theme.success + "20",
+                  },
+                ]}
+              >
+                <Feather
+                  name="alert-triangle"
+                  size={20}
+                  color={openTasksCount > 0 ? theme.warning : theme.success}
+                />
               </View>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                 Rückstand ({">"}24h)
               </ThemedText>
-              <ThemedText type="h4" style={{ color: openTasksCount > 0 ? theme.warning : theme.text }}>
+              <ThemedText
+                type="h4"
+                style={{
+                  color: openTasksCount > 0 ? theme.warning : theme.text,
+                }}
+              >
                 {openTasksCount}
               </ThemedText>
             </View>
           </Card>
         </View>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <Feather name="package" size={18} color={theme.primary} />
-              <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+              <ThemedText
+                type="h4"
+                style={{ color: theme.text, marginLeft: Spacing.sm }}
+              >
                 Materialien
               </ThemedText>
             </View>
-            <Pressable 
+            <Pressable
               onPress={() => setMaterialSortAsc(!materialSortAsc)}
               style={styles.sortButton}
             >
-              <Feather 
-                name={materialSortAsc ? "arrow-up" : "arrow-down"} 
-                size={16} 
-                color={theme.textSecondary} 
+              <Feather
+                name={materialSortAsc ? "arrow-up" : "arrow-down"}
+                size={16}
+                color={theme.textSecondary}
               />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}
+              >
                 kg
               </ThemedText>
             </Pressable>
           </View>
 
-          <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellMaterial, { color: theme.textSecondary }]}>
+          <View
+            style={[styles.tableHeader, { borderBottomColor: theme.divider }]}
+          >
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellMaterial,
+                { color: theme.textSecondary },
+              ]}
+            >
               Material
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellCount,
+                { color: theme.textSecondary },
+              ]}
+            >
               Anzahl
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellWeight,
+                { color: theme.textSecondary },
+              ]}
+            >
               Gewicht
             </ThemedText>
           </View>
@@ -410,20 +538,32 @@ export default function AnalyticsScreen() {
             </View>
           ) : (
             sortedMaterials.map((material, index) => (
-              <View 
-                key={material.materialId || index} 
+              <View
+                key={material.materialId || index}
                 style={[
-                  styles.tableRow, 
-                  index < sortedMaterials.length - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                  styles.tableRow,
+                  index < sortedMaterials.length - 1
+                    ? { borderBottomWidth: 1, borderBottomColor: theme.divider }
+                    : null,
                 ]}
               >
-                <ThemedText type="small" style={[styles.cellMaterial, { color: theme.text }]} numberOfLines={1}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellMaterial, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {material.materialName || "Unbekannt"}
                 </ThemedText>
-                <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellCount, { color: theme.textSecondary }]}
+                >
                   {material.taskCount}
                 </ThemedText>
-                <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.cellWeight, { color: theme.text }]}
+                >
                   {formatNumber(parseFloat(material.totalWeightKg || "0"))}
                 </ThemedText>
               </View>
@@ -431,25 +571,68 @@ export default function AnalyticsScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionTitleRow}>
             <Feather name="map-pin" size={18} color={theme.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+            <ThemedText
+              type="h4"
+              style={{
+                color: theme.text,
+                marginLeft: Spacing.sm,
+                marginBottom: Spacing.md,
+              }}
+            >
               Stationen
             </ThemedText>
           </View>
 
-          <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellStation, { color: theme.textSecondary }]}>
+          <View
+            style={[styles.tableHeader, { borderBottomColor: theme.divider }]}
+          >
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellStation,
+                { color: theme.textSecondary },
+              ]}
+            >
               Station
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellCount,
+                { color: theme.textSecondary },
+              ]}
+            >
               Anz.
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeightSmall, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellWeightSmall,
+                { color: theme.textSecondary },
+              ]}
+            >
               kg
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellLeadTime, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellLeadTime,
+                { color: theme.textSecondary },
+              ]}
+            >
               Zeit
             </ThemedText>
           </View>
@@ -462,51 +645,105 @@ export default function AnalyticsScreen() {
             </View>
           ) : (
             stations.slice(0, 10).map((station, index) => (
-              <View 
-                key={`${station.stationId}-${index}`} 
+              <View
+                key={`${station.stationId}-${index}`}
                 style={[
-                  styles.tableRow, 
-                  index < Math.min(stations.length, 10) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                  styles.tableRow,
+                  index < Math.min(stations.length, 10) - 1
+                    ? { borderBottomWidth: 1, borderBottomColor: theme.divider }
+                    : null,
                 ]}
               >
-                <ThemedText type="small" style={[styles.cellStation, { color: theme.text }]} numberOfLines={1}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellStation, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {station.stationName}
                 </ThemedText>
-                <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellCount, { color: theme.textSecondary }]}
+                >
                   {station.taskCount}
                 </ThemedText>
-                <ThemedText type="smallBold" style={[styles.cellWeightSmall, { color: theme.text }]}>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.cellWeightSmall, { color: theme.text }]}
+                >
                   {formatNumber(parseFloat(station.totalWeightKg || "0"))}
                 </ThemedText>
-                <ThemedText type="small" style={[styles.cellLeadTime, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellLeadTime, { color: theme.textSecondary }]}
+                >
                   {formatMinutes(station.avgLeadTimeMinutes)}
                 </ThemedText>
               </View>
             ))
           )}
           {stations.length > 10 ? (
-            <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+            <ThemedText
+              type="caption"
+              style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+            >
               + {stations.length - 10} weitere
             </ThemedText>
           ) : null}
         </Card>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionTitleRow}>
             <Feather name="home" size={18} color={theme.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+            <ThemedText
+              type="h4"
+              style={{
+                color: theme.text,
+                marginLeft: Spacing.sm,
+                marginBottom: Spacing.md,
+              }}
+            >
               Hallen
             </ThemedText>
           </View>
 
-          <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellHall, { color: theme.textSecondary }]}>
+          <View
+            style={[styles.tableHeader, { borderBottomColor: theme.divider }]}
+          >
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellHall,
+                { color: theme.textSecondary },
+              ]}
+            >
               Halle
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellCount,
+                { color: theme.textSecondary },
+              ]}
+            >
               Anzahl
             </ThemedText>
-            <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="captionBold"
+              style={[
+                styles.tableHeaderCell,
+                styles.cellWeight,
+                { color: theme.textSecondary },
+              ]}
+            >
               Gewicht
             </ThemedText>
           </View>
@@ -519,20 +756,32 @@ export default function AnalyticsScreen() {
             </View>
           ) : (
             halls.map((hall, index) => (
-              <View 
-                key={hall.hallId || index} 
+              <View
+                key={hall.hallId || index}
                 style={[
-                  styles.tableRow, 
-                  index < halls.length - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                  styles.tableRow,
+                  index < halls.length - 1
+                    ? { borderBottomWidth: 1, borderBottomColor: theme.divider }
+                    : null,
                 ]}
               >
-                <ThemedText type="small" style={[styles.cellHall, { color: theme.text }]} numberOfLines={1}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellHall, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {hall.hallName || "Unbekannt"}
                 </ThemedText>
-                <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="small"
+                  style={[styles.cellCount, { color: theme.textSecondary }]}
+                >
                   {hall.taskCount}
                 </ThemedText>
-                <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.cellWeight, { color: theme.text }]}
+                >
                   {formatNumber(parseFloat(hall.totalWeightKg || "0"))}
                 </ThemedText>
               </View>
@@ -540,45 +789,102 @@ export default function AnalyticsScreen() {
           )}
         </Card>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionTitleRow}>
             <Feather name="users" size={18} color={theme.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+            <ThemedText
+              type="h4"
+              style={{
+                color: theme.text,
+                marginLeft: Spacing.sm,
+                marginBottom: Spacing.md,
+              }}
+            >
               Benutzer-Leistung
             </ThemedText>
           </View>
 
           {usersData?.byDriver && usersData.byDriver.length > 0 ? (
             <>
-              <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+              <ThemedText
+                type="smallBold"
+                style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+              >
                 Fahrer
               </ThemedText>
-              <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellUser, { color: theme.textSecondary }]}>
+              <View
+                style={[
+                  styles.tableHeader,
+                  { borderBottomColor: theme.divider },
+                ]}
+              >
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellUser,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Name
                 </ThemedText>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellCount,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Aufg.
                 </ThemedText>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellWeight,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   kg
                 </ThemedText>
               </View>
               {usersData.byDriver.slice(0, 5).map((user, index) => (
-                <View 
-                  key={user.userId || index} 
+                <View
+                  key={user.userId || index}
                   style={[
-                    styles.tableRow, 
-                    index < Math.min(usersData.byDriver.length, 5) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                    styles.tableRow,
+                    index < Math.min(usersData.byDriver.length, 5) - 1
+                      ? {
+                          borderBottomWidth: 1,
+                          borderBottomColor: theme.divider,
+                        }
+                      : null,
                   ]}
                 >
-                  <ThemedText type="small" style={[styles.cellUser, { color: theme.text }]} numberOfLines={1}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.cellUser, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
                     {user.userName || user.userEmail || "Unbekannt"}
                   </ThemedText>
-                  <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.cellCount, { color: theme.textSecondary }]}
+                  >
                     {user.taskCount}
                   </ThemedText>
-                  <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={[styles.cellWeight, { color: theme.text }]}
+                  >
                     {formatNumber(parseFloat(user.totalWeightKg || "0"))}
                   </ThemedText>
                 </View>
@@ -587,36 +893,84 @@ export default function AnalyticsScreen() {
           ) : null}
 
           {usersData?.byWeigher && usersData.byWeigher.length > 0 ? (
-            <View style={{ marginTop: usersData?.byDriver?.length ? Spacing.xl : 0 }}>
-              <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+            <View
+              style={{
+                marginTop: usersData?.byDriver?.length ? Spacing.xl : 0,
+              }}
+            >
+              <ThemedText
+                type="smallBold"
+                style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+              >
                 Wieger
               </ThemedText>
-              <View style={[styles.tableHeader, { borderBottomColor: theme.divider }]}>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellUser, { color: theme.textSecondary }]}>
+              <View
+                style={[
+                  styles.tableHeader,
+                  { borderBottomColor: theme.divider },
+                ]}
+              >
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellUser,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Name
                 </ThemedText>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellCount, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellCount,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Aufg.
                 </ThemedText>
-                <ThemedText type="captionBold" style={[styles.tableHeaderCell, styles.cellWeight, { color: theme.textSecondary }]}>
+                <ThemedText
+                  type="captionBold"
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.cellWeight,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   kg
                 </ThemedText>
               </View>
               {usersData.byWeigher.slice(0, 5).map((user, index) => (
-                <View 
-                  key={user.userId || index} 
+                <View
+                  key={user.userId || index}
                   style={[
-                    styles.tableRow, 
-                    index < Math.min(usersData.byWeigher.length, 5) - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.divider } : null
+                    styles.tableRow,
+                    index < Math.min(usersData.byWeigher.length, 5) - 1
+                      ? {
+                          borderBottomWidth: 1,
+                          borderBottomColor: theme.divider,
+                        }
+                      : null,
                   ]}
                 >
-                  <ThemedText type="small" style={[styles.cellUser, { color: theme.text }]} numberOfLines={1}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.cellUser, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
                     {user.userName || user.userEmail || "Unbekannt"}
                   </ThemedText>
-                  <ThemedText type="small" style={[styles.cellCount, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    type="small"
+                    style={[styles.cellCount, { color: theme.textSecondary }]}
+                  >
                     {user.taskCount}
                   </ThemedText>
-                  <ThemedText type="smallBold" style={[styles.cellWeight, { color: theme.text }]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={[styles.cellWeight, { color: theme.text }]}
+                  >
                     {formatNumber(parseFloat(user.totalWeightKg || "0"))}
                   </ThemedText>
                 </View>
@@ -624,7 +978,7 @@ export default function AnalyticsScreen() {
             </View>
           ) : null}
 
-          {(!usersData?.byDriver?.length && !usersData?.byWeigher?.length) ? (
+          {!usersData?.byDriver?.length && !usersData?.byWeigher?.length ? (
             <View style={styles.emptyRow}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Keine Benutzerdaten im Zeitraum
@@ -633,10 +987,23 @@ export default function AnalyticsScreen() {
           ) : null}
         </Card>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionTitleRow}>
             <Feather name="activity" size={18} color={theme.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm, marginBottom: Spacing.md }}>
+            <ThemedText
+              type="h4"
+              style={{
+                color: theme.text,
+                marginLeft: Spacing.sm,
+                marginBottom: Spacing.md,
+              }}
+            >
               Durchlaufzeiten
             </ThemedText>
           </View>
@@ -652,15 +1019,25 @@ export default function AnalyticsScreen() {
               <View style={styles.leadTimeRow}>
                 <View style={styles.leadTimeLabel}>
                   <Feather name="inbox" size={16} color={theme.statusOpen} />
-                  <ThemedText type="small" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: theme.text,
+                      marginLeft: Spacing.sm,
+                      flex: 1,
+                    }}
+                  >
                     Offen → Abgeholt
                   </ThemedText>
                   <ThemedText type="smallBold" style={{ color: theme.text }}>
                     {formatHours(leadTimes.avgOpenToPickedUpHours)}
                   </ThemedText>
                 </View>
-                <ProgressBar 
-                  progress={parseFloat(leadTimes.avgOpenToPickedUpHours || "0") / getMaxLeadTime()}
+                <ProgressBar
+                  progress={
+                    parseFloat(leadTimes.avgOpenToPickedUpHours || "0") /
+                    getMaxLeadTime()
+                  }
                   color={theme.statusOpen}
                   style={{ marginTop: Spacing.xs }}
                 />
@@ -669,15 +1046,25 @@ export default function AnalyticsScreen() {
               <View style={styles.leadTimeRow}>
                 <View style={styles.leadTimeLabel}>
                   <Feather name="truck" size={16} color={theme.warning} />
-                  <ThemedText type="small" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: theme.text,
+                      marginLeft: Spacing.sm,
+                      flex: 1,
+                    }}
+                  >
                     Abgeholt → Abgegeben
                   </ThemedText>
                   <ThemedText type="smallBold" style={{ color: theme.text }}>
                     {formatHours(leadTimes.avgPickedUpToDroppedOffHours)}
                   </ThemedText>
                 </View>
-                <ProgressBar 
-                  progress={parseFloat(leadTimes.avgPickedUpToDroppedOffHours || "0") / getMaxLeadTime()}
+                <ProgressBar
+                  progress={
+                    parseFloat(leadTimes.avgPickedUpToDroppedOffHours || "0") /
+                    getMaxLeadTime()
+                  }
                   color={theme.warning}
                   style={{ marginTop: Spacing.xs }}
                 />
@@ -685,38 +1072,73 @@ export default function AnalyticsScreen() {
 
               <View style={styles.leadTimeRow}>
                 <View style={styles.leadTimeLabel}>
-                  <Feather name="check-circle" size={16} color={theme.success} />
-                  <ThemedText type="small" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+                  <Feather
+                    name="check-circle"
+                    size={16}
+                    color={theme.success}
+                  />
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: theme.text,
+                      marginLeft: Spacing.sm,
+                      flex: 1,
+                    }}
+                  >
                     Abgegeben → Entsorgt
                   </ThemedText>
                   <ThemedText type="smallBold" style={{ color: theme.text }}>
                     {formatHours(leadTimes.avgDroppedOffToDisposedHours)}
                   </ThemedText>
                 </View>
-                <ProgressBar 
-                  progress={parseFloat(leadTimes.avgDroppedOffToDisposedHours || "0") / getMaxLeadTime()}
+                <ProgressBar
+                  progress={
+                    parseFloat(leadTimes.avgDroppedOffToDisposedHours || "0") /
+                    getMaxLeadTime()
+                  }
                   color={theme.success}
                   style={{ marginTop: Spacing.xs }}
                 />
               </View>
 
-              <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
+              <ThemedText
+                type="caption"
+                style={{ color: theme.textSecondary, marginTop: Spacing.md }}
+              >
                 Basierend auf {leadTimes.taskCount} abgeschlossenen Aufgaben
               </ThemedText>
             </View>
           )}
         </Card>
 
-        <Card style={{ ...styles.sectionCard, backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}>
+        <Card
+          style={{
+            ...styles.sectionCard,
+            backgroundColor: theme.cardSurface,
+            borderColor: theme.cardBorder,
+          }}
+        >
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Feather name="alert-triangle" size={18} color={openTasksCount > 0 ? theme.warning : theme.success} />
-              <ThemedText type="h4" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+              <Feather
+                name="alert-triangle"
+                size={18}
+                color={openTasksCount > 0 ? theme.warning : theme.success}
+              />
+              <ThemedText
+                type="h4"
+                style={{ color: theme.text, marginLeft: Spacing.sm }}
+              >
                 Rückstand ({">"}24h)
               </ThemedText>
             </View>
             {openTasksCount > 0 ? (
-              <View style={[styles.backlogBadge, { backgroundColor: theme.warning + "20" }]}>
+              <View
+                style={[
+                  styles.backlogBadge,
+                  { backgroundColor: theme.warning + "20" },
+                ]}
+              >
                 <ThemedText type="captionBold" style={{ color: theme.warning }}>
                   {openTasksCount} Aufgaben
                 </ThemedText>
@@ -727,7 +1149,10 @@ export default function AnalyticsScreen() {
           {!backlog || backlog.summary.length === 0 ? (
             <View style={styles.emptyRow}>
               <Feather name="check-circle" size={20} color={theme.success} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}
+              >
                 Keine überfälligen Aufgaben
               </ThemedText>
             </View>
@@ -735,12 +1160,28 @@ export default function AnalyticsScreen() {
             <View style={styles.backlogContainer}>
               {backlog.summary.map((item) => (
                 <View key={item.status} style={styles.backlogRow}>
-                  <View style={[styles.backlogStatusDot, { backgroundColor: getStatusColor(item.status) }]} />
-                  <ThemedText type="small" style={{ color: theme.text, flex: 1 }}>
+                  <View
+                    style={[
+                      styles.backlogStatusDot,
+                      { backgroundColor: getStatusColor(item.status) },
+                    ]}
+                  />
+                  <ThemedText
+                    type="small"
+                    style={{ color: theme.text, flex: 1 }}
+                  >
                     {AUTOMOTIVE_TASK_STATUS_LABELS[item.status] || item.status}
                   </ThemedText>
-                  <View style={[styles.backlogCount, { backgroundColor: getStatusColor(item.status) + "20" }]}>
-                    <ThemedText type="captionBold" style={{ color: getStatusColor(item.status) }}>
+                  <View
+                    style={[
+                      styles.backlogCount,
+                      { backgroundColor: getStatusColor(item.status) + "20" },
+                    ]}
+                  >
+                    <ThemedText
+                      type="captionBold"
+                      style={{ color: getStatusColor(item.status) }}
+                    >
                       {item.count}
                     </ThemedText>
                   </View>

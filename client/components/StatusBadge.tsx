@@ -2,7 +2,13 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign, getTaskStatusStyle, TaskStatusKey } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  IndustrialDesign,
+  getTaskStatusStyle,
+  TaskStatusKey,
+} from "@/constants/theme";
 import { TASK_STATUS_LABELS } from "@shared/schema";
 
 interface StatusBadgeProps {
@@ -11,15 +17,26 @@ interface StatusBadgeProps {
   size?: "small" | "medium" | "large";
 }
 
-export function StatusBadge({ status, label: customLabel, size = "medium" }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  label: customLabel,
+  size = "medium",
+}: StatusBadgeProps) {
   const { theme, isDark } = useTheme();
-  
+
   const getStatusConfig = () => {
     const taskStatuses: TaskStatusKey[] = [
-      "OFFEN", "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", 
-      "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"
+      "OFFEN",
+      "PLANNED",
+      "ASSIGNED",
+      "ACCEPTED",
+      "PICKED_UP",
+      "IN_TRANSIT",
+      "DELIVERED",
+      "COMPLETED",
+      "CANCELLED",
     ];
-    
+
     if (taskStatuses.includes(status as TaskStatusKey)) {
       const statusStyle = getTaskStatusStyle(status as TaskStatusKey, isDark);
       return {
@@ -28,7 +45,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
         backgroundColor: statusStyle.backgroundColor,
       };
     }
-    
+
     switch (status) {
       case "open":
         return {
@@ -86,7 +103,8 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
         };
       default:
         return {
-          label: status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " "),
+          label:
+            status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " "),
           color: theme.textOnPrimary,
           backgroundColor: theme.statusIdle,
         };
@@ -95,7 +113,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
 
   const config = getStatusConfig();
   const displayLabel = customLabel || config.label;
-  
+
   const getSizeStyles = () => {
     switch (size) {
       case "small":
@@ -130,11 +148,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
         type="caption"
         numberOfLines={1}
         ellipsizeMode="tail"
-        style={[
-          styles.label,
-          { color: config.color },
-          sizeStyles.label,
-        ]}
+        style={[styles.label, { color: config.color }, sizeStyles.label]}
       >
         {displayLabel}
       </ThemedText>

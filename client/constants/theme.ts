@@ -210,7 +210,8 @@ export const Fonts = Platform.select({
   web: {
     sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, sans-serif",
+    rounded:
+      "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, sans-serif",
     mono: "'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
   },
 });
@@ -247,7 +248,7 @@ export const Shadows = {
   xl: {
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 8,
   },
@@ -291,7 +292,7 @@ export const AnimationConfig = {
 // STATUS BADGE COLOR MAPPINGS
 // ============================================================================
 
-export type TaskStatusKey = 
+export type TaskStatusKey =
   | "OFFEN"
   | "PLANNED"
   | "ASSIGNED"
@@ -308,7 +309,10 @@ interface StatusBadgeStyle {
   borderColor: string;
 }
 
-export const TaskStatusColors: Record<"light" | "dark", Record<TaskStatusKey, StatusBadgeStyle>> = {
+export const TaskStatusColors: Record<
+  "light" | "dark",
+  Record<TaskStatusKey, StatusBadgeStyle>
+> = {
   light: {
     OFFEN: {
       backgroundColor: "#F3F4F6",
@@ -406,7 +410,10 @@ export const TaskStatusColors: Record<"light" | "dark", Record<TaskStatusKey, St
 };
 
 // Helper function to get status badge colors
-export function getTaskStatusStyle(status: TaskStatusKey, isDark: boolean): StatusBadgeStyle {
+export function getTaskStatusStyle(
+  status: TaskStatusKey,
+  isDark: boolean,
+): StatusBadgeStyle {
   const mode = isDark ? "dark" : "light";
   return TaskStatusColors[mode][status] || TaskStatusColors[mode].PLANNED;
 }

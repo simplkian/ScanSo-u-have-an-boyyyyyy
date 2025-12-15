@@ -7,7 +7,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign, AnimationConfig } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  IndustrialDesign,
+  AnimationConfig,
+} from "@/constants/theme";
 
 interface FilterChipProps {
   label: string;
@@ -59,8 +64,8 @@ export function FilterChip({
         styles.chip,
         small && styles.chipSmall,
         selected && { backgroundColor: activeColor, borderColor: activeColor },
-        !selected && { 
-          backgroundColor: theme.backgroundDefault, 
+        !selected && {
+          backgroundColor: theme.backgroundDefault,
           borderColor: theme.border,
         },
         animatedStyle,

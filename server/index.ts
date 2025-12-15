@@ -27,8 +27,10 @@ function setupCors(app: express.Application) {
         /\.repl\.co$/,
       ];
 
-      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) ||
-        (process.env.EXPO_PUBLIC_DOMAIN && origin.includes(process.env.EXPO_PUBLIC_DOMAIN));
+      const isAllowed =
+        allowedPatterns.some((pattern) => pattern.test(origin)) ||
+        (process.env.EXPO_PUBLIC_DOMAIN &&
+          origin.includes(process.env.EXPO_PUBLIC_DOMAIN));
 
       if (isAllowed) {
         res.header("Access-Control-Allow-Origin", origin);
@@ -36,7 +38,10 @@ function setupCors(app: express.Application) {
           "Access-Control-Allow-Methods",
           "GET, POST, PUT, DELETE, OPTIONS, PATCH",
         );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
+        res.header(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization, x-user-id, x-replit-user-id, x-replit-user-name, x-replit-user-roles",
+        );
         res.header("Access-Control-Allow-Credentials", "true");
       }
     } else {
@@ -45,7 +50,10 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS, PATCH",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles",
+      );
     }
 
     if (req.method === "OPTIONS") {
@@ -228,12 +236,12 @@ function setupErrorHandler(app: express.Application) {
 (async () => {
   // Log database configuration at startup (show host only, no credentials)
   try {
-    const dbUrl = new URL(process.env.DATABASE_URL || '');
+    const dbUrl = new URL(process.env.DATABASE_URL || "");
     log(`Using Supabase PostgreSQL via DATABASE_URL (host: ${dbUrl.hostname})`);
   } catch {
     log(`Using Supabase PostgreSQL via DATABASE_URL`);
   }
-  
+
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);

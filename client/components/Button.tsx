@@ -1,5 +1,12 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp, ActivityIndicator, View } from "react-native";
+import {
+  StyleSheet,
+  Pressable,
+  ViewStyle,
+  StyleProp,
+  ActivityIndicator,
+  View,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -10,7 +17,14 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, Typography, AnimationConfig, ButtonColors, IndustrialDesign } from "@/constants/theme";
+import {
+  BorderRadius,
+  Spacing,
+  Typography,
+  AnimationConfig,
+  ButtonColors,
+  IndustrialDesign,
+} from "@/constants/theme";
 
 type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
 type IconPosition = "left" | "right";
@@ -69,8 +83,9 @@ export function Button({
   };
 
   const getButtonStyles = (): ViewStyle => {
-    const baseHeight = size === "small" ? Spacing.buttonHeightSmall : Spacing.buttonHeight;
-    
+    const baseHeight =
+      size === "small" ? Spacing.buttonHeightSmall : Spacing.buttonHeight;
+
     switch (variant) {
       case "primary":
         return {
@@ -125,11 +140,11 @@ export function Button({
   const renderIcon = () => {
     if (!icon) return null;
     return (
-      <Feather 
-        name={icon} 
-        size={iconSize} 
-        color={textColor} 
-        style={iconPosition === "left" ? styles.iconLeft : styles.iconRight} 
+      <Feather
+        name={icon}
+        size={iconSize}
+        color={textColor}
+        style={iconPosition === "left" ? styles.iconLeft : styles.iconRight}
       />
     );
   };

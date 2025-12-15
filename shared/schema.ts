@@ -1,5 +1,15 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, real, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  integer,
+  boolean,
+  timestamp,
+  real,
+  jsonb,
+  pgEnum,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -19,32 +29,32 @@ export const userRoleEnum = pgEnum("user_role", ["ADMIN", "DRIVER"]);
  * Tracks the current location/state of a container
  */
 export const containerStatusEnum = pgEnum("container_status", [
-  "AT_WAREHOUSE",    // Container is at the warehouse
-  "AT_CUSTOMER",     // Container is at customer location
-  "IN_TRANSIT",      // Container is being transported
-  "OUT_OF_SERVICE",  // Container is not available (maintenance, etc.)
+  "AT_WAREHOUSE", // Container is at the warehouse
+  "AT_CUSTOMER", // Container is at customer location
+  "IN_TRANSIT", // Container is being transported
+  "OUT_OF_SERVICE", // Container is not available (maintenance, etc.)
 ]);
 
 /**
  * Task Status Enum - Lifecycle States
  * Defines the complete lifecycle of a task/job
- * 
+ *
  * Valid transitions:
  * OFFEN -> ASSIGNED -> ACCEPTED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> COMPLETED
  * Any state except COMPLETED can transition to CANCELLED
- * 
+ *
  * OFFEN = "Open" - Initial state for all newly created tasks
  */
 export const taskStatusEnum = pgEnum("task_status", [
-  "OFFEN",        // Task created, open and not yet assigned (initial state)
-  "PLANNED",      // Legacy: same as OFFEN (kept for backward compatibility)
-  "ASSIGNED",     // Task assigned to a driver
-  "ACCEPTED",     // Driver has accepted the task (scanned at customer)
-  "PICKED_UP",    // Container picked up from customer
-  "IN_TRANSIT",   // Container being transported to warehouse
-  "DELIVERED",    // Container delivered to warehouse (scanned)
-  "COMPLETED",    // Task fully completed (weight recorded, etc.)
-  "CANCELLED",    // Task was cancelled
+  "OFFEN", // Task created, open and not yet assigned (initial state)
+  "PLANNED", // Legacy: same as OFFEN (kept for backward compatibility)
+  "ASSIGNED", // Task assigned to a driver
+  "ACCEPTED", // Driver has accepted the task (scanned at customer)
+  "PICKED_UP", // Container picked up from customer
+  "IN_TRANSIT", // Container being transported to warehouse
+  "DELIVERED", // Container delivered to warehouse (scanned)
+  "COMPLETED", // Task fully completed (weight recorded, etc.)
+  "CANCELLED", // Task was cancelled
 ]);
 
 /**
@@ -52,13 +62,13 @@ export const taskStatusEnum = pgEnum("task_status", [
  * Defines the context in which a scan occurred
  */
 export const scanContextEnum = pgEnum("scan_context", [
-  "WAREHOUSE_INFO",           // General info scan in warehouse (no task)
-  "CUSTOMER_INFO",            // General info scan at customer (no task)
-  "TASK_ACCEPT_AT_CUSTOMER",  // Driver scans to accept task at customer
-  "TASK_PICKUP",              // Driver scans to confirm pickup
+  "WAREHOUSE_INFO", // General info scan in warehouse (no task)
+  "CUSTOMER_INFO", // General info scan at customer (no task)
+  "TASK_ACCEPT_AT_CUSTOMER", // Driver scans to accept task at customer
+  "TASK_PICKUP", // Driver scans to confirm pickup
   "TASK_COMPLETE_AT_WAREHOUSE", // Driver scans at warehouse to complete delivery
-  "INVENTORY_CHECK",          // Inventory/audit scan
-  "MAINTENANCE",              // Maintenance-related scan
+  "INVENTORY_CHECK", // Inventory/audit scan
+  "MAINTENANCE", // Maintenance-related scan
 ]);
 
 /**
@@ -101,7 +111,12 @@ export const priorityEnum = pgEnum("priority", ["normal", "high", "urgent"]);
 /**
  * Quantity Unit Enum
  */
-export const quantityUnitEnum = pgEnum("quantity_unit", ["kg", "t", "m3", "pcs"]);
+export const quantityUnitEnum = pgEnum("quantity_unit", [
+  "kg",
+  "t",
+  "m3",
+  "pcs",
+]);
 
 // ============================================================================
 // AUTOMOTIVE FACTORY ENUMS
@@ -112,10 +127,10 @@ export const quantityUnitEnum = pgEnum("quantity_unit", ["kg", "t", "m3", "pcs"]
  * Roles specific to automotive factory operations
  */
 export const automotiveUserRoleEnum = pgEnum("automotive_user_role", [
-  "ADMIN",          // Full administrative access
-  "PICKUP_DRIVER",  // Picks up boxes from stands
-  "WAREHOUSE",      // Manages warehouse operations
-  "DISPOSAL",       // Handles disposal/weighing
+  "ADMIN", // Full administrative access
+  "PICKUP_DRIVER", // Picks up boxes from stands
+  "WAREHOUSE", // Manages warehouse operations
+  "DISPOSAL", // Handles disposal/weighing
 ]);
 
 /**
@@ -123,14 +138,14 @@ export const automotiveUserRoleEnum = pgEnum("automotive_user_role", [
  * Lifecycle states for automotive factory tasks
  */
 export const automotiveTaskStatusEnum = pgEnum("automotive_task_status", [
-  "OPEN",        // Task created, awaiting pickup
-  "PICKED_UP",   // Box picked up from stand
-  "IN_TRANSIT",  // Box being transported
+  "OPEN", // Task created, awaiting pickup
+  "PICKED_UP", // Box picked up from stand
+  "IN_TRANSIT", // Box being transported
   "DROPPED_OFF", // Box dropped at warehouse
-  "TAKEN_OVER",  // Warehouse has taken over the box
-  "WEIGHED",     // Box has been weighed
-  "DISPOSED",    // Material disposed/processed
-  "CANCELLED",   // Task cancelled
+  "TAKEN_OVER", // Warehouse has taken over the box
+  "WEIGHED", // Box has been weighed
+  "DISPOSED", // Material disposed/processed
+  "CANCELLED", // Task cancelled
 ]);
 
 /**
@@ -138,11 +153,11 @@ export const automotiveTaskStatusEnum = pgEnum("automotive_task_status", [
  * Tracks the current location/state of a box
  */
 export const boxStatusEnum = pgEnum("box_status", [
-  "AT_STAND",      // Box is at production stand
-  "IN_TRANSIT",    // Box is being transported
-  "AT_WAREHOUSE",  // Box is at warehouse
-  "AT_DISPOSAL",   // Box is at disposal area
-  "RETIRED",       // Box is no longer in use
+  "AT_STAND", // Box is at production stand
+  "IN_TRANSIT", // Box is being transported
+  "AT_WAREHOUSE", // Box is at warehouse
+  "AT_DISPOSAL", // Box is at disposal area
+  "RETIRED", // Box is no longer in use
 ]);
 
 /**
@@ -150,9 +165,9 @@ export const boxStatusEnum = pgEnum("box_status", [
  * Categorizes how tasks are created
  */
 export const taskTypeEnum = pgEnum("task_type", [
-  "DAILY_FULL",  // Auto-generated daily task for full stands
-  "MANUAL",      // Manually created task
-  "LEGACY",      // Legacy task (backward compatibility)
+  "DAILY_FULL", // Auto-generated daily task for full stands
+  "MANUAL", // Manually created task
+  "LEGACY", // Legacy task (backward compatibility)
 ]);
 
 /**
@@ -160,10 +175,10 @@ export const taskTypeEnum = pgEnum("task_type", [
  * Indicates how the task was created
  */
 export const taskSourceEnum = pgEnum("task_source", [
-  "SCHEDULED",  // Created by flexible scheduler from TaskSchedule
-  "MANUAL",     // Manually created by admin
-  "ADHOC",      // Created on-the-fly (e.g., driver scan)
-  "LEGACY",     // Legacy task or migration
+  "SCHEDULED", // Created by flexible scheduler from TaskSchedule
+  "MANUAL", // Manually created by admin
+  "ADHOC", // Created on-the-fly (e.g., driver scan)
+  "LEGACY", // Legacy task or migration
 ]);
 
 /**
@@ -171,9 +186,9 @@ export const taskSourceEnum = pgEnum("task_source", [
  * Defines the recurrence pattern for scheduled tasks
  */
 export const taskScheduleRuleTypeEnum = pgEnum("task_schedule_rule_type", [
-  "DAILY",     // Every day
-  "WEEKLY",    // Specific weekdays
-  "INTERVAL",  // Every N days from start date
+  "DAILY", // Every day
+  "WEEKLY", // Specific weekdays
+  "INTERVAL", // Every N days from start date
 ]);
 
 // ============================================================================
@@ -278,14 +293,17 @@ export const customerContainers = pgTable("customer_containers", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const customerContainersRelations = relations(customerContainers, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [customerContainers.customerId],
-    references: [customers.id],
+export const customerContainersRelations = relations(
+  customerContainers,
+  ({ one, many }) => ({
+    customer: one(customers, {
+      fields: [customerContainers.customerId],
+      references: [customers.id],
+    }),
+    tasks: many(tasks),
+    scanEvents: many(scanEvents),
   }),
-  tasks: many(tasks),
-  scanEvents: many(scanEvents),
-}));
+);
 
 // ============================================================================
 // AUTOMOTIVE FACTORY TABLES
@@ -344,23 +362,29 @@ export const hallsRelations = relations(halls, ({ many }) => ({
  * Stations Table
  * Production stations within halls
  */
-export const stations = pgTable("stations", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  hallId: varchar("hall_id").notNull().references(() => halls.id),
-  name: text("name").notNull(),
-  code: text("code").notNull(),
-  sequence: integer("sequence"),
-  locationMeta: jsonb("location_meta"),
-  positionMeta: jsonb("position_meta"),
-  qrCode: text("qr_code").unique(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => ({
-  hallCodeUnique: sql`UNIQUE(hall_id, code)`,
-}));
+export const stations = pgTable(
+  "stations",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    hallId: varchar("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    name: text("name").notNull(),
+    code: text("code").notNull(),
+    sequence: integer("sequence"),
+    locationMeta: jsonb("location_meta"),
+    positionMeta: jsonb("position_meta"),
+    qrCode: text("qr_code").unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    hallCodeUnique: sql`UNIQUE(hall_id, code)`,
+  }),
+);
 
 export const stationsRelations = relations(stations, ({ one, many }) => ({
   hall: one(halls, {
@@ -378,7 +402,9 @@ export const stands = pgTable("stands", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  stationId: varchar("station_id").notNull().references(() => stations.id),
+  stationId: varchar("station_id")
+    .notNull()
+    .references(() => stations.id),
   identifier: text("identifier").notNull(),
   materialId: varchar("material_id").references(() => materials.id),
   qrCode: text("qr_code").notNull().unique(),
@@ -416,7 +442,9 @@ export const taskSchedules = pgTable("task_schedules", {
     .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   isActive: boolean("is_active").notNull().default(true),
-  standId: varchar("stand_id").notNull().references(() => stands.id),
+  standId: varchar("stand_id")
+    .notNull()
+    .references(() => stands.id),
   stationId: varchar("station_id").references(() => stations.id),
   ruleType: text("rule_type").notNull(), // DAILY, WEEKLY, INTERVAL
   timeLocal: text("time_local").notNull(), // e.g., "06:00"
@@ -430,21 +458,24 @@ export const taskSchedules = pgTable("task_schedules", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const taskSchedulesRelations = relations(taskSchedules, ({ one, many }) => ({
-  stand: one(stands, {
-    fields: [taskSchedules.standId],
-    references: [stands.id],
+export const taskSchedulesRelations = relations(
+  taskSchedules,
+  ({ one, many }) => ({
+    stand: one(stands, {
+      fields: [taskSchedules.standId],
+      references: [stands.id],
+    }),
+    station: one(stations, {
+      fields: [taskSchedules.stationId],
+      references: [stations.id],
+    }),
+    createdBy: one(users, {
+      fields: [taskSchedules.createdById],
+      references: [users.id],
+    }),
+    tasks: many(tasks),
   }),
-  station: one(stations, {
-    fields: [taskSchedules.stationId],
-    references: [stations.id],
-  }),
-  createdBy: one(users, {
-    fields: [taskSchedules.createdById],
-    references: [users.id],
-  }),
-  tasks: many(tasks),
-}));
+);
 
 /**
  * Boxes Table
@@ -504,16 +535,19 @@ export const warehouseContainers = pgTable("warehouse_containers", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const warehouseContainersRelations = relations(warehouseContainers, ({ one, many }) => ({
-  material: one(materials, {
-    fields: [warehouseContainers.materialId],
-    references: [materials.id],
+export const warehouseContainersRelations = relations(
+  warehouseContainers,
+  ({ one, many }) => ({
+    material: one(materials, {
+      fields: [warehouseContainers.materialId],
+      references: [materials.id],
+    }),
+    tasks: many(tasks),
+    targetTasks: many(tasks, { relationName: "targetWarehouseContainer" }),
+    fillHistory: many(fillHistory),
+    scanEvents: many(scanEvents),
   }),
-  tasks: many(tasks),
-  targetTasks: many(tasks, { relationName: "targetWarehouseContainer" }),
-  fillHistory: many(fillHistory),
-  scanEvents: many(scanEvents),
-}));
+);
 
 /**
  * Fill History Table
@@ -523,7 +557,9 @@ export const fillHistory = pgTable("fill_history", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  warehouseContainerId: varchar("warehouse_container_id").notNull().references(() => warehouseContainers.id),
+  warehouseContainerId: varchar("warehouse_container_id")
+    .notNull()
+    .references(() => warehouseContainers.id),
   amountAdded: real("amount_added").notNull(),
   quantityUnit: text("quantity_unit").notNull().default("kg"),
   taskId: varchar("task_id").references(() => tasks.id),
@@ -549,7 +585,7 @@ export const fillHistoryRelations = relations(fillHistory, ({ one }) => ({
 /**
  * Tasks Table (Jobs/Aufträge)
  * Represents pickup/delivery jobs with full lifecycle tracking
- * 
+ *
  * Status Transitions:
  * OFFEN -> ACCEPTED (driver claims task)
  * ACCEPTED -> PICKED_UP (when container loaded)
@@ -557,41 +593,43 @@ export const fillHistoryRelations = relations(fillHistory, ({ one }) => ({
  * IN_TRANSIT -> DELIVERED (when scanned at warehouse)
  * DELIVERED -> COMPLETED (when weight recorded and finalized)
  * Any -> CANCELLED (except COMPLETED)
- * 
+ *
  * Pull-based model: Tasks start OFFEN, drivers claim them
  */
 export const tasks = pgTable("tasks", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  
+
   // Task Details
   title: text("title"), // Short description, e.g., "Abholung bei ABC GmbH"
   description: text("description"), // Detailed description
-  
+
   // Container References (nullable for stand-based automotive tasks)
   containerID: varchar("container_id").references(() => customerContainers.id),
-  deliveryContainerID: varchar("delivery_container_id").references(() => warehouseContainers.id),
-  
+  deliveryContainerID: varchar("delivery_container_id").references(
+    () => warehouseContainers.id,
+  ),
+
   // User References
   createdBy: varchar("created_by").references(() => users.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  
+
   // Pull-based task claiming
   claimedByUserId: varchar("claimed_by_user_id").references(() => users.id), // User who claimed the task
   claimedAt: timestamp("claimed_at"), // When task was claimed
   handoverAt: timestamp("handover_at"), // When task was transferred to another user
-  
+
   // Planning
   scheduledTime: timestamp("scheduled_time"), // Planned execution time
   plannedQuantity: real("planned_quantity"), // Expected amount
   plannedQuantityUnit: text("planned_quantity_unit").default("kg"),
   priority: text("priority").notNull().default("normal"), // normal, high, urgent
   materialType: text("material_type"), // Optional - material type for the task
-  
+
   // Status and Lifecycle
   status: text("status").notNull().default("OFFEN"), // Changed default from PLANNED to OFFEN
-  
+
   // Lifecycle Timestamps - Set when status changes
   createdAt: timestamp("created_at").notNull().defaultNow(),
   assignedAt: timestamp("assigned_at"),
@@ -601,50 +639,52 @@ export const tasks = pgTable("tasks", {
   deliveredAt: timestamp("delivered_at"),
   completedAt: timestamp("completed_at"),
   cancelledAt: timestamp("cancelled_at"),
-  
+
   // Legacy fields for backward compatibility
   pickupTimestamp: timestamp("pickup_timestamp"),
   pickupLocation: jsonb("pickup_location"),
   deliveryTimestamp: timestamp("delivery_timestamp"),
-  
+
   // Actual recorded values
   actualQuantity: real("actual_quantity"), // Actually measured amount
   actualQuantityUnit: text("actual_quantity_unit").default("kg"),
   measuredWeight: real("measured_weight"), // Actual weight measured at completion
-  
+
   // Additional info
   notes: text("notes"),
   cancellationReason: text("cancellation_reason"),
   estimatedAmount: real("estimated_amount"), // Legacy, use plannedQuantity
-  
+
   // ============================================================================
   // AUTOMOTIVE FACTORY TASK FIELDS
   // ============================================================================
-  
+
   // Automotive references
   boxId: varchar("box_id").references(() => boxes.id),
   standId: varchar("stand_id").references(() => stands.id),
-  targetWarehouseContainerId: varchar("target_warehouse_container_id").references(() => warehouseContainers.id),
-  
+  targetWarehouseContainerId: varchar(
+    "target_warehouse_container_id",
+  ).references(() => warehouseContainers.id),
+
   // Automotive lifecycle timestamps
   droppedOffAt: timestamp("dropped_off_at"),
   takenOverAt: timestamp("taken_over_at"),
   weighedAt: timestamp("weighed_at"),
   disposedAt: timestamp("disposed_at"),
-  
+
   // Automotive measurements
   weightKg: real("weight_kg"),
   weighedByUserId: varchar("weighed_by_user_id").references(() => users.id),
-  
+
   // Task categorization
   taskType: text("task_type").notNull().default("LEGACY"), // DAILY_FULL, MANUAL, LEGACY
   source: text("source").notNull().default("LEGACY"), // SCHEDULED, MANUAL, ADHOC, LEGACY
   scheduleId: varchar("schedule_id").references(() => taskSchedules.id), // Link to the schedule that created this task
-  
+
   // Daily task scheduling
   scheduledFor: timestamp("scheduled_for"), // Date for which daily task is scheduled
   dedupKey: text("dedup_key").unique(), // Format: SCHED:${scheduleId}:${YYYY-MM-DD} or DAILY:${standId}:${YYYY-MM-DD}
-  
+
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -709,7 +749,9 @@ export const taskEvents = pgTable("task_events", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  taskId: varchar("task_id").notNull().references(() => tasks.id),
+  taskId: varchar("task_id")
+    .notNull()
+    .references(() => tasks.id),
   actorUserId: varchar("actor_user_id").references(() => users.id),
   action: text("action").notNull(),
   entityType: text("entity_type"),
@@ -717,7 +759,9 @@ export const taskEvents = pgTable("task_events", {
   beforeData: jsonb("before_data"),
   afterData: jsonb("after_data"),
   actorRole: text("actor_role"),
-  actorDepartmentId: varchar("actor_department_id").references(() => departments.id),
+  actorDepartmentId: varchar("actor_department_id").references(
+    () => departments.id,
+  ),
   metaJson: jsonb("meta_json"), // Contains stationId, hallId, standId, boxId, materialId, containerId, qrType
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
@@ -740,7 +784,7 @@ export const taskEventsRelations = relations(taskEvents, ({ one }) => ({
 /**
  * Scan Events Table
  * Records every QR code scan with context and location
- * 
+ *
  * This is the source of truth for scan history and is used to:
  * - Track container movements
  * - Validate task state transitions
@@ -750,35 +794,37 @@ export const scanEvents = pgTable("scan_events", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  
+
   // What was scanned
   containerId: varchar("container_id").notNull(), // Can be customer or warehouse container
   containerType: text("container_type").notNull(), // "customer" or "warehouse"
-  
+
   // Task context (optional - null for info-only scans)
   taskId: varchar("task_id").references(() => tasks.id),
-  
+
   // Who scanned
-  scannedByUserId: varchar("scanned_by_user_id").notNull().references(() => users.id),
-  
+  scannedByUserId: varchar("scanned_by_user_id")
+    .notNull()
+    .references(() => users.id),
+
   // When and where
   scannedAt: timestamp("scanned_at").notNull().defaultNow(),
-  
+
   // Scan context - what was the purpose of this scan
   scanContext: text("scan_context").notNull(), // WAREHOUSE_INFO, TASK_ACCEPT_AT_CUSTOMER, etc.
-  
+
   // Location information
   locationType: text("location_type").notNull(), // WAREHOUSE, CUSTOMER, OTHER
   locationDetails: text("location_details"), // Free text, e.g., "Tor 3", "Regal A-17"
   geoLocation: jsonb("geo_location"), // { latitude, longitude, accuracy }
-  
+
   // Scan result
   scanResult: text("scan_result").notNull().default("SUCCESS"), // SUCCESS, INVALID_CONTAINER, ERROR
   resultMessage: text("result_message"), // Human-readable result description
-  
+
   // Additional data for debugging/audit
   extraData: jsonb("extra_data"),
-  
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -796,7 +842,7 @@ export const scanEventsRelations = relations(scanEvents, ({ one }) => ({
 /**
  * Activity Logs Table
  * Human-readable activity timeline for admins
- * 
+ *
  * Each entry represents a significant event that should be displayed
  * in the activity history. Generated from task state changes and scan events.
  */
@@ -804,27 +850,27 @@ export const activityLogs = pgTable("activity_logs", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  
+
   // Event classification
   type: text("type").notNull(), // TASK_CREATED, TASK_ACCEPTED, CONTAINER_SCANNED_AT_WAREHOUSE, etc.
   action: text("action").notNull(), // Legacy field, same as type for backward compatibility
-  
+
   // Human-readable message for UI display
   message: text("message").notNull(), // e.g., "Fahrer Müller hat Container XYZ beim Kunden gescannt"
-  
+
   // References
   userId: varchar("user_id").references(() => users.id), // Who triggered this event
   taskId: varchar("task_id").references(() => tasks.id),
   containerId: varchar("container_id"), // Can be customer or warehouse container ID
   scanEventId: varchar("scan_event_id").references(() => scanEvents.id), // Link to scan if applicable
-  
+
   // Location at time of event
   location: jsonb("location"),
-  
+
   // Additional structured details
   details: text("details"), // Legacy field
   metadata: jsonb("metadata"), // Additional structured data
-  
+
   // Timestamp
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -861,8 +907,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
 });
 
 export const insertCustomerSchema = createInsertSchema(customers);
-export const insertCustomerContainerSchema = createInsertSchema(customerContainers);
-export const insertWarehouseContainerSchema = createInsertSchema(warehouseContainers);
+export const insertCustomerContainerSchema =
+  createInsertSchema(customerContainers);
+export const insertWarehouseContainerSchema =
+  createInsertSchema(warehouseContainers);
 export const insertTaskSchema = createInsertSchema(tasks);
 export const insertScanEventSchema = createInsertSchema(scanEvents);
 export const insertActivityLogSchema = createInsertSchema(activityLogs);
@@ -930,7 +978,10 @@ export const VALID_TASK_TRANSITIONS: Record<string, string[]> = {
 /**
  * Check if a status transition is valid
  */
-export function isValidTaskTransition(currentStatus: string, newStatus: string): boolean {
+export function isValidTaskTransition(
+  currentStatus: string,
+  newStatus: string,
+): boolean {
   const validTransitions = VALID_TASK_TRANSITIONS[currentStatus];
   if (!validTransitions) return false;
   return validTransitions.includes(newStatus);
@@ -975,7 +1026,10 @@ export const AUTOMOTIVE_TASK_TRANSITIONS: Record<string, string[]> = {
 /**
  * Check if an automotive task status transition is valid
  */
-export function isValidAutomotiveTransition(currentStatus: string, newStatus: string): boolean {
+export function isValidAutomotiveTransition(
+  currentStatus: string,
+  newStatus: string,
+): boolean {
   const validTransitions = AUTOMOTIVE_TASK_TRANSITIONS[currentStatus];
   if (!validTransitions) return false;
   return validTransitions.includes(newStatus);
@@ -989,7 +1043,7 @@ export function assertAutomotiveTransition(from: string, to: string): void {
   if (!isValidAutomotiveTransition(from, to)) {
     throw new Error(
       `Ungültiger Statusübergang: ${from} → ${to}. ` +
-      `Erlaubte Übergänge von ${from}: ${AUTOMOTIVE_TASK_TRANSITIONS[from]?.join(", ") || "keine"}`
+        `Erlaubte Übergänge von ${from}: ${AUTOMOTIVE_TASK_TRANSITIONS[from]?.join(", ") || "keine"}`,
     );
   }
 }
@@ -997,7 +1051,9 @@ export function assertAutomotiveTransition(from: string, to: string): void {
 /**
  * Get the timestamp field name for an automotive task status
  */
-export function getAutomotiveTimestampFieldForStatus(status: string): string | null {
+export function getAutomotiveTimestampFieldForStatus(
+  status: string,
+): string | null {
   const mapping: Record<string, string> = {
     PICKED_UP: "pickedUpAt",
     IN_TRANSIT: "inTransitAt",

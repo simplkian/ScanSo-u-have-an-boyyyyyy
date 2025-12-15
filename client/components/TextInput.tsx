@@ -13,7 +13,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Typography, AnimationConfig } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Typography,
+  AnimationConfig,
+} from "@/constants/theme";
 
 interface TextInputProps extends RNTextInputProps {
   label?: string;
@@ -23,20 +28,32 @@ interface TextInputProps extends RNTextInputProps {
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-export function TextInput({ label, error, helper, style, onFocus, onBlur, ...props }: TextInputProps) {
+export function TextInput({
+  label,
+  error,
+  helper,
+  style,
+  onFocus,
+  onBlur,
+  ...props
+}: TextInputProps) {
   const { theme, isDark } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const focusAnim = useSharedValue(0);
 
   const handleFocus = (e: any) => {
     setIsFocused(true);
-    focusAnim.value = withTiming(1, { duration: AnimationConfig.duration.fast });
+    focusAnim.value = withTiming(1, {
+      duration: AnimationConfig.duration.fast,
+    });
     onFocus?.(e);
   };
 
   const handleBlur = (e: any) => {
     setIsFocused(false);
-    focusAnim.value = withTiming(0, { duration: AnimationConfig.duration.fast });
+    focusAnim.value = withTiming(0, {
+      duration: AnimationConfig.duration.fast,
+    });
     onBlur?.(e);
   };
 
@@ -48,7 +65,7 @@ export function TextInput({ label, error, helper, style, onFocus, onBlur, ...pro
       borderColor: interpolateColor(
         focusAnim.value,
         [0, 1],
-        [borderColor, focusBorderColor]
+        [borderColor, focusBorderColor],
       ),
       borderWidth: error ? 2 : 1.5,
     };
@@ -57,11 +74,17 @@ export function TextInput({ label, error, helper, style, onFocus, onBlur, ...pro
   return (
     <View style={styles.container}>
       {label ? (
-        <ThemedText 
-          type="small" 
+        <ThemedText
+          type="small"
           style={[
-            styles.label, 
-            { color: error ? theme.error : isFocused ? theme.accent : theme.textSecondary }
+            styles.label,
+            {
+              color: error
+                ? theme.error
+                : isFocused
+                  ? theme.accent
+                  : theme.textSecondary,
+            },
           ]}
         >
           {label}
@@ -77,11 +100,7 @@ export function TextInput({ label, error, helper, style, onFocus, onBlur, ...pro
         ]}
       >
         <RNTextInput
-          style={[
-            styles.input,
-            { color: theme.text },
-            style,
-          ]}
+          style={[styles.input, { color: theme.text }, style]}
           placeholderTextColor={theme.textTertiary}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -89,11 +108,17 @@ export function TextInput({ label, error, helper, style, onFocus, onBlur, ...pro
         />
       </AnimatedView>
       {error ? (
-        <ThemedText type="caption" style={[styles.errorText, { color: theme.error }]}>
+        <ThemedText
+          type="caption"
+          style={[styles.errorText, { color: theme.error }]}
+        >
           {error}
         </ThemedText>
       ) : helper ? (
-        <ThemedText type="caption" style={[styles.helperText, { color: theme.textTertiary }]}>
+        <ThemedText
+          type="caption"
+          style={[styles.helperText, { color: theme.textTertiary }]}
+        >
           {helper}
         </ThemedText>
       ) : null}

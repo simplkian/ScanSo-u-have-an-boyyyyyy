@@ -19,10 +19,17 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function MainWithStatusBar() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  
+
   return (
-    <View style={[styles.mainContainer, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={{ paddingTop: insets.top, backgroundColor: theme.backgroundDefault }}>
+    <View
+      style={[styles.mainContainer, { backgroundColor: theme.backgroundRoot }]}
+    >
+      <View
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: theme.backgroundDefault,
+        }}
+      >
         <NetworkStatusBar />
       </View>
       <View style={styles.content}>
@@ -39,7 +46,12 @@ export default function RootStackNavigator() {
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
